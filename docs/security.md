@@ -24,6 +24,8 @@ File rotation requires a trusted directory writable only by the operator. Unix m
 
 ## Resource bounds and remaining work
 
+Internal age primitives now have separate public-recipient/private-identity authority, independently bounded sources/containers, redacted non-serializable material and cooperative streaming limits. They are not device backup tools. Native Windows protected-file/Vault access remains unsupported; source availability never causes fallback. Read [key custody, staging and authenticity limits](key-management.md) before integration. Full-stream authentication does not prove backup provenance or authorize a restore.
+
 Inbound newline-delimited MCP frames are capped at 64 KiB before SDK parsing. Process outputs and concurrency are limited. This does not promise resistance to every protocol-level flood; admission tests for aggregate sessions are needed before a remote listener is added. Currently stdio/SSH controls session access and there is no application network listener.
 
 The child program is executed without a shell, with null stdin and a deadline. A timeout/cancellation is not proof a mutation did not happen. Descendant processes created by trusted custom programs require review; process containment is a later hardening area.

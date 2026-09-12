@@ -4,6 +4,7 @@ mod audit;
 mod backend;
 mod dispatcher;
 mod error;
+pub mod protection;
 
 pub use audit::{AuditEvent, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};
 pub use backend::{Backend, Limits};

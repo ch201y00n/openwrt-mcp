@@ -49,6 +49,10 @@ max_concurrent = 2
 
 The runtime rejects zero and unreasonable bounds. Overflow, timeout and saturation return safe errors. Device calls are never automatically retried.
 
+## Key sources and encryption
+
+Optional `[protection]` settings select age and exact named sources for internal encryption/decryption primitives. No keys are read during `check`/`catalog`, and those settings do not enable backup MCP tools. See [key management](key-management.md) for file, environment, archive and Vault boundaries, source references and platform limitations.
+
 ## Operator action extensions
 
 An action has a stable name, description, exact permission requirements, scalar parameter definitions, a fixed ubus or process target, and explicit result JSON pointers. Extensions always additionally require extensions.write and extensions.execute. Definitions are loaded once at startup and cannot be installed by a tool call.

@@ -16,6 +16,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - JSON/text audit output to stderr, rotating files, or Unix syslog.
 - Bounded process output, deadlines, input frames and backend concurrency.
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
+- Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Device-side deployment and real OpenWrt validation are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters.
 
@@ -61,7 +62,7 @@ Start from [read-only.toml](config/read-only.toml) for system/network only, [obs
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v2](architecture/spec.toml) specifies each directory and allowed dependency; recursive AST checks and negative fixtures guard the boundaries. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v3](architecture/spec.toml) specifies each directory and allowed dependency; recursive AST checks and negative fixtures guard the boundaries. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI.
 
 ```powershell
 ./tools/Test-Repository.ps1

@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 openwrt-mcp-runtime = { path = "../runtime" }
+age.workspace = true
+zeroize.workspace = true
 
 [lints]
 workspace = true

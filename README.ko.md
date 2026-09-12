@@ -25,6 +25,8 @@ v0.1 개발 단계입니다. 아키텍처 v2의 구조 검증을 마친 뒤 시�
 
 ## 문서와 검증
 
+아키텍처 v3에서는 키 보관 위치(`key-sources`), ZIP 내부 항목 선택, 암호화(`crypto-age`)를 분리했습니다. 공개키로 암호화하고 개인키는 복호화에만 사용하는 내부 기반 기능을 제공합니다. 환경변수·Unix 제한 파일·일반 ZIP을 지원하며, Windows Vault의 실제 권한 검증과 암호화 백업 MCP 작업은 아직 미구현입니다. [키 관리와 지원 범위](docs/key-management.md)를 확인하세요.
+
 - [요구사항과 성능 목표](docs/requirements.md)
 - [아키텍처와 모듈 계약](docs/architecture.md)
 - [아키텍처 우선 개발 절차](docs/development.md)

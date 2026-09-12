@@ -13,6 +13,8 @@ openwrt-mcp-runtime = { path = "../runtime" }
 openwrt-mcp-features = { path = "../features" }
 openwrt-mcp-adapters = { path = "../adapters" }
 openwrt-mcp-transport = { path = "../mcp" }
+openwrt-mcp-key-sources = { path = "../key-sources" }
+openwrt-mcp-crypto-age = { path = "../crypto-age" }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
@@ -23,6 +25,8 @@ libc = "0.2"
 
 [dev-dependencies]
 async-trait.workspace = true
+age.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true

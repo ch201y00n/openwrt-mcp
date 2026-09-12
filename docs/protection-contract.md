@@ -15,6 +15,8 @@ Keep this namespace explicit; do not re-export its contents from runtime's root.
 
 ## Ports and use cases
 
+Hard caps: keys 1 MiB; containers 16 MiB; entries 4096; directory metadata 1 MiB (also no greater than the container limit); expansion ratio 1000; crypto input/output each 1 GiB; cooperative deadline 300 seconds; recipients/identities 64. KeyMaterial accepts bounded source/container buffers up to 16 MiB; sessions independently enforce the smaller key bound. Configuration locations may be cloned, private material may not.
+
 `KeySource: Send + Sync` has `read(&self, max_bytes: usize) -> Result<KeyMaterial, ProtectionError>`. A source is pre-bound to an operator-selected location. There is no client-controlled location parameter, source enumeration, fallback, or process execution.
 
 `KeyContainer: Send + Sync` has `read_entry(&self, container: &KeyMaterial, entry: &str, limits: &KeyLimits) -> Result<KeyMaterial, ProtectionError>`. It knows a container format, not a key algorithm. Key-sources composes a container decorator over a source.
@@ -27,7 +29,7 @@ Keep this namespace explicit; do not re-export its contents from runtime's root.
 
 ## Concrete adapters
 
-`crypto-age::AgeX25519` implements both provider traits under format id `age-x25519-v1`. Recipient documents contain bounded newline-separated native age X25519 public recipients; identity documents contain bounded native X25519 private identities. Comments/empty lines may be supported deliberately. Reject other schemes, passphrases and private material supplied as recipients. The provider has no knowledge of file/env/archive locations. Use the established age library with unused features disabled.
+`crypto-age::AgeX25519` implements both provider traits under format id `age-x25519-v1`. Recipient documents contain bounded newline-separated native age X25519 public recipients; identity documents contain bounded native X25519 private identities. Blank/comment lines and CRLF are supported; trimmed native key lines are capped at 128 bytes before decoding. Decryption header construction has a fixed 256-KiB read budget including nonce and buffered read-ahead, with at most one overflow/EOF probe byte. Reject other schemes, passphrases and private material supplied as recipients. The provider has no knowledge of file/env/archive locations. Use the established age library with unused features disabled.
 
 `key-sources` owns `SourceConfig` tagged by kind: restricted_file(path), personal_vault_file(path), environment(variable), or archive_entry(source alias, format zip, entry). Configurations contain locations/references, never literal private keys. A bounded `SourceRegistry` validates identifiers, referenced aliases, paths, member names, cycles and nested containers without reading any source. Each lookup creates the exact configured provider/decorator; there is no fallback. A file-access interface permits a future native Windows implementation without modifying the crypto provider.
 

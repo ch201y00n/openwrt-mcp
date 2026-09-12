@@ -1,5 +1,7 @@
 # Capability coverage
 
+Internal age/key-source/container primitives are fixture-tested library infrastructure, not additional MCP/device tools. Native Windows Vault access, password-encrypted archives, backup publication, secure restore staging and device rollback remain unimplemented. See [key management](key-management.md).
+
 Catalog entries describe configured adapter support, not live target availability. All built-in calls execute `/bin/ubus -S call ...` using fixed argv and typed parameters. Only declared output fields reach the agent.
 
 | Category | Current built-in operations (host fixtures) | Device prerequisites / limitations |

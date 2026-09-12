@@ -19,6 +19,7 @@ pub struct Config {
     pub audit: AuditConfig,
     pub logging: Logging,
     pub actions: Vec<Operation>,
+    pub protection: Option<crate::protection::ProtectionConfig>,
 }
 
 #[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -140,6 +141,11 @@ impl Config {
             .map_err(|_| "policy_invalid")?;
         self.limits.validate().map_err(|_| "limits_invalid")?;
         self.audit.validate().map_err(|_| "audit_config_invalid")?;
+        if let Some(protection) = &self.protection {
+            protection
+                .validate()
+                .map_err(|_| "protection_config_invalid")?;
+        }
         Ok(catalog)
     }
 }

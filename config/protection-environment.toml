@@ -1,0 +1,10 @@
+# Internal protection primitives only; this does not enable backup MCP tools.
+# Environment is an explicit alternative, not preferred private-key storage.
+# Set only public recipients on encryption-only deployments. Do not put keys here.
+[protection]
+cipher = "age"
+recipient_source = "recipients"
+
+[protection.sources.recipients]
+kind = "environment"
+variable = "OPENWRT_MCP_AGE_RECIPIENTS"

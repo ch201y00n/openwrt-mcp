@@ -1,2 +1,11 @@
-//! Key-source adapter boundary. Implement only after the version-3 architecture gate passes.
-//! Sources and container decoders do not select or implement cryptographic algorithms.
+//! Exact, operator-bound key sources. No crypto, extraction, fallback, or automatic unlocking.
+
+mod archive;
+mod config;
+mod file;
+mod registry;
+
+pub use archive::ZipContainer;
+pub use config::{ContainerFormat, SourceConfig};
+pub use file::{FileProtection, NativeFileAccess, ProtectedFileAccess};
+pub use registry::SourceRegistry;

@@ -9,7 +9,9 @@ Rust does not prescribe one application architecture. This project combines conv
 ```text
 server (composition) ─┬─> mcp (protocol) ─────> runtime (use cases / ports) ─> core
                      ├─> adapters (I/O) ────> runtime + core
-                     └─> features (category definitions) ────────────────> core
+                     ├─> features (category definitions) ────────────────> core
+                     ├─> key-sources (custody / containers) ──> runtime::protection
+                     └─> crypto-age (provided streams only) ─> runtime::protection
 
 xtask (development only) -> architecture contract + Cargo metadata + source AST
 ```
