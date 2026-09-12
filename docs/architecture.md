@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 4 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
+Contract: version 5 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -27,6 +27,7 @@ xtask (development only) -> architecture contract + Cargo metadata + source AST
 | key-sources | Protected file/environment access and bounded archive-entry selection | Encryption algorithm selection/implementation, processes, automatic Vault unlocking |
 | host-platform | Purpose-specific config/secret/private-log protection and native system-log facilities | Policy decisions, cryptography, process execution, MCP |
 | backend-ssh | Portable persistent SSH connection and bounded remote execution | Local host commands, key paths/environment access, authorization bypass |
+| device-codec | Fixed target command/probe encoding and bounded parsing of supplied bytes; core dependency only | Any I/O, runtime use cases, policy decisions, target selection |
 | crypto-age | age over provided streams and purpose-specific material | Key paths, filesystem/environment access, containers or Vault behavior |
 | mcp | MCP mapping, bounded framing, SDK lifecycle | Concrete backends, filesystem/process access, policy selection |
 | server | CLI, trusted configuration loading, lifecycle logs, dependency wiring | Router command execution, alternate device invocation paths |
@@ -45,10 +46,12 @@ Version 4 separates the Windows/Linux/macOS MCP host from its OpenWrt target. Po
 3. Policy checks ALL category requirements, exact allowlists and explicit denials.
 4. Pure validation rejects unknown/missing arguments, invalid types and unapproved values, then creates a PreparedAction.
 5. The dispatcher acquires bounded execution capacity and records a start event. Audit failure prevents execution.
-6. The backend executes the prepared action. The local adapter compiles ubus actions into fixed program/argv calls without a shell.
+6. The dispatcher obtains a fresh capability observation from the same backend and rejects unknown/incompatible prerequisites. Backend-bound private snapshots expire after 30 seconds and on epoch invalidation. Probe and execution share one bounded device-work deadline; the start audit precedes both. The backend executes the prepared action once. Local and SSH adapters use device-codec for fixed target commands and bounded probe parsing; local execution has no shell.
 7. The operation projects approved output fields. The dispatcher records the outcome and duration before returning.
 
 Handlers cannot bypass the dispatcher. Backend ports are trusted infrastructure, not client-accessible tools. Discovery and execution use the same authorization; a catalog entry indicates configured support, not proof that the device provides the method. Device actions are never automatically retried.
+
+Version 5 adds core capability contracts and a portable device-codec below infrastructure, not a new invocation path. runtime owns a private per-dispatcher cache and capability_status use case; Backend owns both probe and execute on one immutable target authority. Only seven reviewed exact-object introspection probes are initially admitted. Missing ACL-filtered results are unknown, not proven absence. No version/profile/client argument proves compatibility. The metadata MCP tool delegates authorization and audit to the dispatcher; check/catalog/tools-list remain offline. Unverified Process extensions are blocked until a reviewed prerequisite exists. See ADR 0005 for schema matching, expiry, evidence and migration details.
 
 ## Domain contracts
 
@@ -58,6 +61,7 @@ Handlers cannot bypass the dispatcher. Backend ports are trusted infrastructure,
 - Parameter has a scalar kind (string/integer/boolean), required flag and optional allowed values. Client strings are bounded to 1024 bytes and cannot contain NUL. Unknown keys are rejected.
 - Action is an operator-owned Ubus { object, method, arguments } or Process { program, args } template. Only a whole {parameter} value is substituted. Programs are fixed absolute paths. Process placeholders are required so missing arguments cannot shift meanings; optional ubus parameters omit their entire key.
 - Operation::prepare returns PreparedAction::Ubus { object, method, arguments: Value } or PreparedAction::Process { program, args }. Core does not know /bin/ubus or compile command lines.
+- Operation capability metadata is required without a default. Catalog validation binds Ubus prerequisites to the action's object, method and argument types plus a versioned response-contract ID. Explicit unverified metadata cannot pass a checked Ubus contract. Client arguments cannot replace these facts.
 - Catalog::with_builtins(builtins, custom) validates definitions and rejects duplicate names. Catalog::new(custom) is a generic zero-builtins convenience. The features crate composes the device catalog.
 - Operation::project maps approved JSON pointers to values. OutputMode::Scalars defaults to rejecting object/array subtrees. Structured output is opt-in for trusted extensions, with sensitive-key redaction as defense in depth, not guaranteed secret detection.
 - Empty projection lists return no raw output. Decoded pointers must be distinct and non-overlapping to prevent response amplification. Errors never echo untrusted arguments, configuration excerpts or backend text.
@@ -66,7 +70,7 @@ The MCP process uses one operator-selected policy. Client labels and tool argume
 
 ## Runtime and infrastructure contracts
 
-Backend::execute(&PreparedAction, &Limits) is an async port returning JSON or a safe RuntimeError. AuditSink::record(&AuditEvent) is a synchronous port. Dispatcher owns authorization and orchestration with injected implementations and cannot import an adapter.
+Backend::execute(&PreparedAction, &Limits) is an async port returning JSON or a safe RuntimeError. Version 5 extends that same backend with a closed probe and opaque observation epoch, defaulting to unknown; it does not inject an independent discovery target. device-codec parses supplied probe bytes and encodes target commands without runtime or I/O dependencies. AuditSink::record(&AuditEvent) is a synchronous port. Dispatcher owns authorization and orchestration with injected implementations and cannot import an adapter.
 
 Limits have bounded nonzero values: defaults are 10 seconds, 64 KiB backend output and two concurrent actions. The local adapter clears the child environment, supplies fixed PATH/LANG, null stdin, concurrent bounded stdout/stderr reads, and kills/reaps timed-out or overflowing children. Empty output becomes null; other output must be JSON. Raw stderr is never returned or logged.
 
@@ -78,7 +82,7 @@ Audit writes run outside the async executor, with one writer per dispatcher, bou
 
 The executable is an on-device or companion stdio server with explicit target selection. The native persistent SSH backend manages a remote OpenWrt target from a workstation; verified OpenWrt-local mode runs on the device. There is no application network listener, polling daemon, database or embedded interpreter. The official Rust MCP SDK handles the protocol. See [platform support](platform-support.md) for implementation versus native acceptance.
 
-The [coverage matrix](coverage.md) distinguishes configured operations, fixture validation and device acceptance. Trusted local extensions can name extra ubus methods or fixed executables, but always require extensions.write AND extensions.execute plus declared effects. They cannot replace built-ins or grant permission. Extensions are an administrator capability, not a sandbox for untrusted authors. Privileged programs can defeat category isolation and must not be exposed to restricted clients.
+The [coverage matrix](coverage.md) distinguishes configured operations, fixture validation and device acceptance. Trusted local extensions can declare extra ubus methods or fixed executables, but always require extensions.write AND extensions.execute plus declared effects. Version 5 additionally blocks unverified Process contracts and Ubus prerequisites without a reviewed probe. They cannot replace built-ins, reserve metadata tool names or grant permission. Extensions are an administrator capability, not a sandbox for untrusted authors. Privileged programs can defeat category isolation and must not be exposed to restricted clients.
 
 Full OpenWrt support is a product target, not the current implementation claim. UCI transactions, encrypted backup streaming, verification/rollback, protected resources, package/firmware workflows, native ubus and package-specific coverage need explicit contracts and acceptance tests before being advertised. A generic action template does not constitute a tested workflow.
 

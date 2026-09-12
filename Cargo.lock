@@ -1417,11 +1417,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwrt-mcp-device-codec"
+version = "0.1.0"
+dependencies = [
+ "openwrt-mcp-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "openwrt-mcp-features"
 version = "0.1.0"
 dependencies = [
  "openwrt-mcp-core",
  "serde_json",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]

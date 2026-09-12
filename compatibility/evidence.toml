@@ -1,0 +1,24 @@
+# Inventory provenance is not operation acceptance or a live capability snapshot.
+schema_version = 1
+allowed_levels = ["source", "synthetic", "native", "emulated", "exact_device"]
+records = []
+
+[[targets]]
+id = "bpi-r4-openwrt-25.12.5-reference"
+kind = "physical"
+release = "25.12.5"
+revision = "r33051-f5dae5ece4"
+kernel = "6.12.94"
+target = "mediatek/filogic"
+board = "bananapi,bpi-r4"
+observed_at = "2026-09-12T19:12:44Z"
+inventory_observed_at = "2026-09-12T19:16:08Z"
+inventory_only = true
+sources = ["docs/reference-target.md"]
+
+[targets.packages]
+ubus = "2026.06.28~24864e78-r2"
+rpcd = "2026.07.19~e37ed9d8-r1"
+netifd = "2026.02.26~cbb83a18-r2"
+procd = "2026.03.13~58eb263d-r1"
+apk = "3.0.5"

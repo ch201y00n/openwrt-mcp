@@ -12,6 +12,10 @@ Date: 2026-09-13. This is host/fixture validation, not a production or real-rout
 
 ## Verification
 
+Current continued-development work has separately performed read-only reference identity, selected installed-package metadata and ubus method-name introspection on BPI-R4. See [reference-target.md](reference-target.md) for exact observation times and scope. No configuration was changed. This is not full operation acceptance, and no historical fixture count below is reclassified as device testing. Capability implementation and an isolated ARM64 userspace lab are in progress; their acceptance results will be recorded only after execution.
+
+Architecture v5's **architecture-only checkpoint** passed the full repository gate in Linux-on-WSL before capability implementation: 12 crate boundaries, 44 harness regressions, formatting, strict Clippy, workspace tests and release build. The inventory is **208 distinct tests**, zero ignored, including the previous 192 plus 12 harness tests and four explicitly named checkpoint scaffold checks. Those four establish the recorded boundary/catalog/evidence contract, not implemented probing, caching or protocol gating. The new codec production library is documentation-only at this checkpoint. No native Windows/macOS or full device-acceptance claim follows from this gate.
+
 Architecture v4 portable-host increment: the complete `tools/Test-Repository.ps1 -UseWsl` gate passes, including architecture/evolution, 32 harness regressions, formatting, strict Clippy, all workspace tests and release compilation. The test inventory contains **192 distinct tests** including one compile-fail doctest; zero tests were ignored. The harness suite is intentionally run first and again with the workspace, not counted twice. Architecture-only checkpoint `d88fb78` passed the full gate before functional implementation; its two placeholder test targets were replaced by actual suites, not counted as feature evidence.
 
 | Area | Current tests | Evidence |
@@ -28,7 +32,7 @@ The real-binary SSH test covers MCP -> authorization -> native SSH -> approved o
 
 The reviewed dependency combination is russh 0.63.3/ring with age 0.11.5; all 18 age tests pass without provider code changes. See [ADR 0004](adr/0004-cross-platform-hosts.md) for the incompatible ML-KEM transitive resolution and maintained-release choice. Cargo reports a third-party future-Rust incompatibility notice for proc-macro-error2 2.0.1; it is not a current gate failure and is not suppressed. Dependency/security review remains required before release.
 
-**Actual execution environment remains Linux on WSL, not native Windows.** Three native CI jobs are configured and enforced by the harness but have not been run/pushed from this task. Native Windows/macOS acceptance, native protected files/Vault on those hosts and actual OpenWrt deployment remain outstanding. No real keys, Vault files or router state were read. See [platform support](platform-support.md).
+**The v4 test execution environment was Linux on WSL, not native Windows.** Three native CI jobs were configured and enforced by the harness but were not run/pushed from that increment. Native Windows/macOS acceptance, native protected files/Vault on those hosts and actual OpenWrt deployment remained outstanding. No real keys, Vault files or router state were read by the v4 fixture suite. See [platform support](platform-support.md).
 
 ## Historical architecture-v3 verification
 
@@ -108,4 +112,4 @@ If using CARGO_TARGET_DIR, supply that directory's release binary to footprint. 
 - Test Unix syslog against OpenWrt logd, rotation under disk pressure, cancellation and transport flood behavior.
 - Select a redistribution license and complete release review before publishing code.
 
-No real router configuration or state was queried or changed in this setup. No code was pushed to GitHub and no package release was published.
+Historical fixture setups above did not query or change a real router. Subsequent narrowly scoped read-only reference observations are documented separately at the top of this record. No code was pushed to GitHub and no package release was published.

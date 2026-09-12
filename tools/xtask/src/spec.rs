@@ -1,4 +1,4 @@
-use crate::CheckResult;
+use crate::{CheckResult, capability::CapabilityContract};
 use serde::Deserialize;
 use std::{
     collections::BTreeSet,
@@ -20,6 +20,8 @@ pub struct Contract {
     pub required_portable_tests: Vec<String>,
     #[serde(default)]
     pub native_ci: String,
+    #[serde(default)]
+    pub capability_contract: Option<CapabilityContract>,
     pub crates: Vec<CrateRule>,
 }
 
@@ -89,6 +91,9 @@ impl Contract {
         }
         if self.version >= 4 {
             self.validate_portability(root)?;
+        }
+        if self.version >= 5 {
+            self.validate_capabilities(root)?;
         }
         Ok(())
     }

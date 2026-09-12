@@ -1,0 +1,66 @@
+# Architecture contract, not executable configuration or evidence of device support.
+schema_version = 1
+
+[runtime]
+backend_ownership = "same_immutable_backend"
+cache_ownership = "private_dispatcher"
+epoch_binding = "opaque_backend_epoch"
+ttl_seconds = 30
+unknown_behavior = "fail_closed"
+audit_order = "start_before_cache_probe_execute"
+offline_surfaces = ["check", "catalog", "tools_list"]
+operation_metadata = "required_ubus_method_signature_response_contract"
+process_capability = "unverified_blocked"
+metadata_use_case = "capability_status"
+metadata_tool = "operation_capability"
+metadata_audit_kind = "capability"
+device_deadline = "shared_probe_execute"
+
+[[probes]]
+id = "ubus.system"
+object = "system"
+program = "/bin/ubus"
+arguments = ["-v", "list", "system"]
+effect = "read"
+
+[[probes]]
+id = "ubus.network.device"
+object = "network.device"
+program = "/bin/ubus"
+arguments = ["-v", "list", "network.device"]
+effect = "read"
+
+[[probes]]
+id = "ubus.network.interface"
+object = "network.interface"
+program = "/bin/ubus"
+arguments = ["-v", "list", "network.interface"]
+effect = "read"
+
+[[probes]]
+id = "ubus.network.interface.lan"
+object = "network.interface.lan"
+program = "/bin/ubus"
+arguments = ["-v", "list", "network.interface.lan"]
+effect = "read"
+
+[[probes]]
+id = "ubus.network.interface.wan"
+object = "network.interface.wan"
+program = "/bin/ubus"
+arguments = ["-v", "list", "network.interface.wan"]
+effect = "read"
+
+[[probes]]
+id = "ubus.iwinfo"
+object = "iwinfo"
+program = "/bin/ubus"
+arguments = ["-v", "list", "iwinfo"]
+effect = "read"
+
+[[probes]]
+id = "ubus.service"
+object = "service"
+program = "/bin/ubus"
+arguments = ["-v", "list", "service"]
+effect = "read"

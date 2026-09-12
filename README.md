@@ -63,7 +63,7 @@ Start from [read-only.toml](config/read-only.toml) for system/network only, [obs
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v4](architecture/spec.toml) specifies directories, dependencies, portable layers and mandatory native host tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v5](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts and mandatory native host tests. The capability design is checkpointed before implementation; architecture scaffolds are not feature acceptance. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

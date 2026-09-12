@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/features", "crates/runtime", "crates/adapters", "crates/mcp", "crates/server", "crates/crypto-age", "crates/key-sources", "crates/host-platform", "crates/backend-ssh", "tools/xtask"]
+members = ["crates/core", "crates/features", "crates/runtime", "crates/adapters", "crates/mcp", "crates/server", "crates/crypto-age", "crates/key-sources", "crates/host-platform", "crates/backend-ssh", "crates/device-codec", "tools/xtask"]
 default-members = ["crates/server"]
 
 [workspace.package]

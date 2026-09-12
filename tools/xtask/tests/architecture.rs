@@ -35,6 +35,7 @@ fn contract() -> Contract {
         portable_crates: vec![],
         required_portable_tests: vec![],
         native_ci: String::new(),
+        capability_contract: None,
         crates: vec![rule()],
     }
 }

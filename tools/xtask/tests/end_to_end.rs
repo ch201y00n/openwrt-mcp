@@ -125,6 +125,85 @@ impl Fixture {
             "synthetic portability checkpoint",
         ]);
     }
+
+    fn capability_checkpoint(&self) {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut spec: toml::Value =
+            toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
+                .unwrap();
+        let original: toml::Value =
+            toml::from_str(&fs::read_to_string(self.root.join("architecture/spec.toml")).unwrap())
+                .unwrap();
+        let rules = spec["crates"].as_array().unwrap().clone();
+        let mut members = vec!["crates/pure".to_owned(), "crates/tokio".to_owned()];
+        let mut lock = fs::read_to_string(self.root.join("Cargo.lock")).unwrap();
+        for rule in rules {
+            let path = rule["path"].as_str().unwrap();
+            let name = rule["name"].as_str().unwrap();
+            members.push(path.into());
+            // Real Cargo metadata from inert standalone fixture packages; no production
+            // code, downloaded dependencies, or device commands are used by this fixture.
+            self.write(
+                &format!("{path}/Cargo.toml"),
+                &format!("[package]\nname='{name}'\nversion='0.1.0'\nedition='2024'\n"),
+            );
+            self.write(
+                &format!("{path}/src/lib.rs"),
+                "//! Inert architecture fixture.\n",
+            );
+            lock.push_str(&format!("\n[[package]]\nname='{name}'\nversion='0.1.0'\n"));
+        }
+        spec["crates"]
+            .as_array_mut()
+            .unwrap()
+            .extend(original["crates"].as_array().unwrap().iter().cloned());
+        spec["portable_crates"]
+            .as_array_mut()
+            .unwrap()
+            .push("pure".into());
+        self.write("architecture/spec.toml", &toml::to_string(&spec).unwrap());
+        self.write(
+            "Cargo.toml",
+            &format!(
+                "[workspace]\nresolver='3'\nmembers={}\n",
+                toml::Value::Array(members.into_iter().map(Into::into).collect())
+            ),
+        );
+        self.write("Cargo.lock", &lock);
+        for path in [
+            "architecture/capability-probes.toml",
+            "compatibility/evidence.toml",
+            ".github/workflows/ci.yml",
+        ] {
+            self.write(path, &fs::read_to_string(repository.join(path)).unwrap());
+        }
+        for path in [
+            spec["decision"].as_str().unwrap(),
+            "docs/reference-target.md",
+        ] {
+            self.write(
+                path,
+                "Synthetic architecture/evidence fixture, not device acceptance.\n",
+            );
+        }
+        for suite in spec["required_portable_tests"].as_array().unwrap() {
+            self.write(
+                suite.as_str().unwrap(),
+                "#[test] fn synthetic_contract_fixture() { assert_eq!(2 + 2, 4); }\n",
+            );
+        }
+        self.git(&["add", "."]);
+        self.git(&[
+            "-c",
+            "user.name=Architecture Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "synthetic capability checkpoint",
+        ]);
+    }
 }
 
 impl Drop for Fixture {
@@ -326,4 +405,37 @@ fn assembled_v4_gate_rejects_ci_exclusions_and_noop_test_targets() {
         &manifest.replace("[package]", "[package]\nautotests=false"),
     );
     fixture.denied("autotests=false");
+}
+
+#[test]
+fn assembled_v5_gate_rejects_unsafe_probe_and_overstated_inventory_evidence() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint();
+    xtask::architecture(&fixture.root, Some("HEAD")).unwrap();
+    let registry =
+        fs::read_to_string(fixture.root.join("architecture/capability-probes.toml")).unwrap();
+    fixture.write(
+        "architecture/capability-probes.toml",
+        &registry.replace(
+            "[\"-v\", \"list\", \"system\"]",
+            "[\"call\", \"system\", \"reboot\"]",
+        ),
+    );
+    fixture.denied("exact reviewed read-only");
+    fixture.write("architecture/capability-probes.toml", &registry);
+    let original = fs::read_to_string(fixture.root.join("compatibility/evidence.toml")).unwrap();
+    let mut evidence: toml::Value = toml::from_str(&original).unwrap();
+    let record: toml::Value = toml::from_str("id='fabricated'\nlevel='exact_device'\ntarget='bpi-r4-openwrt-25.12.5-reference'\noperations=['system_info']\nartifacts=['docs/reference-target.md']\nobserved_at='2026-09-12T19:30:00Z'\nhost='windows'\nenvironment='native'\n").unwrap();
+    evidence["records"] = toml::Value::Array(vec![record]);
+    fixture.write(
+        "compatibility/evidence.toml",
+        &toml::to_string(&evidence).unwrap(),
+    );
+    fixture.denied("inventory-only");
+    fixture.write("compatibility/evidence.toml", &original);
+    fixture.write(
+        "crates/runtime/tests/capabilities.rs",
+        "#[test] #[ignore] fn hidden() { assert_eq!(1,1); }\n",
+    );
+    fixture.denied("required portable suites");
 }

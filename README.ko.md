@@ -32,6 +32,8 @@ v4에서는 MCP가 실행되는 컴퓨터와 관리 대상 OpenWrt를 분리했�
 
 세 OS의 네이티브 CI와 필수 테스트를 하네스로 강제하지만, 현재 실제 실행 증거는 Linux-on-WSL 테스트입니다. 이를 Windows 검증이라고 표시하지 않습니다. [플랫폼별 구현·검증 범위](docs/platform-support.md)를 확인하세요.
 
+현재 v5에서는 실제 대상의 API 서명을 확인한 뒤 실행을 허용하는 구조를 먼저 검증하고 있습니다. 버전 문자열만으로 지원을 가정하지 않고, 권한 때문에 보이지 않을 수 있는 API는 미지원으로 단정하지 않습니다. 설계·하네스 검증이 기능 구현보다 먼저이며, 아키텍처 검사 통과만으로 기능 완료를 표시하지 않습니다. 초기 BPI-R4의 읽기 전용 소프트웨어 관측은 [기준 장치 기록](docs/reference-target.md), 전체 진행 범위는 [구현 계획](docs/implementation-plan.md)에 있습니다.
+
 - [요구사항과 성능 목표](docs/requirements.md)
 - [아키텍처와 모듈 계약](docs/architecture.md)
 - [아키텍처 우선 개발 절차](docs/development.md)

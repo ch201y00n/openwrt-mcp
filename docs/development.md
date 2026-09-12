@@ -18,6 +18,7 @@ The workspace default member is the server: ordinary release builds produce the 
 | crates/crypto-age/src | age encryption/decryption; no key-location or OS access |
 | crates/host-platform/src | Purpose-specific host OS protection, explicit Linux/Windows/macOS implementations |
 | crates/backend-ssh/src | Native portable remote OpenWrt connection; never host command execution |
+| crates/device-codec/src | Pure fixed target encoders and bounded probe parsers shared by local/SSH infrastructure |
 | crates/mcp/src | MCP protocol/framing; cannot import concrete adapters |
 | crates/server/src | Configuration and dependency wiring; no device command execution |
 | tools/xtask/src | Architecture validation, negative fixtures and development gate |
@@ -29,6 +30,8 @@ The workspace default member is the server: ordinary release builds produce the 
 Add the acceptance requirement and classify the feature's category/effects. Reuse the owning module and existing ports. If an interface cannot express the feature, stop feature implementation and evolve the architecture under ADR 0002 first. Add deny/allow/cross-category/secret-output tests, then implement inside the approved boundary. Update coverage with one of fixture-validated, device-validated, unavailable or planned; do not equate a generic command with tested support.
 
 ## Gates
+
+Architecture v5 adds required capability contract suites, a closed exact-object probe registry and scoped compatibility evidence. Checkpoint scaffolds verify the architectural contract only; do not count them as implemented discovery or device acceptance. After the architecture-only checkpoint, migrate operation metadata, same-backend probing, private expiring caches and MCP status mapping within those owners. Never add an unchecked extension, caller-supplied availability assertion or direct protocol discovery path to preserve an old test. Adapt synthetic fixtures to the new contract instead.
 
 Windows/Linux/macOS are required native host gates, not just build targets. Required portable suites cannot disappear behind OS cfg or ignore. WSL is an explicitly selected Linux development environment and must never be reported as native Windows acceptance. Host-specific capabilities and target OpenWrt acceptance remain separately named. ADR 0004 establishes the portability contract before implementing the new adapters.
 
