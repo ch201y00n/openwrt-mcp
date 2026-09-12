@@ -49,7 +49,12 @@ fn edge(contract: &Contract, owner: &str, dependency: &str, kind: Value) -> Valu
         .iter()
         .find(|rule| rule.name == dependency)
         .map(|rule| format!("/synthetic/{}", rule.path));
-    package["dependencies"] = json!([{"name":dependency,"rename":"innocent_alias","kind":kind,"target":"cfg(target_os = \"not_this_host\")","path":path}]);
+    let target = if matches!(dependency, "rustix" | "libc") {
+        "cfg(unix)"
+    } else {
+        "cfg(target_os = \"not_this_host\")"
+    };
+    package["dependencies"] = json!([{"name":dependency,"rename":"innocent_alias","kind":kind,"target":target,"path":path}]);
     value
 }
 

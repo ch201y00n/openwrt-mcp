@@ -1058,6 +1058,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwrt-mcp-backend-ssh"
+version = "0.1.0"
+
+[[package]]
 name = "openwrt-mcp-core"
 version = "0.1.0"
 dependencies = [
@@ -1083,6 +1087,10 @@ dependencies = [
  "openwrt-mcp-core",
  "serde_json",
 ]
+
+[[package]]
+name = "openwrt-mcp-host-platform"
+version = "0.1.0"
 
 [[package]]
 name = "openwrt-mcp-key-sources"

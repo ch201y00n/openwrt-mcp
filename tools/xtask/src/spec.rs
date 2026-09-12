@@ -12,6 +12,14 @@ pub struct Contract {
     pub decision: String,
     pub requirements: String,
     pub architecture: String,
+    #[serde(default)]
+    pub required_hosts: Vec<String>,
+    #[serde(default)]
+    pub portable_crates: Vec<String>,
+    #[serde(default)]
+    pub required_portable_tests: Vec<String>,
+    #[serde(default)]
+    pub native_ci: String,
     pub crates: Vec<CrateRule>,
 }
 
@@ -79,6 +87,9 @@ impl Contract {
                 return Err("architecture contract references a missing/unsafe document".into());
             }
         }
+        if self.version >= 4 {
+            self.validate_portability(root)?;
+        }
         Ok(())
     }
 
@@ -103,7 +114,7 @@ impl Contract {
     }
 }
 
-fn safe_path(value: &str) -> bool {
+pub(crate) fn safe_path(value: &str) -> bool {
     !value.is_empty()
         && !value.contains('\\')
         && Path::new(value)

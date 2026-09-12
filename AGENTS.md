@@ -13,3 +13,4 @@
 - Keep unimplemented coverage and unmeasured performance explicit. Never describe fixture tests as device validation.
 - Run tools/Test-Repository.ps1 before committing, and resolve all failures. No bypasses.
 - Change files with apply_patch. Do not weaken boundaries to make a feature easier to implement.
+- Windows/Linux/macOS are required host targets across all shared features. Never confuse host-native paths/commands with router POSIX actions, use remote-to-local fallback, treat Unix modes as macOS ACL proof, or report WSL as native Windows validation. Platform protection and persistent remote execution have separate infrastructure owners under ADR 0004.

@@ -16,6 +16,8 @@ The workspace default member is the server: ordinary release builds produce the 
 | crates/adapters/src | Local process, audit destinations and future backup/ubus persistence adapters |
 | crates/key-sources/src | Protected file/environment providers and independent container decoders |
 | crates/crypto-age/src | age encryption/decryption; no key-location or OS access |
+| crates/host-platform/src | Purpose-specific host OS protection, explicit Linux/Windows/macOS implementations |
+| crates/backend-ssh/src | Native portable remote OpenWrt connection; never host command execution |
 | crates/mcp/src | MCP protocol/framing; cannot import concrete adapters |
 | crates/server/src | Configuration and dependency wiring; no device command execution |
 | tools/xtask/src | Architecture validation, negative fixtures and development gate |
@@ -27,6 +29,8 @@ The workspace default member is the server: ordinary release builds produce the 
 Add the acceptance requirement and classify the feature's category/effects. Reuse the owning module and existing ports. If an interface cannot express the feature, stop feature implementation and evolve the architecture under ADR 0002 first. Add deny/allow/cross-category/secret-output tests, then implement inside the approved boundary. Update coverage with one of fixture-validated, device-validated, unavailable or planned; do not equate a generic command with tested support.
 
 ## Gates
+
+Windows/Linux/macOS are required native host gates, not just build targets. Required portable suites cannot disappear behind OS cfg or ignore. WSL is an explicitly selected Linux development environment and must never be reported as native Windows acceptance. Host-specific capabilities and target OpenWrt acceptance remain separately named. ADR 0004 establishes the portability contract before implementing the new adapters.
 
 Run `cargo run --locked -p xtask -- architecture`, then `tools/Test-Repository.ps1` (or `sh tools/test.sh`). The full gate includes harness negative tests first, Rust formatting, strict Clippy, behavior tests and release compilation. Both default to HEAD as the local evolution baseline. CI uses the same gate against the pull request base or previous push revision. For another reviewed baseline, run `cargo run --locked -p xtask -- architecture --base <commit>`, `tools/Test-Repository.ps1 -BaseRef <commit>`, or `sh tools/test.sh <commit>`.
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 3 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
+Contract: version 4 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -23,6 +23,8 @@ xtask (development only) -> architecture contract + Cargo metadata + source AST
 | runtime | Dispatcher, concurrency/deadlines, backend and audit ports, safe errors | Concrete device/audit implementations, MCP, configuration file access |
 | adapters | Process execution, audit destinations and other port implementations | Authorization decisions, protocol handlers |
 | key-sources | Protected file/environment access and bounded archive-entry selection | Encryption algorithm selection/implementation, processes, automatic Vault unlocking |
+| host-platform | Purpose-specific config/secret/private-log protection and native system-log facilities | Policy decisions, cryptography, process execution, MCP |
+| backend-ssh | Portable persistent SSH connection and bounded remote execution | Local host commands, key paths/environment access, authorization bypass |
 | crypto-age | age over provided streams and purpose-specific material | Key paths, filesystem/environment access, containers or Vault behavior |
 | mcp | MCP mapping, bounded framing, SDK lifecycle | Concrete backends, filesystem/process access, policy selection |
 | server | CLI, trusted configuration loading, lifecycle logs, dependency wiring | Router command execution, alternate device invocation paths |
@@ -33,6 +35,8 @@ Exact normal, development and build dependency allowlists are versioned in the c
 Version 3 adds two specialized infrastructure crates: server -> key-sources -> runtime, and server -> crypto-age -> runtime. They cannot depend on one another. runtime::protection owns key/source/container/crypto ports, purpose-separated zeroizing material and orchestration. Runtime may name standard Read/Write traits for provided streams, but cannot open filesystem, environment, network, process or standard I/O handles. MCP cannot import protection material or concrete providers. See ADR 0003 for custody, staging, bounds and capability limitations; no raw encryption/identity-management MCP tool is introduced.
 
 ## Invocation lifecycle
+
+Version 4 separates the Windows/Linux/macOS MCP host from its OpenWrt target. Portable layers contain no platform cfg/API behavior. Operator configuration selects unconfigured, verified OpenWrt-local, or SSH; desktop hosts must never execute router extension programs locally. Native file/log semantics live behind host-platform and optional unsupported profiles do not silently downgrade. Explicit environment configuration and stderr are the portable baseline. Required native CI and non-skipped portable tests are part of the machine contract; see ADR 0004. Existing v3 native paths migrate after the architecture checkpoint.
 
 1. MCP maps a named tool and JSON object into a dispatcher invocation.
 2. The dispatcher resolves immutable, operator-installed metadata.

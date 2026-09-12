@@ -31,6 +31,10 @@ fn contract() -> Contract {
         decision: "docs/adr/0002.md".into(),
         requirements: "docs/requirements.md".into(),
         architecture: "docs/architecture.md".into(),
+        required_hosts: vec![],
+        portable_crates: vec![],
+        required_portable_tests: vec![],
+        native_ci: String::new(),
         crates: vec![rule()],
     }
 }

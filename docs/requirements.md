@@ -17,6 +17,8 @@ Architecture revision 2 adds a mandatory development constraint: architecture an
 
 ## Meaning of full coverage
 
+Architecture v4 makes Windows/Linux/macOS first-class intended hosts for ALL shared MCP functionality. Host OS and target OpenWrt OS are separate concerns. Shared policy/catalog/protocol/crypto/use cases and remote router features must not depend on host-native router commands. Use explicit unconfigured/OpenWrt-local/remote target selection, OS-specific protected config/key/audit adapters, and a portable environment+stderr alternative without automatic fallback. Unknown/unimplemented platform capabilities fail explicitly. Native OS builds, required portable executable suites and separate OpenWrt acceptance are mandatory; WSL is Linux evidence only. See ADR 0004 and the native support matrix; no present claim of complete platform parity follows from this requirement.
+
 Full coverage is a product target, not a v0.1 completion claim. OpenWrt packages add arbitrary services and commands, so a fixed finite tool list cannot guarantee every future feature. Maintain three separate states: built-in tested adapter; privileged custom action; unsupported/planned. A generic command mechanism never counts as tested feature coverage.
 
 Categories: system, network, wireless, firewall, dhcp_dns, services, packages, storage, vpn, firmware, diagnostics, extensions. Operations can require multiple categories. The catalog is the source of truth for parameters, required permissions and exposed output. Unknown operations, missing grants and unknown config keys fail closed.

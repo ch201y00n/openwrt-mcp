@@ -86,6 +86,45 @@ impl Fixture {
             "wrong failure: {error}; expected {expected}"
         );
     }
+
+    fn portability_checkpoint(&self) {
+        let original = fs::read_to_string(self.root.join("architecture/spec.toml")).unwrap();
+        let contract = original.replace("version=1", "version=4").replace("0001.md", "0004.md")
+            .replacen("[[crates]]", "required_hosts=['windows','linux','macos']\nportable_crates=['pure']\nrequired_portable_tests=['crates/pure/tests/portable.rs']\nnative_ci='.github/workflows/ci.yml'\n[[crates]]", 1);
+        self.write("architecture/spec.toml", &contract);
+        self.write(
+            "docs/adr/0004.md",
+            "Synthetic native-host architecture checkpoint.\n",
+        );
+        self.write(
+            "crates/pure/tests/portable.rs",
+            "#[test] fn fixture() { assert_eq!(1,1); }\n",
+        );
+        let workflow = serde_json::json!({
+            "on":{"push":null,"pull_request":null},
+            "jobs":{"rust":{
+                "runs-on":"${{ matrix.os }}",
+                "strategy":{"fail-fast":false,"matrix":{"os":["ubuntu-latest","windows-latest","macos-latest"]}},
+                "steps":[
+                    {"shell":"pwsh","run":"./tools/Test-Repository.ps1 -BaseRef $env:ARCHITECTURE_BASE",
+                     "env":{"ARCHITECTURE_BASE":"${{ github.event.pull_request.base.sha || github.event.before }}"}},
+                    {"shell":"pwsh","run":"cargo test --locked -p pure --test portable"}
+                ]
+            }}
+        });
+        self.write(".github/workflows/ci.yml", &workflow.to_string());
+        self.git(&["add", "."]);
+        self.git(&[
+            "-c",
+            "user.name=Architecture Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "synthetic portability checkpoint",
+        ]);
+    }
 }
 
 impl Drop for Fixture {
@@ -236,4 +275,55 @@ fn forbidden_consumer_namespaces_cannot_escape_through_producer_root_aliases() {
         fixture.write("crates/tokio/src/lib.rs", source);
         fixture.denied("public surface flattens protected namespace");
     }
+}
+
+#[test]
+fn assembled_v4_gate_rejects_os_leaks_and_hidden_required_tests() {
+    let fixture = Fixture::new();
+    fixture.portability_checkpoint();
+    xtask::architecture(&fixture.root, Some("HEAD")).unwrap();
+    fixture.write(
+        "crates/pure/src/lib.rs",
+        "#[cfg(windows)] pub fn harmless() {}\n",
+    );
+    fixture.denied("portable production cannot branch");
+    fixture.write("crates/pure/src/lib.rs", "pub fn harmless() {}\n");
+    for source in [
+        "#![cfg(unix)] #[test] fn fixture() { assert_eq!(1,1); }",
+        "#[test] #[ignore] fn fixture() { assert_eq!(1,1); }",
+        "#[cfg(any())] mod absent { #[test] fn fixture() { assert_eq!(1,1); } }",
+        "// removed portable tests",
+    ] {
+        fixture.write("crates/pure/tests/portable.rs", source);
+        fixture.denied("required portable suite");
+    }
+}
+
+#[test]
+fn assembled_v4_gate_rejects_ci_exclusions_and_noop_test_targets() {
+    let fixture = Fixture::new();
+    fixture.portability_checkpoint();
+    xtask::architecture(&fixture.root, Some("HEAD")).unwrap();
+    let ci_path = fixture.root.join(".github/workflows/ci.yml");
+    let original = fs::read_to_string(&ci_path).unwrap();
+    let mut ci: serde_json::Value = serde_json::from_str(&original).unwrap();
+    ci["jobs"]["rust"]["strategy"]["matrix"]["exclude"] =
+        serde_json::json!([{"os":"windows-latest"}]);
+    fixture.write(".github/workflows/ci.yml", &ci.to_string());
+    fixture.denied("all three native runners");
+    fixture.write(".github/workflows/ci.yml", &original);
+    let manifest = fs::read_to_string(fixture.root.join("crates/pure/Cargo.toml")).unwrap();
+    for extra in [
+        "[[test]]\nname='portable'\nharness=false\n",
+        "[[test]]\nname='portable'\ntest=false\n",
+        "[[test]]\nname='portable'\nrequired-features=['never']\n",
+    ] {
+        fixture.write("crates/pure/Cargo.toml", &format!("{manifest}{extra}"));
+        fixture.denied("required portable target");
+    }
+    fixture.write(
+        "crates/pure/Cargo.toml",
+        &manifest.replace("[package]", "[package]\nautotests=false"),
+    );
+    fixture.denied("autotests=false");
 }

@@ -1,7 +1,11 @@
-version = 3
-decision = "docs/adr/0003-key-custody-and-age.md"
+version = 4
+decision = "docs/adr/0004-cross-platform-hosts.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
+required_hosts = ["windows", "linux", "macos"]
+portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh"]
+required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs"]
+native_ci = ".github/workflows/ci.yml"
 
 [[crates]]
 name = "openwrt-mcp-core"
@@ -37,7 +41,7 @@ allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert
 name = "openwrt-mcp-adapters"
 path = "crates/adapters"
 layer = "infrastructure"
-dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "serde", "serde_json", "thiserror", "tokio", "async-trait", "libc"]
+dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "openwrt-mcp-host-platform", "serde", "serde_json", "thiserror", "tokio", "async-trait", "libc"]
 dev_dependencies = []
 build_dependencies = []
 forbidden_paths = []
@@ -57,8 +61,8 @@ allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert
 name = "openwrt-mcp"
 path = "crates/server"
 layer = "composition"
-dependencies = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-adapters", "openwrt-mcp-transport", "openwrt-mcp-key-sources", "openwrt-mcp-crypto-age", "serde", "serde_json", "toml", "tokio", "libc"]
-dev_dependencies = ["async-trait", "rmcp", "age", "zip"]
+dependencies = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-adapters", "openwrt-mcp-transport", "openwrt-mcp-key-sources", "openwrt-mcp-crypto-age", "openwrt-mcp-host-platform", "openwrt-mcp-backend-ssh", "serde", "serde_json", "toml", "tokio", "libc"]
+dev_dependencies = ["async-trait", "rmcp", "age", "zip", "russh"]
 build_dependencies = []
 forbidden_paths = ["std::process::Command", "tokio::process::Command"]
 allowed_macros = ["json", "matches", "vec", "format", "write", "writeln", "print", "println", "eprint", "eprintln", "env", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
@@ -77,11 +81,31 @@ allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "a
 name = "openwrt-mcp-key-sources"
 path = "crates/key-sources"
 layer = "infrastructure"
-dependencies = ["openwrt-mcp-runtime", "serde", "zeroize", "zip", "rustix"]
+dependencies = ["openwrt-mcp-runtime", "openwrt-mcp-host-platform", "serde", "zeroize", "zip", "rustix"]
 dev_dependencies = []
 build_dependencies = []
 forbidden_paths = ["std::process", "tokio::process"]
 allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
+
+[[crates]]
+name = "openwrt-mcp-host-platform"
+path = "crates/host-platform"
+layer = "infrastructure"
+dependencies = ["zeroize", "rustix"]
+dev_dependencies = []
+build_dependencies = []
+forbidden_paths = ["std::process", "tokio::process"]
+allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
+
+[[crates]]
+name = "openwrt-mcp-backend-ssh"
+path = "crates/backend-ssh"
+layer = "infrastructure"
+dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "serde", "serde_json", "tokio", "async-trait", "russh"]
+dev_dependencies = []
+build_dependencies = []
+forbidden_paths = ["std::fs", "std::os", "std::env", "std::process", "std::io::stdin", "std::io::stdout", "std::io::stderr", "tokio::fs", "tokio::process", "tokio::io::stdin", "tokio::io::stdout", "tokio::io::stderr", "russh::keys::load_secret_key", "russh::keys::load_public_key", "russh::keys::load_openssh_certificate", "russh::keys::check_known_hosts", "russh::keys::check_known_hosts_path", "russh::keys::known_hosts", "russh::keys::agent", "russh::keys::PrivateKey::read_openssh_file", "russh::keys::PrivateKey::write_openssh_file", "russh::keys::PublicKey::read_openssh_file", "russh::keys::PublicKey::write_openssh_file", "russh::keys::Certificate::read_file", "russh::keys::Certificate::write_file", "russh::keys::ssh_key::PrivateKey::read_openssh_file", "russh::keys::ssh_key::PrivateKey::write_openssh_file", "russh::keys::ssh_key::PublicKey::read_openssh_file", "russh::keys::ssh_key::PublicKey::write_openssh_file", "russh::keys::ssh_key::Certificate::read_file", "russh::keys::ssh_key::Certificate::write_file"]
+allowed_macros = ["matches", "vec", "format", "write", "json", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
 
 [[crates]]
 name = "xtask"

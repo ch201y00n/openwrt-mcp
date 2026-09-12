@@ -2,11 +2,13 @@
 
 mod change;
 mod metadata;
+mod portability;
 mod source;
 mod spec;
 
 pub use change::validate_evolution;
 pub use metadata::check_metadata;
+pub use portability::{check_native_ci, check_portable_source, check_portable_suite};
 pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
 
@@ -96,6 +98,9 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         }
         let (rule, development) = contract.owner(file)?;
         let source = fs::read_to_string(root.join(file)).map_err(|_| "cannot read Rust source")?;
+        if !development && contract.portable_crates.contains(&rule.name) {
+            check_portable_source(&source).map_err(|error| format!("{file}: {error}"))?;
+        }
         let aliases = dependency_aliases(&metadata, &rule.name)?;
         check_source_with_aliases(rule, &source, development, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;

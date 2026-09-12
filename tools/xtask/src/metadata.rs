@@ -62,6 +62,18 @@ pub fn check_metadata(contract: &Contract, metadata: &Value) -> CheckResult {
                     "{name}: forbidden {kind} dependency {original} (all aliases/targets checked)"
                 ));
             }
+            if contract.version >= 4 && matches!(original, "rustix" | "libc") {
+                let target = dependency["target"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .split_whitespace()
+                    .collect::<String>();
+                if !matches!(target.as_str(), "cfg(unix)" | "cfg(target_os=\"linux\")") {
+                    return Err(format!(
+                        "{name}: platform dependency {original} must retain its reviewed Unix/Linux target condition"
+                    ));
+                }
+            }
             if let Some(owner) = contract.crates.iter().find(|owner| owner.name == original) {
                 let actual = dependency["path"].as_str().unwrap_or("").replace('\\', "/");
                 if actual != format!("{root}/{}", owner.path) {
