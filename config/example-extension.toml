@@ -1,0 +1,32 @@
+# Synthetic workstation demonstration; no router functions. Never a default profile.
+[policy]
+allow_operations = ["fixture_echo"]
+
+[policy.categories.diagnostics]
+access = "read"
+execute = false
+
+[policy.categories.extensions]
+access = "read_write"
+execute = true
+
+[audit]
+enabled = true
+format = "json"
+destination = "stderr"
+
+[[actions]]
+name = "fixture_echo"
+description = "Return one exact synthetic JSON fixture through a fixed program."
+requirements = [{ category = "diagnostics", permission = "read" }]
+output_fields = ["/ok"]
+
+[actions.parameters.payload]
+kind = "string"
+required = true
+allowed_values = ['{"ok":true}']
+
+[actions.action]
+kind = "process"
+program = "/usr/bin/printf"
+args = ["%s", "{payload}"]

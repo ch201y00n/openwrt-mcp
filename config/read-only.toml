@@ -1,0 +1,24 @@
+# Local operator policy. Missing categories are denied. No execute privileges.
+[policy.categories.system]
+access = "read"
+execute = false
+
+[policy.categories.network]
+access = "read"
+execute = false
+
+[limits]
+timeout_ms = 10000
+max_output_bytes = 65536
+max_concurrent = 2
+
+[audit]
+enabled = true
+format = "json"
+destination = "stderr"
+max_bytes = 1048576
+retained_files = 3
+
+[logging]
+level = "info"
+format = "json"

@@ -1,0 +1,5 @@
+# No category grants: every device operation is denied and tools/list is empty.
+[audit]
+enabled = true
+format = "json"
+destination = "stderr"

@@ -1,0 +1,8 @@
+/target/
+/result
+*.log
+.env
+config.local.toml
+*.age
+*.key
+*.pem

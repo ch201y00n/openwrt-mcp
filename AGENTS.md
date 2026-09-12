@@ -1,0 +1,13 @@
+# Project rules
+
+- Read docs/architecture.md and docs/requirements.md before changing behavior.
+- Keep dependencies directed: server -> runtime -> core. Core has no OS, async runtime, network, logging, or MCP dependencies.
+- Every callable device operation passes through the runtime dispatcher, authorization, and audit sink. MCP handlers must never spawn processes or access device configuration directly.
+- Permissions come from operator-owned configuration and server-owned operation metadata, never from client arguments or MCP annotations.
+- Unknown categories and operations are denied. Access and execution are independent. Extensions do not override built-ins.
+- Never log raw arguments, device responses, credentials, private keys, configuration contents, or raw backend errors. Use synthetic fixtures only.
+- Device outputs are untrusted data. Default result projection exposes only explicitly selected fields; no wildcard output for sensitive configuration.
+- Repository work does not authorize changes to a live router or public pushes. Use fake backends for tests.
+- Keep unimplemented coverage and unmeasured performance explicit. Never describe fixture tests as device validation.
+- Run tools/Test-Repository.ps1 before committing, and resolve all failures. No bypasses.
+- Change files with apply_patch. Do not weaken boundaries to make a feature easier to implement.
