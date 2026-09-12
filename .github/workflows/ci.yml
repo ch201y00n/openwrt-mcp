@@ -66,6 +66,31 @@
           "name": "Required portable ubus describe codec suite",
           "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp-device-codec --test ubus_describe"
+        },
+        {
+          "name": "Required portable collection projection suite",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-core --test collection_projection"
+        },
+        {
+          "name": "Required portable collection operation contracts",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-features --test collection_contracts"
+        },
+        {
+          "name": "Required portable bounded projection lifecycle",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-runtime --test collection_projection"
+        },
+        {
+          "name": "Required portable strict action response codec",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-device-codec --test action_response"
+        },
+        {
+          "name": "Required portable bounded MCP results",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-transport --test bounded_results"
         }
       ]
     }

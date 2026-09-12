@@ -4,6 +4,7 @@ mod capability;
 mod change;
 mod metadata;
 mod portability;
+mod projection;
 mod source;
 mod spec;
 
@@ -11,6 +12,7 @@ pub use capability::{CapabilityContract, check_capability_registry, check_compat
 pub use change::validate_evolution;
 pub use metadata::check_metadata;
 pub use portability::{check_native_ci, check_portable_source, check_portable_suite};
+pub use projection::{ActionResponseContract, McpResultContract, ProjectionContract};
 pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
 

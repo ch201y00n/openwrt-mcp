@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 5 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
+Contract: version 6 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0006](adr/0006-bounded-read-projections.md), capabilities [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -53,6 +53,8 @@ Handlers cannot bypass the dispatcher. Backend ports are trusted infrastructure,
 
 Version 5 adds core capability contracts and a portable device-codec below infrastructure, not a new invocation path. runtime owns a private per-dispatcher cache and capability_status use case; Backend owns both probe and execute on one immutable target authority. Only seven reviewed exact-object introspection probes are initially admitted. Missing ACL-filtered results are unknown, not proven absence. No version/profile/client argument proves compatibility. The metadata MCP tool delegates authorization and audit to the dispatcher; check/catalog/tools-list remain offline. Unverified Process extensions are blocked until a reviewed prerequisite exists. See ADR 0005 for schema matching, expiry, evidence and migration details.
 
+Version 6 adds typed bounded collection projection within the existing owners. core::projection declares finite Record/ObjectArray/ObjectEntries/ScalarArray forms, fixed typed fields, root exact selection and at most two collection levels; private PreparedInvocation binds validated selectors with the action before I/O. Runtime executes only its action and applies its fallible projection before completion audit. device-codec strictly decodes action JSON, including duplicate-key/depth/node rejection, for both backends. MCP receives normalized results and limits the serialized tool result including text/structured copies. No new crate, dependency, probe family or mutation authority is introduced. The architecture-only checkpoint precedes this implementation; see ADR 0006 and collection-read-contracts.md.
+
 ## Domain contracts
 
 - Category: system, network, wireless, firewall, dhcp_dns, services, packages, storage, vpn, firmware, diagnostics, extensions. Unknown values fail validation.
@@ -64,6 +66,7 @@ Version 5 adds core capability contracts and a portable device-codec below infra
 - Operation capability metadata is required without a default. Catalog validation binds Ubus prerequisites to the action's object, method and argument types plus a versioned response-contract ID. Explicit unverified metadata cannot pass a checked Ubus contract. Client arguments cannot replace these facts.
 - Catalog::with_builtins(builtins, custom) validates definitions and rejects duplicate names. Catalog::new(custom) is a generic zero-builtins convenience. The features crate composes the device catalog.
 - Operation::project maps approved JSON pointers to values. OutputMode::Scalars defaults to rejecting object/array subtrees. Structured output is opt-in for trusted extensions, with sensitive-key redaction as defense in depth, not guaranteed secret detection.
+- v6 typed projections are separate from legacy output_fields/output_mode and mutually exclusive with them. Built-ins cannot use Structured. Private prepared projections own validated root selectors; local-only input parameters do not appear in the actual ubus signature. Typed records use explicit types/presence, unique bounded identities and global scan/emission/serialized-byte budgets. No raw subtree, coercion, silent truncation or fallback is permitted. Legacy helpers retain only their documented scalar/privileged-extension scope; Dispatcher uses the fallible prepared path.
 - Empty projection lists return no raw output. Decoded pointers must be distinct and non-overlapping to prevent response amplification. Errors never echo untrusted arguments, configuration excerpts or backend text.
 
 The MCP process uses one operator-selected policy. Client labels and tool arguments cannot select another policy or elevate permission. Separate stdio processes/configurations isolate principals; HTTP and multi-user authentication are not implemented.

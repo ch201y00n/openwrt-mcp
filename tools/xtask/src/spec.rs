@@ -1,4 +1,8 @@
-use crate::{CheckResult, capability::CapabilityContract};
+use crate::{
+    CheckResult,
+    capability::CapabilityContract,
+    projection::{ActionResponseContract, McpResultContract, ProjectionContract},
+};
 use serde::Deserialize;
 use std::{
     collections::BTreeSet,
@@ -22,6 +26,12 @@ pub struct Contract {
     pub native_ci: String,
     #[serde(default)]
     pub capability_contract: Option<CapabilityContract>,
+    #[serde(default)]
+    pub projection_contract: Option<ProjectionContract>,
+    #[serde(default)]
+    pub action_response_contract: Option<ActionResponseContract>,
+    #[serde(default)]
+    pub mcp_result_contract: Option<McpResultContract>,
     pub crates: Vec<CrateRule>,
 }
 
@@ -94,6 +104,9 @@ impl Contract {
         }
         if self.version >= 5 {
             self.validate_capabilities(root)?;
+        }
+        if self.version >= 6 {
+            self.validate_projection()?;
         }
         Ok(())
     }

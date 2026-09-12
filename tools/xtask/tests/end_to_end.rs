@@ -127,17 +127,37 @@ impl Fixture {
         ]);
     }
 
-    fn capability_checkpoint(&self) {
+    fn capability_checkpoint(&self, version: u64) {
         let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
+        assert!(matches!(version, 5 | 6));
+        if version == 5 {
+            // Keep the v5 regression on its own contract rather than silently
+            // inheriting every future architecture field from the working tree.
+            spec["version"] = 5.into();
+            spec["decision"] = "docs/adr/0005-capability-observations.md".into();
+            for field in [
+                "projection_contract",
+                "action_response_contract",
+                "mcp_result_contract",
+            ] {
+                if let Some(contract) = spec.as_table_mut().unwrap().remove(field) {
+                    let suites = contract["required_tests"].as_array().unwrap();
+                    spec["required_portable_tests"]
+                        .as_array_mut()
+                        .unwrap()
+                        .retain(|suite| !suites.contains(suite));
+                }
+            }
+        }
         let original: toml::Value =
             toml::from_str(&fs::read_to_string(self.root.join("architecture/spec.toml")).unwrap())
                 .unwrap();
         let rules = spec["crates"].as_array().unwrap().clone();
         let mut members = vec!["crates/pure".to_owned(), "crates/tokio".to_owned()];
-        let mut lock = fs::read_to_string(self.root.join("Cargo.lock")).unwrap();
+        let mut lock = "version = 4\n[[package]]\nname = 'pure'\nversion = '0.1.0'\ndependencies = ['tokio']\n[[package]]\nname = 'tokio'\nversion = '0.1.0'\n".to_owned();
         for rule in rules {
             let path = rule["path"].as_str().unwrap();
             let name = rule["name"].as_str().unwrap();
@@ -154,10 +174,14 @@ impl Fixture {
             );
             lock.push_str(&format!("\n[[package]]\nname='{name}'\nversion='0.1.0'\n"));
         }
-        spec["crates"]
-            .as_array_mut()
-            .unwrap()
-            .extend(original["crates"].as_array().unwrap().iter().cloned());
+        spec["crates"].as_array_mut().unwrap().extend(
+            original["crates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|rule| matches!(rule["name"].as_str(), Some("pure" | "tokio")))
+                .cloned(),
+        );
         spec["portable_crates"]
             .as_array_mut()
             .unwrap()
@@ -430,7 +454,7 @@ fn assembled_v4_gate_rejects_ci_exclusions_and_noop_test_targets() {
 #[test]
 fn assembled_v5_gate_rejects_unsafe_probe_and_overstated_inventory_evidence() {
     let fixture = Fixture::new();
-    fixture.capability_checkpoint();
+    fixture.capability_checkpoint(5);
     xtask::architecture(&fixture.root, Some("HEAD")).unwrap();
     let registry =
         fs::read_to_string(fixture.root.join("architecture/capability-probes.toml")).unwrap();
@@ -492,4 +516,64 @@ fn assembled_v5_gate_rejects_unsafe_probe_and_overstated_inventory_evidence() {
         "#[test] #[ignore] fn hidden() { assert_eq!(1,1); }\n",
     );
     fixture.denied("required portable suites");
+}
+
+#[test]
+fn assembled_v6_gate_requires_reviewed_evolution_and_non_skipped_response_suites() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(5);
+    fixture.capability_checkpoint(6);
+    let error = xtask::architecture(&fixture.root, Some("HEAD^"))
+        .expect_err("v6 evolution must require its changed documentation");
+    assert!(error.contains("changed evidence"), "wrong failure: {error}");
+    fixture.write(
+        "docs/requirements.md",
+        "Synthetic v6 bounded response requirements.\n",
+    );
+    fixture.write(
+        "docs/architecture.md",
+        "Synthetic v6 bounded response ownership.\n",
+    );
+    let error = xtask::architecture(&fixture.root, Some("HEAD^"))
+        .expect_err("v6 evolution must require its harness regression");
+    assert!(
+        error.contains("harness regression"),
+        "wrong failure: {error}"
+    );
+    fixture.write(
+        "tools/xtask/tests/v6.rs",
+        "#[test] fn synthetic_regression() { assert_eq!(1, 1); }\n",
+    );
+    let error = xtask::architecture(&fixture.root, Some("HEAD^"))
+        .expect_err("v6 evolution must require its harness implementation");
+    assert!(
+        error.contains("harness implementation"),
+        "wrong failure: {error}"
+    );
+    fixture.write(
+        "tools/xtask/src/v6.rs",
+        "//! Synthetic harness implementation marker.\n",
+    );
+    xtask::architecture(&fixture.root, Some("HEAD^")).unwrap();
+
+    let original = fs::read_to_string(fixture.root.join("architecture/spec.toml")).unwrap();
+    let mut missing: toml::Value = toml::from_str(&original).unwrap();
+    missing
+        .as_table_mut()
+        .unwrap()
+        .remove("projection_contract");
+    fixture.write(
+        "architecture/spec.toml",
+        &toml::to_string(&missing).unwrap(),
+    );
+    fixture.denied("v6 requires a projection contract");
+    fixture.write("architecture/spec.toml", &original);
+    let suite = "crates/core/tests/collection_projection.rs";
+    fs::remove_file(fixture.root.join(suite)).unwrap();
+    fixture.denied("missing required portable suite");
+    fixture.write(
+        suite,
+        "#![cfg(unix)] #[test] fn synthetic_only_on_one_host() { assert_eq!(1,1); }\n",
+    );
+    fixture.denied("required portable suite");
 }

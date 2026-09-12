@@ -1,6 +1,6 @@
 # Management workflows: proposed future architecture
 
-Status: **PROPOSED**, for a later mutation architecture checkpoint, provisionally v6. This document is not an accepted ADR, a replacement for the current machine contract, an implemented API, or authorization to change a router. The capability-discovery increment and these future mutation workflows are separate work.
+Status: **PROPOSED**, for a later mutation architecture checkpoint after v6 bounded reads; no architecture number is reserved yet. This document is not an accepted ADR, a replacement for the current machine contract, an implemented API, or authorization to change a router. Capability discovery, bounded reads and these future mutation workflows are separate work.
 
 Implementation must first update the requirements, ADR, architecture and versioned harness with negative tests, then pass an architecture-only checkpoint. Names below describe proposed responsibilities, not available Rust APIs or MCP tools. Existing [architecture](architecture.md), [development rules](development.md), [protection contract](protection-contract.md) and [portable host contract](portability-contract.md) remain authoritative until that evolution is accepted.
 

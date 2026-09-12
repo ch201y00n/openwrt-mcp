@@ -1,16 +1,59 @@
-version = 5
-decision = "docs/adr/0005-capability-observations.md"
+version = 6
+decision = "docs/adr/0006-bounded-read-projections.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
-required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs"]
+required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs"]
 native_ci = ".github/workflows/ci.yml"
 
 [capability_contract]
 probe_registry = "architecture/capability-probes.toml"
 evidence_manifest = "compatibility/evidence.toml"
 required_tests = ["crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs"]
+
+[projection_contract]
+owner = "openwrt-mcp-core"
+profile = "typed_collections_v1"
+prepared_invocation = "private_core"
+node_forms = ["Record", "ObjectArray", "ObjectEntries", "ScalarArray"]
+finite_schema = "two_collection_levels"
+root_selection = "exact_parameter_equality"
+map_keys = "explicit_bounded_field"
+builtin_raw_subtrees = "forbidden"
+invalid_shape = "reject"
+overflow = "reject"
+max_collection_depth = 2
+max_collection_nodes = 8
+max_total_items = 256
+max_emitted_items = 256
+max_items_per_collection = 256
+max_fields_per_record = 64
+max_schema_depth = 8
+max_pointer_depth = 8
+max_pointer_bytes = 512
+max_output_name_bytes = 64
+max_string_bytes = 1024
+max_normalized_bytes = 65536
+required_tests = ["crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs"]
+
+[action_response_contract]
+owner = "openwrt-mcp-device-codec"
+profile = "strict_json_v1"
+consumers = ["openwrt-mcp-adapters", "openwrt-mcp-backend-ssh"]
+duplicate_keys = "reject"
+max_depth = 32
+max_nodes = 65536
+max_bytes = 16777216
+required_tests = ["crates/device-codec/tests/action_response.rs"]
+
+[mcp_result_contract]
+owner = "openwrt-mcp-transport"
+normalized_owner = "openwrt-mcp-runtime"
+normalized_phase = "before_finish_audit"
+max_serialized_bytes = 262144
+serialized_scope = "entire_call_tool_result"
+required_tests = ["crates/mcp/tests/bounded_results.rs"]
 
 [[crates]]
 name = "openwrt-mcp-core"

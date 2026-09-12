@@ -36,6 +36,9 @@ fn contract() -> Contract {
         required_portable_tests: vec![],
         native_ci: String::new(),
         capability_contract: None,
+        projection_contract: None,
+        action_response_contract: None,
+        mcp_result_contract: None,
         crates: vec![rule()],
     }
 }
