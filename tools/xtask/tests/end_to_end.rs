@@ -61,6 +61,13 @@ impl Fixture {
 
     fn git(&self, arguments: &[&str]) {
         let output = Command::new("git")
+            // Synthetic commits must not run a contributor's hooks or signing agent.
+            .arg("-c")
+            .arg(format!(
+                "core.hooksPath={}",
+                self.root.join(".git/no-fixture-hooks").display()
+            ))
+            .args(["-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false"])
             .args(arguments)
             .current_dir(&self.root)
             .output()

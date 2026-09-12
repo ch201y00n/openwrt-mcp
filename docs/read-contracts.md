@@ -1,6 +1,6 @@
-# Next read-adapter acceptance contracts
+# Post-v2 read-adapter acceptance contracts
 
-Designed after architecture v2, before implementation. These features fit the existing pure feature definitions, PreparedAction port and scalar projection; they do not require new dependencies or I/O boundaries. Implementation starts only after the architecture migration gate passes.
+Designed with architecture v2, before feature implementation. Architecture-only checkpoint 8faf423 passed the complete repository gate before these reads were implemented and fixture-tested. They fit the existing pure feature definitions, PreparedAction port and scalar projection without new dependencies or I/O boundaries. Real OpenWrt release/device acceptance remains pending.
 
 All examples are synthetic. Source review is against upstream on 2026-09-13, not release/device certification. Absent output fields stay absent; empty results must not be interpreted as proof that a service is stopped or a capability is supported. Object/array values at scalar pointers are discarded.
 

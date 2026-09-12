@@ -51,6 +51,8 @@ Default call deadline 10 seconds, stdout/stderr cap 64 KiB each, two in-flight o
 4. Service, package, storage, VPN and firmware adapters with adapter-specific verification.
 5. Optional authenticated remote MCP transport and OpenWrt package delivery; performance profiling on supported targets.
 
+The first post-v2 feature increment follows [read-contracts.md](read-contracts.md): general logical-interface status, selected iwinfo radio data, standard logd/sysntpd instance state, and a fixed empty-argument watchdog query. It stays inside the existing feature/backend/projection contract; no new direct I/O path or dependency is permitted. These are fixture-validated reads, not the complete capability-inventory or device-acceptance milestone.
+
 Every release must state implemented coverage and outstanding limitations. Production readiness requires real OpenWrt testing and security review; a successful host build does not establish either.
 
 ## Sources

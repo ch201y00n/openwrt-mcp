@@ -1,0 +1,30 @@
+# Opt-in example for all currently implemented built-in read categories.
+# No write or execute grants; missing categories remain denied.
+[policy.categories.system]
+access = "read"
+execute = false
+
+[policy.categories.network]
+access = "read"
+execute = false
+
+[policy.categories.wireless]
+access = "read"
+execute = false
+
+[policy.categories.services]
+access = "read"
+execute = false
+
+[policy.categories.diagnostics]
+access = "read"
+execute = false
+
+[audit]
+enabled = true
+format = "json"
+destination = "stderr"
+
+[logging]
+level = "info"
+format = "json"

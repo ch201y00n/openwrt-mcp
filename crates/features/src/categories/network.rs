@@ -71,5 +71,39 @@ pub(crate) fn operations() -> Vec<Operation> {
             "status",
             fields,
         ),
+        interface_status(),
     ]
+}
+
+fn interface_status() -> Operation {
+    let mut operation = read(
+        "network_interface_status",
+        "Read selected state of a named logical interface; missing interfaces are unavailable.",
+        Category::Network,
+        "network.interface",
+        "status",
+        &[
+            "/up",
+            "/pending",
+            "/available",
+            "/autostart",
+            "/dynamic",
+            "/uptime",
+            "/proto",
+            "/device",
+            "/l3_device",
+        ],
+    );
+    operation.parameters.insert(
+        "interface".to_owned(),
+        Parameter {
+            kind: ParameterKind::String,
+            required: true,
+            allowed_values: Vec::new(),
+        },
+    );
+    if let Action::Ubus { arguments, .. } = &mut operation.action {
+        arguments.insert("interface".to_owned(), json!("{interface}"));
+    }
+    operation
 }

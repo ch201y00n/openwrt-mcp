@@ -1,0 +1,39 @@
+use crate::definition::read;
+use openwrt_mcp_core::{Action, Category, Operation, Parameter, ParameterKind};
+use serde_json::json;
+
+pub(crate) fn operations() -> Vec<Operation> {
+    let mut radio = read(
+        "wireless_radio_info",
+        "Read selected radio statistics without SSID or BSSID; requires rpcd-mod-iwinfo and a supported driver.",
+        Category::Wireless,
+        "iwinfo",
+        "info",
+        &[
+            "/phy",
+            "/mode",
+            "/country",
+            "/channel",
+            "/frequency",
+            "/txpower",
+            "/quality",
+            "/quality_max",
+            "/signal",
+            "/noise",
+            "/bitrate",
+            "/encryption/enabled",
+        ],
+    );
+    radio.parameters.insert(
+        "device".to_owned(),
+        Parameter {
+            kind: ParameterKind::String,
+            required: true,
+            allowed_values: Vec::new(),
+        },
+    );
+    if let Action::Ubus { arguments, .. } = &mut radio.action {
+        arguments.insert("device".to_owned(), json!("{device}"));
+    }
+    vec![radio]
+}

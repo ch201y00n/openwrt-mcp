@@ -11,7 +11,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Five conservative, structured ubus read operations; fixed-action operator extensions.
+- Ten conservative, structured ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, rotating files, or Unix syslog.
 - Bounded process output, deadlines, input frames and backend concurrency.
@@ -57,7 +57,7 @@ execute = false
 
 This grants system reads and network read/write capability, but no execution. It does not create write tools that are not implemented. Missing categories are denied. `access = "deny"` also blocks execution even if execute is true. Read/write does not imply execute; actions can require multiple categories and permissions.
 
-Start from [read-only.toml](config/read-only.toml) or [deny-all.toml](config/deny-all.toml). See [security](docs/security.md) for authority boundaries and [configuration](docs/configuration.md) for audit settings and extensions.
+Start from [read-only.toml](config/read-only.toml) for system/network only, [observability.toml](config/observability.toml) to opt into all currently implemented read categories, or [deny-all.toml](config/deny-all.toml). No example grants execute permission. See [security](docs/security.md) for authority boundaries and [configuration](docs/configuration.md) for audit settings and extensions.
 
 ## Development
 

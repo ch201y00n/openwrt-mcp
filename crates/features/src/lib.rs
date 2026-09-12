@@ -7,6 +7,9 @@ use openwrt_mcp_core::{Catalog, CoreError, Operation};
 pub fn builtins() -> Vec<Operation> {
     let mut operations = categories::system::operations();
     operations.extend(categories::network::operations());
+    operations.extend(categories::wireless::operations());
+    operations.extend(categories::services::operations());
+    operations.extend(categories::diagnostics::operations());
     operations
 }
 

@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 #[test]
 fn documented_example_policies_are_valid_and_non_mutating() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    for example in ["read-only.toml", "deny-all.toml"] {
+    for example in ["read-only.toml", "deny-all.toml", "observability.toml"] {
         // Parse fixtures directly; do not weaken live config permission checks for WSL mounts.
         let config: openwrt_mcp::config::Config =
             toml::from_str(&fs::read_to_string(root.join("config").join(example)).unwrap())
@@ -22,4 +22,33 @@ fn documented_example_policies_are_valid_and_non_mutating() {
             );
         }
     }
+}
+
+#[test]
+fn observability_example_exposes_builtins_without_privileged_extensions() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let config: openwrt_mcp::config::Config =
+        toml::from_str(&fs::read_to_string(root.join("config/observability.toml")).unwrap())
+            .unwrap();
+    let catalog = config.catalog().unwrap();
+    assert_eq!(catalog.operations().len(), 10);
+    assert!(
+        catalog
+            .operations()
+            .iter()
+            .all(|operation| config.policy.authorize(operation).is_ok())
+    );
+    assert!(
+        config
+            .policy
+            .categories
+            .values()
+            .all(|grant| !grant.execute)
+    );
+    assert!(
+        !config
+            .policy
+            .categories
+            .contains_key(&openwrt_mcp_core::Category::Extensions)
+    );
 }

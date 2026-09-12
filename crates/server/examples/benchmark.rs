@@ -34,6 +34,7 @@ async fn main() {
         custom.push(op);
     }
     let catalog = openwrt_mcp_features::catalog(custom).unwrap();
+    let catalog_operations = catalog.operations().len();
     let mut policy = Policy::default();
     policy.categories.insert(
         Category::System,
@@ -80,6 +81,6 @@ async fn main() {
     }
     println!(
         "{}",
-        json!({"kind":"host_fixture_microbenchmark", "catalog_operations":1005, "iterations":count, "input":"empty object", "backend":"in-memory fixture", "audit":"disabled", "policy_lookup_p50_ns":policy_p50, "policy_lookup_p95_ns":policy_p95, "dispatcher_p50_ns":percentile(&mut samples,50), "dispatcher_p95_ns":percentile(&mut samples,95)})
+        json!({"kind":"host_fixture_microbenchmark", "catalog_operations":catalog_operations, "iterations":count, "input":"empty object", "backend":"in-memory fixture", "audit":"disabled", "policy_lookup_p50_ns":policy_p50, "policy_lookup_p95_ns":policy_p95, "dispatcher_p50_ns":percentile(&mut samples,50), "dispatcher_p95_ns":percentile(&mut samples,95)})
     );
 }
