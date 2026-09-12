@@ -1,14 +1,44 @@
 //! Host microbenchmark; no router calls. Run with --release.
 use async_trait::async_trait;
 use openwrt_mcp_adapters::{AuditConfig, AuditWriter};
-use openwrt_mcp_core::{Access, Category, Grant, Permission, Policy, PreparedAction, Requirement};
+use openwrt_mcp_core::{
+    Access, CapabilityObservation, Category, Grant, MethodSignature, ObjectObservation, Permission,
+    Policy, PreparedAction, ProbeRequest, Requirement, ReviewedObject, UnknownReason,
+};
 use openwrt_mcp_runtime::{Backend, Dispatcher, Limits, RuntimeError};
 use serde_json::{Value, json};
-use std::{hint::black_box, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, hint::black_box, sync::Arc, time::Instant};
 
 struct Fixture;
 #[async_trait]
 impl Backend for Fixture {
+    fn capability_epoch(&self) -> Option<u64> {
+        Some(1)
+    }
+
+    async fn probe(
+        &self,
+        request: ProbeRequest,
+        _: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        match request {
+            ProbeRequest::DescribeUbusObject(ReviewedObject::System) => {
+                Ok(CapabilityObservation::Ubus(ObjectObservation {
+                    object: ReviewedObject::System,
+                    methods: BTreeMap::from([(
+                        "info".into(),
+                        MethodSignature {
+                            arguments: BTreeMap::new(),
+                        },
+                    )]),
+                }))
+            }
+            _ => Ok(CapabilityObservation::Unknown(
+                UnknownReason::NotObservedOrHidden,
+            )),
+        }
+    }
+
     async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         Ok(json!({"uptime": 100}))
     }
@@ -74,6 +104,8 @@ async fn main() {
     )
     .unwrap();
     samples.clear();
+    // Warm the private capability cache: measure cached dispatch, not discovery I/O.
+    dispatcher.invoke("system_info", json!({})).await.unwrap();
     for _ in 0..count {
         let start = Instant::now();
         black_box(dispatcher.invoke("system_info", json!({})).await).unwrap();
@@ -81,6 +113,6 @@ async fn main() {
     }
     println!(
         "{}",
-        json!({"kind":"host_fixture_microbenchmark", "catalog_operations":catalog_operations, "iterations":count, "input":"empty object", "backend":"in-memory fixture", "audit":"disabled", "policy_lookup_p50_ns":policy_p50, "policy_lookup_p95_ns":policy_p95, "dispatcher_p50_ns":percentile(&mut samples,50), "dispatcher_p95_ns":percentile(&mut samples,95)})
+        json!({"kind":"host_fixture_cached_capability_microbenchmark", "catalog_operations":catalog_operations, "iterations":count, "input":"empty object", "backend":"in-memory fixture", "capability":"prewarmed private cache; no device I/O", "audit":"disabled", "policy_lookup_p50_ns":policy_p50, "policy_lookup_p95_ns":policy_p95, "dispatcher_p50_ns":percentile(&mut samples,50), "dispatcher_p95_ns":percentile(&mut samples,95)})
     );
 }

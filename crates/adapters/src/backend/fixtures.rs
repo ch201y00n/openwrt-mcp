@@ -2,8 +2,9 @@
 
 use std::time::{Duration, Instant};
 
-use super::LocalBackend;
-use openwrt_mcp_core::PreparedAction;
+use super::{LocalBackend, run};
+use openwrt_mcp_core::{CapabilityObservation, PreparedAction, ProbeRequest, ReviewedObject};
+use openwrt_mcp_device_codec::{compile_action, parse_ubus_describe};
 use openwrt_mcp_runtime::{Backend, Limits};
 use serde_json::json;
 
@@ -172,4 +173,68 @@ fn limits_are_nonzero_and_have_hard_upper_bounds() {
         .validate()
         .is_err()
     );
+}
+
+#[tokio::test]
+async fn completed_local_bytes_use_the_same_bounded_probe_decoder() {
+    let bytes = "'network.interface.lan' @00000001\n\t\"status\":{}\n\t\"add_device\":{\"link-ext\":\"Boolean\"}\n";
+    let command = compile_action(&invocation("/usr/bin/printf", &["%s", bytes])).unwrap();
+    let stdout = run(
+        &command,
+        1024,
+        tokio::time::Instant::now() + Duration::from_secs(2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(stdout, bytes.as_bytes());
+    let CapabilityObservation::Ubus(observation) =
+        parse_ubus_describe(ReviewedObject::NetworkInterfaceLan, &stdout, 1024).unwrap()
+    else {
+        panic!("expected metadata")
+    };
+    assert!(observation.methods.contains_key("status"));
+    assert!(
+        observation.methods["add_device"]
+            .arguments
+            .contains_key("link-ext")
+    );
+    assert_eq!(LocalBackend { _verified: () }.capability_epoch(), Some(1));
+    assert_eq!(
+        run(
+            &command,
+            8,
+            tokio::time::Instant::now() + Duration::from_secs(2)
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        "output_limit"
+    );
+    let failed = compile_action(&invocation("/usr/bin/false", &[])).unwrap();
+    assert_eq!(
+        run(
+            &failed,
+            1024,
+            tokio::time::Instant::now() + Duration::from_secs(2)
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        "backend_failed"
+    );
+}
+
+#[tokio::test]
+async fn invalid_local_probe_limits_are_rejected_before_any_program_is_started() {
+    let error = LocalBackend { _verified: () }
+        .probe(
+            ProbeRequest::DescribeUbusObject(ReviewedObject::System),
+            &Limits {
+                timeout_ms: 0,
+                ..Limits::default()
+            },
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), "invalid_config");
 }

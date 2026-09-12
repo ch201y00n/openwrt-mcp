@@ -1,6 +1,6 @@
 # Validation record
 
-Date: 2026-09-13. This is host/fixture validation, not a production or real-router acceptance report.
+Date: 2026-09-13. This records host/fixture validation and separately scoped emulated acceptance, not a production or full physical-router acceptance report.
 
 ## Environment
 
@@ -12,7 +12,13 @@ Date: 2026-09-13. This is host/fixture validation, not a production or real-rout
 
 ## Verification
 
-Current continued-development work has separately performed read-only reference identity, selected installed-package metadata and ubus method-name introspection on BPI-R4. See [reference-target.md](reference-target.md) for exact observation times and scope. No configuration was changed. This is not full operation acceptance, and no historical fixture count below is reclassified as device testing. Capability implementation and an isolated ARM64 userspace lab are in progress; their acceptance results will be recorded only after execution.
+Current continued-development work has separately performed read-only reference identity, selected installed-package metadata and ubus method-name introspection on BPI-R4. See [reference-target.md](reference-target.md) for exact observation times and scope. No configuration was changed. This is not full operation acceptance, and no historical fixture count below is reclassified as device testing.
+
+The **v5 capability implementation** passed the full repository gate: architecture/evolution, all 44 harness regressions, formatting, strict Clippy, workspace tests and release compilation. The inventory is **260 distinct tests**, including the compile-fail doctest, with zero ignored. Earlier checkpoint scaffolds have been replaced/extended with behavioral contracts. Tests cover required input signatures, signed 32-bit ubus values, bounded duplicate-rejecting describe parsing, local/SSH probes, offline listings, audited metadata, same-backend epochs, expiry, refresh, concurrency and shared deadlines. Eleven MCP/actual-binary integration tests exercise transport and protocol behavior using synthetic endpoints.
+
+Independent review identified a refresh revocation issue: a previously returned cache lease could remain positive after its entry was removed. Shared invalidation tokens now revoke every lease before refreshing; successful, failed and cancelled refresh regressions pass. Further independent review found no additional blocker in this increment; this is not an external security audit.
+
+A separately executed **actual MCP -> native Rust SSH -> OpenWrt ARM64 QEMU** run validated seven successful reads, three explicit unavailable/error cases, four malformed/unknown-input denials and safe audit/lifecycle behavior. See [emulated acceptance](emulator-validation.md) and [environment provenance](emulator-environment.md). This is emulated userspace evidence, not native Windows/macOS or BPI-R4 hardware acceptance. No live-router changes, real keys or Vault access were involved.
 
 Architecture v5's **architecture-only checkpoint** passed the full repository gate in Linux-on-WSL before capability implementation: 12 crate boundaries, 44 harness regressions, formatting, strict Clippy, workspace tests and release build. The inventory is **208 distinct tests**, zero ignored, including the previous 192 plus 12 harness tests and four explicitly named checkpoint scaffold checks. Those four establish the recorded boundary/catalog/evidence contract, not implemented probing, caching or protocol gating. The new codec production library is documentation-only at this checkpoint. No native Windows/macOS or full device-acceptance claim follows from this gate.
 
@@ -69,7 +75,13 @@ An independent read-only code review found three issues during implementation: b
 
 The architecture migration was verified before adding the next read operations. Independent source review found and closed simple harness bypasses involving Cargo aliases, production targets in test directories, nested target directories, raw identifiers, macro/attribute expressions and broad namespace re-exports. These findings are exercised by negative fixtures; static checks are not a proof of arbitrary macro/dependency semantics.
 
-## Current architecture-v4 idle sample
+## Current architecture-v5 host measurements
+
+After the v5 release gate on the Linux x86_64 environment above: executable **4,443,248 bytes (4.24 MiB)**, idle RSS **5,556 KiB (5.43 MiB)**, two threads, sampled one second after MCP initialization. Default-deny/unconfigured target, enabled audit, stderr connected to null; no router call, key access or SSH session. CPU and active-work peak memory were not measured.
+
+In a separate 10,000-iteration release microbenchmark with a 1,010-operation synthetic catalog and empty input: policy lookup/authorization p50 **44 ns**, p95 **47 ns**; dispatcher p50 **55,131 ns**, p95 **78,370 ns**. The dispatcher used an in-memory backend, a prewarmed private capability cache and disabled audit destination. It includes normal validation/projection/audit machinery but excludes real probing, SSH, device execution and log I/O. These single-run host observations are not controlled comparisons or ARM/OpenWrt/native Windows/macOS performance acceptance.
+
+## Historical architecture-v4 idle sample
 
 After the final v4 release gate on the same Linux x86_64 host: executable **4,316,272 bytes (4.12 MiB)**, idle RSS **5,304 KiB (5.18 MiB)**, two threads. Sampled one second after MCP initialization with default-deny/unconfigured target, enabled audit and stderr connected to null. No router call, SSH connection or key source was opened; CPU was not measured. This is an idle-host observation, not active SSH/crypto peak memory, a native Windows/macOS measurement or ARM/musl/OpenWrt acceptance. Native SSH now contributes to the executable; historical sizes below are not measurements of this build.
 
@@ -106,9 +118,9 @@ If using CARGO_TARGET_DIR, supply that directory's release binary to footprint. 
 - Run the configured native Windows/Linux/macOS CI gates and platform-specific acceptance; WSL alone is not platform parity.
 - Implement Windows/macOS protected file/log profiles and actual Personal Vault integration through the architecture-first workflow.
 - Cross-compile and package using a declared OpenWrt SDK/target.
-- Run structured adapter tests in an OpenWrt emulator, then separately authorized hardware tests.
+- Expand the initial OpenWrt emulator acceptance to more management adapters and an opkg-family image, then separately authorized hardware tests.
 - Verify built-in field schemas against declared OpenWrt releases and report unavailable interfaces accurately.
-- Implement device capabilities and mutation/backup/rollback workflows from the requirements.
+- Expand capability families beyond closed ubus signatures; implement mutation/backup/rollback workflows from the requirements.
 - Test Unix syslog against OpenWrt logd, rotation under disk pressure, cancellation and transport flood behavior.
 - Select a redistribution license and complete release review before publishing code.
 

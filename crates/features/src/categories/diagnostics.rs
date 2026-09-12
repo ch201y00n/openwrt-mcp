@@ -9,6 +9,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         Category::Diagnostics,
         "system",
         "watchdog",
+        "diagnostics_watchdog_status.v1",
         &["/status", "/timeout", "/frequency", "/magicclose"],
     )]
 }

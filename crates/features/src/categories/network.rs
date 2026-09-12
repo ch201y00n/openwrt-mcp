@@ -1,5 +1,5 @@
-use crate::definition::read;
-use openwrt_mcp_core::{Action, Category, Operation, Parameter, ParameterKind};
+use crate::definition::{argument, read};
+use openwrt_mcp_core::{Category, Operation, Parameter, ParameterKind};
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
@@ -9,6 +9,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         Category::Network,
         "network.device",
         "status",
+        "network_device_status.v1",
         &[
             "/type",
             "/external",
@@ -38,9 +39,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             allowed_values: Vec::new(),
         },
     );
-    if let Action::Ubus { arguments, .. } = &mut device.action {
-        arguments.insert("name".to_owned(), json!("{name}"));
-    }
+    argument(&mut device, "name", ParameterKind::String, json!("{name}"));
     let fields = &[
         "/up",
         "/pending",
@@ -61,6 +60,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             Category::Network,
             "network.interface.lan",
             "status",
+            "network_lan_status.v1",
             fields,
         ),
         read(
@@ -69,6 +69,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             Category::Network,
             "network.interface.wan",
             "status",
+            "network_wan_status.v1",
             fields,
         ),
         interface_status(),
@@ -82,6 +83,7 @@ fn interface_status() -> Operation {
         Category::Network,
         "network.interface",
         "status",
+        "network_interface_status.v1",
         &[
             "/up",
             "/pending",
@@ -102,8 +104,11 @@ fn interface_status() -> Operation {
             allowed_values: Vec::new(),
         },
     );
-    if let Action::Ubus { arguments, .. } = &mut operation.action {
-        arguments.insert("interface".to_owned(), json!("{interface}"));
-    }
+    argument(
+        &mut operation,
+        "interface",
+        ParameterKind::String,
+        json!("{interface}"),
+    );
     operation
 }

@@ -1,6 +1,8 @@
 //! Synthetic keys and in-process loopback SSH only; no real router or key files.
 use openwrt_mcp_backend_ssh::{SshBackend, SshOptions};
-use openwrt_mcp_core::PreparedAction;
+use openwrt_mcp_core::{
+    CapabilityObservation, PreparedAction, ProbeRequest, ReviewedObject, UnknownReason,
+};
 use openwrt_mcp_runtime::{
     Backend, Limits, RuntimeError,
     protection::{KeyMaterial, KeySource, ProtectionError},
@@ -64,6 +66,18 @@ fn success() -> Reply {
         stderr: Vec::new(),
         status: Some(0),
     }
+}
+
+fn described(stdout: &[u8]) -> Reply {
+    Reply::Complete {
+        stdout: stdout.to_vec(),
+        stderr: Vec::new(),
+        status: Some(0),
+    }
+}
+
+fn probe_request() -> ProbeRequest {
+    ProbeRequest::DescribeUbusObject(ReviewedObject::System)
 }
 
 #[derive(Default)]
@@ -629,4 +643,206 @@ async fn malformed_and_oversized_identity_fail_before_connection_and_never_retry
         assert_eq!(source.reads.load(Ordering::SeqCst), 1);
         assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 0);
     }
+}
+
+#[tokio::test]
+async fn probe_and_execute_share_one_authenticated_session_and_epoch() {
+    let mut fixture = Fixture::new(vec![
+        described(b"'system' @00000001\n\t\"info\":{}\n"),
+        success(),
+    ])
+    .await;
+    let source = MemoryKey::new(2);
+    let backend = SshBackend::new(fixture.options.clone(), source.clone()).unwrap();
+    assert_eq!(backend.capability_epoch(), None);
+    let CapabilityObservation::Ubus(observed) = backend
+        .probe(probe_request(), &Limits::default())
+        .await
+        .unwrap()
+    else {
+        panic!("expected metadata")
+    };
+    assert!(observed.methods.contains_key("info"));
+    assert_eq!(backend.capability_epoch(), Some(1));
+    assert_eq!(
+        backend
+            .execute(&action(), &Limits::default())
+            .await
+            .unwrap(),
+        json!({"ok":true})
+    );
+    assert_eq!(backend.capability_epoch(), Some(1));
+    assert_eq!(source.reads.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        *fixture.observed.commands.lock().unwrap(),
+        vec![
+            b"exec '/bin/ubus' '-v' 'list' 'system'".to_vec(),
+            b"exec '/bin/ubus' '-S' 'call' 'system' 'info' '{}'".to_vec()
+        ]
+    );
+    drop(backend);
+    fixture.closed().await;
+}
+
+#[tokio::test]
+async fn complete_invalid_empty_and_nonzero_probes_never_create_positive_evidence() {
+    let mut fixture = Fixture::new(vec![
+        described(b"'service' @00000001\n\t\"info\":{}\n"),
+        described(b"'system' @00000001\n\t\"info\":{}\n\t\"info\":{}\n"),
+        described(b"'system' @00000001\n\t\"info\":{}"),
+        described(b""),
+        Reply::Complete {
+            stdout: Vec::new(),
+            stderr: b"synthetic-private-error".to_vec(),
+            status: Some(4),
+        },
+        success(),
+    ])
+    .await;
+    let backend = SshBackend::new(fixture.options.clone(), MemoryKey::new(2)).unwrap();
+    for _ in 0..3 {
+        assert_eq!(
+            backend
+                .probe(probe_request(), &Limits::default())
+                .await
+                .unwrap(),
+            CapabilityObservation::Unknown(UnknownReason::InvalidObservation)
+        );
+        assert_eq!(backend.capability_epoch(), Some(1));
+    }
+    assert_eq!(
+        backend
+            .probe(probe_request(), &Limits::default())
+            .await
+            .unwrap(),
+        CapabilityObservation::Unknown(UnknownReason::NotObservedOrHidden)
+    );
+    let error = backend
+        .probe(
+            ProbeRequest::DescribeUbusObject(ReviewedObject::NetworkInterfaceWan),
+            &Limits::default(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), "backend_failed");
+    assert!(!error.to_string().contains("private"));
+    backend
+        .execute(&action(), &Limits::default())
+        .await
+        .unwrap();
+    assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 1);
+    drop(backend);
+    fixture.closed().await;
+}
+
+#[tokio::test]
+async fn probe_bounds_missing_completion_and_timeout_revoke_epoch_without_replay() {
+    for (reply, maximum, code) in [
+        (Reply::Hang, 65_536, "timeout"),
+        (Reply::StatusWithoutClose, 65_536, "timeout"),
+        (described(&[b'x'; 33]), 32, "output_limit"),
+        (described(&vec![b'x'; 65_537]), 131_072, "output_limit"),
+        (
+            Reply::Complete {
+                stdout: b"'system' @00000001\n".to_vec(),
+                stderr: Vec::new(),
+                status: None,
+            },
+            65_536,
+            "backend_failed",
+        ),
+    ] {
+        let mut fixture = Fixture::new(vec![
+            described(b"'system' @00000001\n\t\"info\":{}\n"),
+            reply,
+        ])
+        .await;
+        let source = MemoryKey::new(2);
+        let backend = SshBackend::new(fixture.options.clone(), source.clone()).unwrap();
+        backend
+            .probe(probe_request(), &Limits::default())
+            .await
+            .unwrap();
+        assert_eq!(backend.capability_epoch(), Some(1));
+        let limits = Limits {
+            timeout_ms: 200,
+            max_output_bytes: maximum,
+            ..Limits::default()
+        };
+        assert_eq!(
+            backend
+                .probe(probe_request(), &limits)
+                .await
+                .unwrap_err()
+                .code(),
+            code
+        );
+        assert_eq!(backend.capability_epoch(), None);
+        assert_eq!(
+            backend
+                .probe(probe_request(), &Limits::default())
+                .await
+                .unwrap_err()
+                .code(),
+            "backend_failed"
+        );
+        assert_eq!(fixture.observed.commands.lock().unwrap().len(), 2);
+        assert_eq!(source.reads.load(Ordering::SeqCst), 1);
+        fixture.closed().await;
+    }
+}
+
+#[tokio::test]
+async fn cancelled_probe_revokes_epoch_and_cannot_restart_or_overlap_with_execute() {
+    let mut fixture = Fixture::new(vec![Reply::Hang]).await;
+    let backend = Arc::new(SshBackend::new(fixture.options.clone(), MemoryKey::new(2)).unwrap());
+    let running = backend.clone();
+    let task =
+        tokio::spawn(async move { running.probe(probe_request(), &Limits::default()).await });
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        fixture.observed.submitted.notified(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(backend.capability_epoch(), Some(1));
+    assert!(matches!(
+        backend.execute(&action(), &Limits::default()).await,
+        Err(RuntimeError::Busy)
+    ));
+    task.abort();
+    let _ = task.await;
+    assert_eq!(backend.capability_epoch(), None);
+    assert!(matches!(
+        backend.probe(probe_request(), &Limits::default()).await,
+        Err(RuntimeError::BackendFailed)
+    ));
+    assert_eq!(fixture.observed.commands.lock().unwrap().len(), 1);
+    fixture.closed().await;
+}
+
+#[tokio::test]
+async fn invalid_probe_limits_leave_source_and_connection_untouched() {
+    let fixture = Fixture::new(vec![]).await;
+    let source = MemoryKey::new(2);
+    let backend = SshBackend::new(fixture.options.clone(), source.clone()).unwrap();
+    for limits in [
+        Limits {
+            timeout_ms: 0,
+            ..Limits::default()
+        },
+        Limits {
+            max_output_bytes: usize::MAX,
+            ..Limits::default()
+        },
+    ] {
+        assert!(matches!(
+            backend.probe(probe_request(), &limits).await,
+            Err(RuntimeError::InvalidConfig)
+        ));
+    }
+    assert_eq!(backend.capability_epoch(), None);
+    assert_eq!(source.reads.load(Ordering::SeqCst), 0);
+    assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 0);
 }

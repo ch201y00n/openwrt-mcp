@@ -1,7 +1,6 @@
 # Inventory provenance is not operation acceptance or a live capability snapshot.
 schema_version = 1
 allowed_levels = ["source", "synthetic", "native", "emulated", "exact_device"]
-records = []
 
 [[targets]]
 id = "bpi-r4-openwrt-25.12.5-reference"
@@ -22,3 +21,44 @@ rpcd = "2026.07.19~e37ed9d8-r1"
 netifd = "2026.02.26~cbb83a18-r2"
 procd = "2026.03.13~58eb263d-r1"
 apk = "3.0.5"
+
+[[targets]]
+id = "qemu-arm64-openwrt-25.12.5"
+kind = "emulated"
+release = "25.12.5"
+revision = "r33051-f5dae5ece4"
+kernel = "6.12.94"
+target = "armsr/armv8"
+board = "linux,dummy-virt"
+observed_at = "2026-09-12T20:02:13Z"
+inventory_observed_at = "2026-09-12T20:02:13Z"
+inventory_only = false
+sources = ["docs/emulator-environment.md"]
+
+[targets.packages]
+ubus = "2026.06.28~24864e78-r2"
+rpcd = "2026.06.04~28faf640-r1"
+netifd = "2026.02.26~cbb83a18-r1"
+procd = "2026.03.13~58eb263d-r1"
+apk = "3.0.5"
+
+[[records]]
+id = "v5-qemu-successful-reads"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["system_board", "system_info", "network_device_status", "network_lan_status", "service_logd_status", "service_sysntpd_status", "diagnostics_watchdog_status"]
+artifacts = ["docs/emulator-validation.md"]
+observed_at = "2026-09-12T20:03:11Z"
+host = "linux"
+environment = "wsl"
+
+# Negative acceptance is explicitly documented; these are NOT successful reads.
+[[records]]
+id = "v5-qemu-unavailable-calls"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["network_wan_status", "network_interface_status", "wireless_radio_info"]
+artifacts = ["docs/emulator-validation.md"]
+observed_at = "2026-09-12T20:03:11Z"
+host = "linux"
+environment = "wsl"

@@ -6,6 +6,13 @@ use crate::RuntimeError;
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum AuditKind {
+    Invocation,
+    Capability,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum AuditPhase {
     Start,
     Finish,
@@ -26,6 +33,7 @@ pub enum AuditOutcome {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AuditEvent {
+    pub kind: AuditKind,
     pub timestamp_ms: u64,
     pub request_sequence: u64,
     pub phase: AuditPhase,
@@ -43,6 +51,7 @@ impl AuditEvent {
         duration_ms: Option<u64>,
     ) -> Self {
         Self {
+            kind: AuditKind::Invocation,
             timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -54,6 +63,11 @@ impl AuditEvent {
             outcome,
             duration_ms,
         }
+    }
+
+    pub fn with_kind(mut self, kind: AuditKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 

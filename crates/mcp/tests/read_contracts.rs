@@ -1,5 +1,9 @@
 use async_trait::async_trait;
-use openwrt_mcp_core::{Access, Category, Grant, Policy, PreparedAction};
+use openwrt_mcp_core::{
+    Access, CAPABILITY_TOOL_NAME, CapabilityObservation, Category, Grant, MethodSignature,
+    ObjectObservation, Policy, PreparedAction, ProbeRequest, ReviewedObject, UbusArgumentType,
+    UnknownReason,
+};
 use openwrt_mcp_runtime::{AuditEvent, AuditSink, Backend, Dispatcher, Limits, RuntimeError};
 use openwrt_mcp_transport::McpServer;
 use rmcp::{ServiceExt, model::CallToolRequestParams};
@@ -13,11 +17,61 @@ const PRIVATE: &str = "synthetic-private-never-export";
 
 struct RecordingBackend {
     calls: Mutex<Vec<PreparedAction>>,
+    probes: Mutex<Vec<ProbeRequest>>,
     responses: Mutex<VecDeque<Value>>,
 }
 
 #[async_trait]
 impl Backend for RecordingBackend {
+    fn capability_epoch(&self) -> Option<u64> {
+        Some(1)
+    }
+
+    async fn probe(
+        &self,
+        request: ProbeRequest,
+        _: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        self.probes.lock().unwrap().push(request);
+        let ProbeRequest::DescribeUbusObject(object) = request;
+        let (method, arguments) = match object {
+            ReviewedObject::Iwinfo => ("info", vec![("device", UbusArgumentType::String)]),
+            ReviewedObject::System => (
+                "watchdog",
+                vec![
+                    ("frequency", UbusArgumentType::Integer),
+                    ("timeout", UbusArgumentType::Integer),
+                    ("magicclose", UbusArgumentType::Boolean),
+                    ("stop", UbusArgumentType::Boolean),
+                ],
+            ),
+            ReviewedObject::Service => (
+                "list",
+                vec![
+                    ("name", UbusArgumentType::String),
+                    ("verbose", UbusArgumentType::Boolean),
+                ],
+            ),
+            _ => {
+                return Ok(CapabilityObservation::Unknown(
+                    UnknownReason::NotObservedOrHidden,
+                ));
+            }
+        };
+        Ok(CapabilityObservation::Ubus(ObjectObservation {
+            object,
+            methods: BTreeMap::from([(
+                method.into(),
+                MethodSignature {
+                    arguments: arguments
+                        .into_iter()
+                        .map(|(name, kind)| (name.into(), kind))
+                        .collect(),
+                },
+            )]),
+        }))
+    }
+
     async fn execute(
         &self,
         action: &PreparedAction,
@@ -88,6 +142,7 @@ async fn check_read_contract(contract: ReadContract) {
         .collect();
     let backend = Arc::new(RecordingBackend {
         calls: Mutex::new(Vec::new()),
+        probes: Mutex::new(Vec::new()),
         responses: Mutex::new(
             contract
                 .responses
@@ -120,6 +175,7 @@ async fn check_read_contract(contract: ReadContract) {
     let mut visible: Vec<&str> = tools.iter().map(|tool| tool.name.as_ref()).collect();
     visible.sort_unstable();
     let mut expected_visible = contract.visible.clone();
+    expected_visible.push(CAPABILITY_TOOL_NAME);
     expected_visible.sort_unstable();
     assert_eq!(visible, expected_visible);
     for tool in tools {
@@ -128,6 +184,7 @@ async fn check_read_contract(contract: ReadContract) {
         assert_eq!(metadata["inputSchema"]["additionalProperties"], false);
     }
     assert!(backend.calls.lock().unwrap().is_empty());
+    assert!(backend.probes.lock().unwrap().is_empty());
     assert!(audit.0.lock().unwrap().is_empty());
 
     // Discovery filtering is not the security boundary: direct calls also fail.
@@ -139,6 +196,7 @@ async fn check_read_contract(contract: ReadContract) {
             serde_json::from_str(response["content"][0]["text"].as_str().unwrap()).unwrap();
         assert_eq!(error["error"], "permission_denied");
         assert!(backend.calls.lock().unwrap().is_empty());
+        assert!(backend.probes.lock().unwrap().is_empty());
         assert_last_audit(&audit, name, "rejection", "denied");
     }
 
@@ -151,6 +209,7 @@ async fn check_read_contract(contract: ReadContract) {
         assert_eq!(response["isError"], true);
         assert!(!response.to_string().contains(PRIVATE));
         assert!(backend.calls.lock().unwrap().is_empty());
+        assert!(backend.probes.lock().unwrap().is_empty());
         assert_last_audit(&audit, contract.name, "rejection", "invalid_arguments");
     }
 
@@ -174,6 +233,7 @@ async fn check_read_contract(contract: ReadContract) {
         assert_last_audit(&audit, contract.name, "finish", "success");
     }
     assert!(backend.responses.lock().unwrap().is_empty());
+    assert_eq!(backend.probes.lock().unwrap().len(), 1);
     {
         let events = audit.0.lock().unwrap();
         assert_eq!(
@@ -193,6 +253,7 @@ async fn check_read_contract(contract: ReadContract) {
                 keys,
                 [
                     "duration_ms",
+                    "kind",
                     "operation",
                     "outcome",
                     "phase",
@@ -200,6 +261,7 @@ async fn check_read_contract(contract: ReadContract) {
                     "timestamp_ms",
                 ]
             );
+            assert_eq!(event["kind"], "invocation");
         }
     }
     client.cancel().await.unwrap();

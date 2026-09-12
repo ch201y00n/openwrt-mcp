@@ -1377,6 +1377,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "openwrt-mcp-core",
+ "openwrt-mcp-device-codec",
  "openwrt-mcp-host-platform",
  "openwrt-mcp-runtime",
  "serde",
@@ -1390,6 +1391,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "openwrt-mcp-core",
+ "openwrt-mcp-device-codec",
  "openwrt-mcp-runtime",
  "russh",
  "serde",

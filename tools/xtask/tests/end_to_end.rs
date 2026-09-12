@@ -1,8 +1,9 @@
 //! Real Cargo/Git fixtures exercise the assembled gate, not only its helpers.
 //! Source snippets are inspected, never compiled or executed against a device.
 use std::{
+    collections::BTreeSet,
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -177,10 +178,29 @@ impl Fixture {
         ] {
             self.write(path, &fs::read_to_string(repository.join(path)).unwrap());
         }
-        for path in [
-            spec["decision"].as_str().unwrap(),
-            "docs/reference-target.md",
-        ] {
+        let evidence: toml::Value = toml::from_str(
+            &fs::read_to_string(self.root.join("compatibility/evidence.toml")).unwrap(),
+        )
+        .unwrap();
+        let mut artifacts = BTreeSet::from([spec["decision"].as_str().unwrap()]);
+        for (collection, field) in [("targets", "sources"), ("records", "artifacts")] {
+            for entry in evidence[collection].as_array().unwrap() {
+                for path in entry[field].as_array().unwrap() {
+                    artifacts.insert(path.as_str().unwrap());
+                }
+            }
+        }
+        for path in artifacts {
+            // Seed only declared paths with inert text, never copy device evidence
+            // or let an edited manifest write outside this isolated fixture.
+            assert!(
+                !path.is_empty()
+                    && !path.contains(['\\', ':'])
+                    && Path::new(path)
+                        .components()
+                        .all(|part| matches!(part, Component::Normal(_))),
+                "fixture artifact must be a portable repository-relative path"
+            );
             self.write(
                 path,
                 "Synthetic architecture/evidence fixture, not device acceptance.\n",
@@ -425,8 +445,42 @@ fn assembled_v5_gate_rejects_unsafe_probe_and_overstated_inventory_evidence() {
     fixture.write("architecture/capability-probes.toml", &registry);
     let original = fs::read_to_string(fixture.root.join("compatibility/evidence.toml")).unwrap();
     let mut evidence: toml::Value = toml::from_str(&original).unwrap();
-    let record: toml::Value = toml::from_str("id='fabricated'\nlevel='exact_device'\ntarget='bpi-r4-openwrt-25.12.5-reference'\noperations=['system_info']\nartifacts=['docs/reference-target.md']\nobserved_at='2026-09-12T19:30:00Z'\nhost='windows'\nenvironment='native'\n").unwrap();
-    evidence["records"] = toml::Value::Array(vec![record]);
+    assert!(
+        evidence["records"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|record| {
+                record["level"].as_str() == Some("emulated")
+                    && evidence["targets"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|target| {
+                            target["kind"].as_str() == Some("emulated")
+                                && target["id"] == record["target"]
+                        })
+            }),
+        "the assembled fixture must retain valid emulated evidence"
+    );
+    // Use a separate inventory-only physical target so this regression remains
+    // meaningful if the original reference later gains real acceptance evidence.
+    let mut inventory = evidence["targets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|target| target["kind"].as_str() == Some("physical"))
+        .unwrap()
+        .clone();
+    inventory["id"] = "synthetic-physical-inventory".into();
+    inventory["inventory_only"] = true.into();
+    evidence["targets"].as_array_mut().unwrap().push(inventory);
+    fixture.write(
+        "docs/synthetic-acceptance.md",
+        "Synthetic overclaim fixture, not device acceptance.\n",
+    );
+    let record: toml::Value = toml::from_str("id='fabricated'\nlevel='exact_device'\ntarget='synthetic-physical-inventory'\noperations=['system_info']\nartifacts=['docs/synthetic-acceptance.md']\nobserved_at='2026-09-12T19:30:00Z'\nhost='windows'\nenvironment='native'\n").unwrap();
+    evidence["records"].as_array_mut().unwrap().push(record);
     fixture.write(
         "compatibility/evidence.toml",
         &toml::to_string(&evidence).unwrap(),

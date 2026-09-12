@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use openwrt_mcp_core::PreparedAction;
+use openwrt_mcp_core::{CapabilityObservation, PreparedAction, ProbeRequest, UnknownReason};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -37,6 +37,24 @@ impl Limits {
 
 #[async_trait]
 pub trait Backend: Send + Sync {
+    /// An opaque authentication/connection generation, never a release number.
+    /// None prevents cached evidence reuse. Reconnection must change this value.
+    fn capability_epoch(&self) -> Option<u64> {
+        None
+    }
+
+    /// Probe and execution belong to this same immutable target authority.
+    /// Implementing execute alone never grants a positive capability assertion.
+    async fn probe(
+        &self,
+        _request: ProbeRequest,
+        _limits: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        Ok(CapabilityObservation::Unknown(
+            UnknownReason::ProbeUnavailable,
+        ))
+    }
+
     async fn execute(
         &self,
         invocation: &PreparedAction,

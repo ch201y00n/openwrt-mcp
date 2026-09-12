@@ -6,11 +6,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use openwrt_mcp_core::{Catalog, Operation, Policy};
+use openwrt_mcp_core::{Catalog, CoreError, Operation, Policy, Verdict};
 use serde_json::Value;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, SemaphorePermit};
 
-use crate::{AuditEvent, AuditOutcome, AuditPhase, AuditSink, Backend, Limits, RuntimeError};
+use crate::{
+    AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, Backend, CapabilityStatus, Limits,
+    RuntimeError, capability::CapabilityCache,
+};
 
 pub struct Dispatcher {
     catalog: Catalog,
@@ -23,6 +26,7 @@ pub struct Dispatcher {
     limits: Limits,
     permits: Semaphore,
     sequence: AtomicU64,
+    capabilities: CapabilityCache,
 }
 
 impl Dispatcher {
@@ -46,6 +50,7 @@ impl Dispatcher {
             permits: Semaphore::new(limits.max_concurrent),
             limits,
             sequence: AtomicU64::new(1),
+            capabilities: CapabilityCache::default(),
         })
     }
 
@@ -60,16 +65,8 @@ impl Dispatcher {
 
     pub async fn invoke(&self, name: &str, arguments: Value) -> Result<Value, RuntimeError> {
         let request_sequence = self.sequence.fetch_add(1, Ordering::Relaxed);
-        let Some(operation) = self.catalog.get(name) else {
-            self.reject(request_sequence, "unknown", AuditOutcome::UnknownOperation)
-                .await?;
-            return Err(RuntimeError::UnknownOperation);
-        };
-        if let Err(error) = self.policy.authorize(operation) {
-            self.reject(request_sequence, &operation.name, AuditOutcome::Denied)
-                .await?;
-            return Err(error.into());
-        }
+        let kind = AuditKind::Invocation;
+        let operation = self.authorize(name, request_sequence, kind).await?;
         let invocation = match operation.prepare(&arguments) {
             Ok(invocation) => invocation,
             Err(error) => {
@@ -77,46 +74,182 @@ impl Dispatcher {
                     request_sequence,
                     &operation.name,
                     AuditOutcome::InvalidArguments,
+                    kind,
                 )
                 .await?;
                 return Err(error.into());
             }
         };
-        let _permit = match self.permits.try_acquire() {
+        let _permit = self.admit(operation, request_sequence, kind).await?;
+        let started = Instant::now();
+        let result = tokio::time::timeout(Duration::from_millis(self.limits.timeout_ms), async {
+            let observation = self
+                .capabilities
+                .observe(
+                    self.backend.as_ref(),
+                    &operation.capability,
+                    &self.limits,
+                    false,
+                )
+                .await?;
+            match observation.verdict(
+                self.backend.as_ref(),
+                &operation.capability,
+                Some(&invocation),
+            ) {
+                Verdict::Compatible => (),
+                Verdict::Unknown(_) => return Err(RuntimeError::CapabilityUnknown),
+                Verdict::Incompatible(_) => return Err(RuntimeError::CapabilityUnsupported),
+            }
+            self.backend
+                .execute(&invocation, &self.limits)
+                .await
+                .map(|output| operation.project(&output))
+        })
+        .await
+        .unwrap_or(Err(RuntimeError::Timeout));
+        self.finish(request_sequence, operation, kind, started, result)
+            .await
+    }
+
+    /// Metadata queries have the same policy, admission and start-before-I/O audit.
+    /// JSON validation lives here so malformed requests cannot bypass audit in MCP.
+    pub async fn capability_status(
+        &self,
+        arguments: Value,
+    ) -> Result<CapabilityStatus, RuntimeError> {
+        let request_sequence = self.sequence.fetch_add(1, Ordering::Relaxed);
+        let kind = AuditKind::Capability;
+        let Some(fields) = arguments.as_object() else {
+            self.reject(
+                request_sequence,
+                "unknown",
+                AuditOutcome::InvalidArguments,
+                kind,
+            )
+            .await?;
+            return Err(CoreError::InvalidArguments.into());
+        };
+        let Some(name) = fields.get("operation").and_then(Value::as_str) else {
+            self.reject(
+                request_sequence,
+                "unknown",
+                AuditOutcome::InvalidArguments,
+                kind,
+            )
+            .await?;
+            return Err(CoreError::InvalidArguments.into());
+        };
+        let operation = self.authorize(name, request_sequence, kind).await?;
+        if fields
+            .keys()
+            .any(|key| key != "operation" && key != "refresh")
+            || fields
+                .get("refresh")
+                .is_some_and(|value| !value.is_boolean())
+        {
+            self.reject(
+                request_sequence,
+                &operation.name,
+                AuditOutcome::InvalidArguments,
+                kind,
+            )
+            .await?;
+            return Err(CoreError::InvalidArguments.into());
+        }
+        let refresh = fields
+            .get("refresh")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let _permit = self.admit(operation, request_sequence, kind).await?;
+        let started = Instant::now();
+        let result = tokio::time::timeout(Duration::from_millis(self.limits.timeout_ms), async {
+            self.capabilities
+                .observe(
+                    self.backend.as_ref(),
+                    &operation.capability,
+                    &self.limits,
+                    refresh,
+                )
+                .await
+                .map(|observation| observation.status(self.backend.as_ref(), &operation.capability))
+        })
+        .await
+        .unwrap_or(Err(RuntimeError::Timeout));
+        self.finish(request_sequence, operation, kind, started, result)
+            .await
+    }
+
+    async fn authorize(
+        &self,
+        name: &str,
+        sequence: u64,
+        kind: AuditKind,
+    ) -> Result<&Operation, RuntimeError> {
+        let Some(operation) = self.catalog.get(name) else {
+            self.reject(sequence, "unknown", AuditOutcome::UnknownOperation, kind)
+                .await?;
+            return Err(RuntimeError::UnknownOperation);
+        };
+        if let Err(error) = self.policy.authorize(operation) {
+            self.reject(sequence, &operation.name, AuditOutcome::Denied, kind)
+                .await?;
+            return Err(error.into());
+        }
+        Ok(operation)
+    }
+
+    async fn admit(
+        &self,
+        operation: &Operation,
+        sequence: u64,
+        kind: AuditKind,
+    ) -> Result<SemaphorePermit<'_>, RuntimeError> {
+        let permit = match self.permits.try_acquire() {
             Ok(permit) => permit,
             Err(_) => {
-                self.reject(request_sequence, &operation.name, AuditOutcome::Busy)
+                self.reject(sequence, &operation.name, AuditOutcome::Busy, kind)
                     .await?;
                 return Err(RuntimeError::Busy);
             }
         };
-        self.record_audit(AuditEvent::new(
-            request_sequence,
-            AuditPhase::Start,
-            &operation.name,
-            AuditOutcome::Attempt,
-            None,
-        ))
+        self.record_audit(
+            AuditEvent::new(
+                sequence,
+                AuditPhase::Start,
+                &operation.name,
+                AuditOutcome::Attempt,
+                None,
+            )
+            .with_kind(kind),
+        )
         .await?;
+        Ok(permit)
+    }
 
-        let started = Instant::now();
-        let result = self
-            .backend
-            .execute(&invocation, &self.limits)
-            .await
-            .map(|output| operation.project(&output));
+    async fn finish<T: Send>(
+        &self,
+        sequence: u64,
+        operation: &Operation,
+        kind: AuditKind,
+        started: Instant,
+        result: Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
         let outcome = if result.is_ok() {
             AuditOutcome::Success
         } else {
             AuditOutcome::Failed
         };
-        self.record_audit(AuditEvent::new(
-            request_sequence,
-            AuditPhase::Finish,
-            &operation.name,
-            outcome,
-            Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
-        ))
+        self.record_audit(
+            AuditEvent::new(
+                sequence,
+                AuditPhase::Finish,
+                &operation.name,
+                outcome,
+                Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
+            )
+            .with_kind(kind),
+        )
         .await
         .map_err(|_| RuntimeError::CompletionAuditFailed)?;
         result
@@ -127,14 +260,12 @@ impl Dispatcher {
         sequence: u64,
         operation: &str,
         outcome: AuditOutcome,
+        kind: AuditKind,
     ) -> Result<(), RuntimeError> {
-        self.record_audit(AuditEvent::new(
-            sequence,
-            AuditPhase::Rejection,
-            operation,
-            outcome,
-            None,
-        ))
+        self.record_audit(
+            AuditEvent::new(sequence, AuditPhase::Rejection, operation, outcome, None)
+                .with_kind(kind),
+        )
         .await
     }
 

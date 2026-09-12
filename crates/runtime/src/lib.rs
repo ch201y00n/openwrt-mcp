@@ -2,11 +2,13 @@
 
 mod audit;
 mod backend;
+mod capability;
 mod dispatcher;
 mod error;
 pub mod protection;
 
-pub use audit::{AuditEvent, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};
+pub use audit::{AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};
 pub use backend::{Backend, Limits};
+pub use capability::CapabilityStatus;
 pub use dispatcher::Dispatcher;
 pub use error::RuntimeError;

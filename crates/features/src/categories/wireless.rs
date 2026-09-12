@@ -1,5 +1,5 @@
-use crate::definition::read;
-use openwrt_mcp_core::{Action, Category, Operation, Parameter, ParameterKind};
+use crate::definition::{argument, read};
+use openwrt_mcp_core::{Category, Operation, Parameter, ParameterKind};
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
@@ -9,6 +9,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         Category::Wireless,
         "iwinfo",
         "info",
+        "wireless_radio_info.v1",
         &[
             "/phy",
             "/mode",
@@ -32,8 +33,11 @@ pub(crate) fn operations() -> Vec<Operation> {
             allowed_values: Vec::new(),
         },
     );
-    if let Action::Ubus { arguments, .. } = &mut radio.action {
-        arguments.insert("device".to_owned(), json!("{device}"));
-    }
+    argument(
+        &mut radio,
+        "device",
+        ParameterKind::String,
+        json!("{device}"),
+    );
     vec![radio]
 }

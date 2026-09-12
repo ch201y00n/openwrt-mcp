@@ -3,7 +3,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use crate::{CoreError, Requirement};
+use crate::capability::checked_integer;
+use crate::{
+    CAPABILITY_TOOL_NAME, CapabilityRequirement, CoreError, Requirement, UBUS_INTEGER_MAX,
+    UBUS_INTEGER_MIN,
+};
 
 const MAX_PARAMETERS: usize = 32;
 const MAX_ARGUMENTS: usize = 64;
@@ -63,6 +67,7 @@ pub struct Operation {
     #[serde(default)]
     pub parameters: BTreeMap<String, Parameter>,
     pub action: Action,
+    pub capability: CapabilityRequirement,
     #[serde(default)]
     pub output_fields: Vec<String>,
     #[serde(default)]
@@ -82,7 +87,7 @@ pub enum PreparedAction {
     },
 }
 
-fn identifier(value: &str) -> bool {
+pub(crate) fn identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
         && value.as_bytes()[0].is_ascii_alphabetic()
@@ -95,7 +100,7 @@ fn bounded_string(value: &str, max: usize) -> bool {
     value.len() <= max && !value.contains('\0')
 }
 
-fn ubus_identifier(value: &str) -> bool {
+pub(crate) fn ubus_identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
         && value.as_bytes()[0].is_ascii_alphabetic()
@@ -104,7 +109,7 @@ fn ubus_identifier(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
 }
 
-fn parameter_reference(value: &str) -> Option<&str> {
+pub(crate) fn parameter_reference(value: &str) -> Option<&str> {
     value.strip_prefix('{')?.strip_suffix('}')
 }
 
@@ -195,6 +200,7 @@ impl Operation {
     pub(crate) fn validate(&self) -> Result<(), CoreError> {
         let invalid = CoreError::InvalidDefinition;
         if !identifier(&self.name)
+            || self.name == CAPABILITY_TOOL_NAME
             || self.description.trim().is_empty()
             || !bounded_string(&self.description, 512)
             || self.requirements.is_empty()
@@ -225,6 +231,11 @@ impl Operation {
                     .any(|value| match parameter.kind {
                         ParameterKind::String => false,
                         ParameterKind::Integer => {
+                            if matches!(self.action, Action::Ubus { .. }) {
+                                return !value
+                                    .parse::<i32>()
+                                    .is_ok_and(|number| number.to_string() == *value);
+                            }
                             !value
                                 .parse::<i64>()
                                 .map(|number| number.to_string() == *value)
@@ -271,8 +282,8 @@ impl Operation {
                     }
                     match value {
                         Value::String(value) => validate_reference(value)?,
-                        Value::Bool(_) | Value::Null => (),
-                        Value::Number(number) if number.is_i64() || number.is_u64() => (),
+                        Value::Bool(_) => (),
+                        Value::Number(_) if checked_integer(value) => (),
                         _ => return Err(invalid),
                     }
                 }
@@ -305,6 +316,8 @@ impl Operation {
         if self.parameters.keys().any(|name| !used.contains(name)) {
             return Err(invalid);
         }
+        self.capability
+            .validate_for(&self.action, &self.parameters)?;
         Ok(())
     }
 
@@ -327,7 +340,13 @@ impl Operation {
                 ParameterKind::String => value
                     .as_str()
                     .is_some_and(|text| bounded_string(text, MAX_VALUE_BYTES)),
-                ParameterKind::Integer => value.as_i64().is_some() || value.as_u64().is_some(),
+                ParameterKind::Integer => {
+                    if matches!(self.action, Action::Ubus { .. }) {
+                        checked_integer(value)
+                    } else {
+                        value.as_i64().is_some() || value.as_u64().is_some()
+                    }
+                }
                 ParameterKind::Boolean => value.is_boolean(),
             };
             if !valid_type
@@ -399,6 +418,12 @@ impl Operation {
                         "description".into(),
                         json!("At most 1024 UTF-8 bytes; NUL is not permitted."),
                     );
+                }
+                if parameter.kind == ParameterKind::Integer
+                    && matches!(self.action, Action::Ubus { .. })
+                {
+                    schema.insert("minimum".into(), json!(UBUS_INTEGER_MIN));
+                    schema.insert("maximum".into(), json!(UBUS_INTEGER_MAX));
                 }
                 if !parameter.allowed_values.is_empty() {
                     let allowed: Vec<Value> = parameter

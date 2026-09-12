@@ -24,6 +24,9 @@ use tokio::{
 
 const CONFIG_ENV: &str = "OPENWRT_MCP_PORTABLE_STDIO_CONFIG";
 const DEADLINE: Duration = Duration::from_secs(10);
+const SYSTEM_PROBE: &[u8] = b"exec '/bin/ubus' '-v' 'list' 'system'";
+const SYSTEM_INFO: &[u8] = b"exec '/bin/ubus' '-S' 'call' 'system' 'info' '{}'";
+const SYSTEM_SIGNATURE: &[u8] = b"'system' @00000001\n\t\"info\":{}\n\t\"board\":{}\n";
 
 struct Server {
     child: Child,
@@ -180,6 +183,17 @@ async fn native_binary_default_deny_initializes_lists_rejects_and_shuts_down() {
         )
         .await;
     assert_eq!(error(&unknown), json!({"error":"unknown_operation"}));
+    let denied_metadata = server
+        .call(
+            5,
+            "operation_capability",
+            json!({"operation":"system_info"}),
+        )
+        .await;
+    assert_eq!(
+        error(&denied_metadata),
+        json!({"error":"permission_denied"})
+    );
     let logs = server.finish().await;
     assert!(logs.iter().any(|value| value["phase"] == "rejection"
         && value["outcome"] == "denied"
@@ -257,6 +271,7 @@ struct SyntheticSsh {
     identity: PublicKey,
     authentications: Arc<AtomicUsize>,
     commands: Arc<Mutex<Vec<Vec<u8>>>>,
+    probe_response: Arc<Mutex<Vec<u8>>>,
     channels: Vec<Channel<ssh_server::Msg>>,
 }
 
@@ -296,9 +311,16 @@ impl ssh_server::Handler for SyntheticSsh {
         self.commands.lock().unwrap().push(command.to_vec());
         session.channel_success(channel)?;
         // These are fabricated responses, not output from a workstation command.
-        session.data(channel, b"{\"uptime\":123,\"memory\":{\"total\":1024},\"private_key\":\"synthetic-response-secret\"}".as_slice())?;
+        let (status, output) = if command == SYSTEM_PROBE {
+            (0, self.probe_response.lock().unwrap().clone())
+        } else if command == SYSTEM_INFO {
+            (0, b"{\"uptime\":123,\"memory\":{\"total\":1024},\"private_key\":\"synthetic-response-secret\"}".to_vec())
+        } else {
+            (1, Vec::new())
+        };
+        session.data(channel, output)?;
         session.extended_data(channel, 1, b"synthetic-stderr-secret".as_slice())?;
-        session.exit_status_request(channel, 0)?;
+        session.exit_status_request(channel, status)?;
         session.eof(channel)?;
         session.close(channel)?;
         Ok(())
@@ -314,8 +336,16 @@ fn synthetic_key(seed: u8) -> PrivateKey {
     .unwrap()
 }
 
-#[tokio::test]
-async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_and_audit() {
+struct RemoteFixture {
+    server: Server,
+    authentications: Arc<AtomicUsize>,
+    commands: Arc<Mutex<Vec<Vec<u8>>>>,
+    probe_response: Arc<Mutex<Vec<u8>>>,
+    remote: JoinHandle<()>,
+    pem: String,
+}
+
+async fn remote_fixture(initial_probe: &[u8]) -> RemoteFixture {
     let host_key = synthetic_key(31);
     let identity = synthetic_key(47);
     let pin = host_key
@@ -329,10 +359,12 @@ async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_
     let port = listener.local_addr().unwrap().port();
     let authentications = Arc::new(AtomicUsize::new(0));
     let commands = Arc::new(Mutex::new(Vec::new()));
+    let probe_response = Arc::new(Mutex::new(initial_probe.to_vec()));
     let handler = SyntheticSsh {
         identity: identity.public_key().clone(),
         authentications: authentications.clone(),
         commands: commands.clone(),
+        probe_response: probe_response.clone(),
         channels: Vec::new(),
     };
     let remote = tokio::spawn(async move {
@@ -353,14 +385,63 @@ async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_
     let config = format!(
         "[policy.categories.system]\naccess='read'\n[target]\nkind='ssh'\nidentity_source='ssh-key'\n[target.options]\nhost='127.0.0.1'\nport={port}\nusername='fixture'\nhost_key_sha256='{pin}'\n[target.sources.ssh-key]\nkind='environment'\nvariable='OPENWRT_MCP_SYNTHETIC_SSH_IDENTITY'\n"
     );
-    let mut server = Server::with_environment(
+    let server = Server::with_environment(
         &config,
         &[("OPENWRT_MCP_SYNTHETIC_SSH_IDENTITY", pem.as_str())],
     );
+    RemoteFixture {
+        server,
+        authentications,
+        commands,
+        probe_response,
+        remote,
+        pem: pem.to_string(),
+    }
+}
+
+#[tokio::test]
+async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_and_audit() {
+    let RemoteFixture {
+        mut server,
+        authentications,
+        commands,
+        probe_response,
+        remote,
+        pem,
+    } = remote_fixture(SYSTEM_SIGNATURE).await;
     server.initialize().await;
+    server
+        .send(json!({"jsonrpc":"2.0","id":10,"method":"tools/list"}))
+        .await;
+    let list = server.response(10).await;
+    assert!(
+        list["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool["name"] == "operation_capability")
+    );
+    assert_eq!(authentications.load(Ordering::SeqCst), 0);
+    assert!(commands.lock().unwrap().is_empty());
     let denied = server.call(2, "network_wan_status", json!({})).await;
     assert_eq!(error(&denied), json!({"error":"permission_denied"}));
     assert_eq!(authentications.load(Ordering::SeqCst), 0);
+    let metadata = server
+        .call(
+            11,
+            "operation_capability",
+            json!({"operation":"system_info"}),
+        )
+        .await;
+    assert_eq!(
+        metadata["result"]["structuredContent"]["compatibility"],
+        "compatible"
+    );
+    assert_eq!(
+        metadata["result"]["structuredContent"]["scope"],
+        "input_signature_only"
+    );
+    assert_eq!(commands.lock().unwrap().len(), 1);
     for id in [3, 4] {
         let response = server.call(id, "system_info", json!({})).await;
         assert_ne!(response["result"]["isError"], true);
@@ -380,6 +461,25 @@ async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_
         )
         .await;
     assert_eq!(error(&invalid), json!({"error":"unknown_argument"}));
+    assert_eq!(commands.lock().unwrap().len(), 3); // One shared probe and two normal calls.
+    *probe_response.lock().unwrap() = b"'system' @00000001\n\t\"board\":{}\n".to_vec();
+    let refreshed = server
+        .call(
+            12,
+            "operation_capability",
+            json!({"operation":"system_info","refresh":true}),
+        )
+        .await;
+    assert_eq!(
+        refreshed["result"]["structuredContent"]["compatibility"],
+        "unknown"
+    );
+    assert_eq!(
+        refreshed["result"]["structuredContent"]["reason"],
+        "not_observed_or_hidden"
+    );
+    let blocked = server.call(13, "system_info", json!({})).await;
+    assert_eq!(error(&blocked), json!({"error":"capability_unknown"}));
     let logs = server.finish().await;
     tokio::time::timeout(DEADLINE, remote)
         .await
@@ -387,18 +487,22 @@ async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_
         .unwrap();
     assert_eq!(authentications.load(Ordering::SeqCst), 1);
     let commands = commands.lock().unwrap();
-    assert_eq!(commands.len(), 2);
-    for command in commands.iter() {
-        assert_eq!(
-            command.as_slice(),
-            b"exec '/bin/ubus' '-S' 'call' 'system' 'info' '{}'"
-        );
-    }
+    assert_eq!(
+        *commands,
+        [SYSTEM_PROBE, SYSTEM_INFO, SYSTEM_INFO, SYSTEM_PROBE]
+    );
     assert_eq!(
         logs.iter()
             .filter(|value| value["phase"] == "finish"
+                && value["kind"] == "invocation"
                 && value["outcome"] == "success"
                 && value["operation"] == "system_info")
+            .count(),
+        2
+    );
+    assert_eq!(
+        logs.iter()
+            .filter(|value| value["phase"] == "finish" && value["kind"] == "capability")
             .count(),
         2
     );
@@ -412,6 +516,71 @@ async fn actual_binary_uses_pinned_loopback_ssh_and_preserves_policy_projection_
         assert!(
             !text.contains(prohibited),
             "audit output must contain no key, raw response or raw stderr"
+        );
+    }
+}
+
+#[tokio::test]
+async fn actual_binary_rejects_hidden_malformed_and_foreign_probe_results_without_action() {
+    for (probe, reason) in [
+        (
+            b"'system' @00000001\n\t\"board\":{}\n".as_slice(),
+            "not_observed_or_hidden",
+        ),
+        (
+            b"'system' @00000001\n\t\"info\":{synthetic-probe-secret".as_slice(),
+            "invalid_observation",
+        ),
+        (
+            b"'service' @00000001\n\t\"info\":{}\n".as_slice(),
+            "invalid_observation",
+        ),
+    ] {
+        let RemoteFixture {
+            mut server,
+            authentications,
+            commands,
+            remote,
+            pem,
+            ..
+        } = remote_fixture(probe).await;
+        server.initialize().await;
+        for id in [2, 3] {
+            let response = server.call(id, "system_info", json!({})).await;
+            assert_eq!(error(&response), json!({"error":"capability_unknown"}));
+        }
+        let metadata = server
+            .call(
+                4,
+                "operation_capability",
+                json!({"operation":"system_info"}),
+            )
+            .await;
+        assert_eq!(
+            metadata["result"]["structuredContent"]["compatibility"],
+            "unknown"
+        );
+        assert_eq!(metadata["result"]["structuredContent"]["reason"], reason);
+        let logs = server.finish().await;
+        tokio::time::timeout(DEADLINE, remote)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(authentications.load(Ordering::SeqCst), 1);
+        assert_eq!(*commands.lock().unwrap(), [SYSTEM_PROBE]);
+        let text = serde_json::to_string(&logs).unwrap();
+        for prohibited in [
+            "synthetic-probe-secret",
+            "synthetic-stderr-secret",
+            "BEGIN OPENSSH PRIVATE KEY",
+            pem.as_str(),
+        ] {
+            assert!(!text.contains(prohibited));
+            assert!(!metadata.to_string().contains(prohibited));
+        }
+        assert!(
+            logs.iter()
+                .any(|event| event["kind"] == "capability" && event["operation"] == "system_info")
         );
     }
 }

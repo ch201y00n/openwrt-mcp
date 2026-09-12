@@ -12,6 +12,8 @@ All tool calls route through the dispatcher. No protocol method edits policy. Ca
 
 Ubus method names are not safe classifications: `get`-like names may have side effects. Schema discovery is not authorization. MCP annotations describe tools but do not enforce access. Raw UCI configuration and universal ubus/file/shell access are not built-ins.
 
+Version 5 requires fresh input-signature observations on the same immutable backend before execution. Start audit precedes any probe or key/connection access. Missing/hidden/incomplete signatures fail closed as unknown; known type conflicts are separate incompatibilities. Refresh revokes cached observations and their outstanding internal copies before probing, and failure cannot restore stale success. These controls are not a response-schema proof or isolation from privileged external changes. Generic Process extensions remain unverified/blocked even with operator category grants. [Capability boundaries](capabilities.md).
+
 Audit logs omit argument values, responses, configuration text, backend stderr and parse error excerpts at all verbosity levels. Known operation names are sanitized/validated; unknown names are logged as a constant. Output projection is separate from auditing. Recursive sensitive-key redaction is defense-in-depth, not a guarantee for arbitrary operator-defined output schemas. Operators must review custom result fields.
 
 ## Audit behavior

@@ -5,8 +5,10 @@ use std::sync::{
 
 use async_trait::async_trait;
 use openwrt_mcp_core::{
-    Access, Action, Catalog, Category, Grant, Operation, OutputMode, Parameter, ParameterKind,
-    Permission, Policy, PreparedAction, Requirement,
+    Access, Action, CapabilityObservation, CapabilityRequirement, Catalog, Category, Grant,
+    MethodSignature, ObjectObservation, Operation, OutputMode, Parameter, ParameterKind,
+    Permission, Policy, PreparedAction, ProbeRequest, Requirement, ReviewedObject,
+    UbusArgumentType,
 };
 use openwrt_mcp_runtime::{
     AuditEvent, AuditOutcome, AuditPhase, AuditSink, Backend, Dispatcher, Limits, RuntimeError,
@@ -39,6 +41,16 @@ struct FakeBackend {
 
 #[async_trait]
 impl Backend for FakeBackend {
+    fn capability_epoch(&self) -> Option<u64> {
+        Some(1)
+    }
+    async fn probe(
+        &self,
+        request: ProbeRequest,
+        _: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        Ok(fixture_observation(request))
+    }
     async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         self.count.fetch_add(1, Ordering::SeqCst);
         if self.fail {
@@ -51,6 +63,21 @@ impl Backend for FakeBackend {
     }
 }
 
+fn fixture_observation(request: ProbeRequest) -> CapabilityObservation {
+    let ProbeRequest::DescribeUbusObject(object) = request;
+    let (method, arguments) = match object {
+        ReviewedObject::System => ("board", Default::default()),
+        ReviewedObject::NetworkDevice => {
+            ("status", [("name".into(), UbusArgumentType::String)].into())
+        }
+        _ => unreachable!("fixture only admits its two reviewed contracts"),
+    };
+    CapabilityObservation::Ubus(ObjectObservation {
+        object,
+        methods: [(method.into(), MethodSignature { arguments })].into(),
+    })
+}
+
 fn fixture_catalog() -> Catalog {
     let read = Operation {
         name: "fixture_read".into(),
@@ -60,9 +87,15 @@ fn fixture_catalog() -> Catalog {
             permission: Permission::Read,
         }],
         parameters: Default::default(),
+        capability: CapabilityRequirement::UbusMethod {
+            object: "system".into(),
+            method: "board".into(),
+            arguments: Default::default(),
+            response_contract: "fixture_read.v1".into(),
+        },
         action: Action::Ubus {
-            object: "fixture".into(),
-            method: "read".into(),
+            object: "system".into(),
+            method: "board".into(),
             arguments: Default::default(),
         },
         output_fields: vec!["/model".into()],
@@ -80,9 +113,15 @@ fn fixture_catalog() -> Catalog {
         },
     );
     query.action = Action::Ubus {
-        object: "fixture".into(),
-        method: "query".into(),
+        object: "network.device".into(),
+        method: "status".into(),
         arguments: [("name".into(), json!("{name}"))].into(),
+    };
+    query.capability = CapabilityRequirement::UbusMethod {
+        object: "network.device".into(),
+        method: "status".into(),
+        arguments: [("name".into(), ParameterKind::String)].into(),
+        response_contract: "fixture_query.v1".into(),
     };
     Catalog::with_builtins(vec![read, query], vec![]).unwrap()
 }
@@ -240,6 +279,16 @@ struct BlockingBackend {
 
 #[async_trait]
 impl Backend for BlockingBackend {
+    fn capability_epoch(&self) -> Option<u64> {
+        Some(1)
+    }
+    async fn probe(
+        &self,
+        request: ProbeRequest,
+        _: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        Ok(fixture_observation(request))
+    }
     async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         self.entered.notify_one();
         self.release.notified().await;

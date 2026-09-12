@@ -12,6 +12,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
 - Ten conservative, structured ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
 - Explicit OpenWrt targets: unconfigured by default, verified on-device execution, or native persistent SSH independent of the workstation OS.
@@ -19,7 +20,9 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
 - Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
 
-This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Device-side deployment and real OpenWrt validation are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters.
+This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
+
+The v5 Linux-on-WSL gate passes 260 distinct tests. A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated seven successful reads and three explicit unavailable/error cases. See [scoped emulated acceptance](docs/emulator-validation.md); this does not establish BPI-R4 hardware or native Windows/macOS acceptance.
 
 ## Build and check
 
@@ -63,7 +66,7 @@ Start from [read-only.toml](config/read-only.toml) for system/network only, [obs
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v5](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts and mandatory native host tests. The capability design is checkpointed before implementation; architecture scaffolds are not feature acceptance. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v5](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts and mandatory native host tests. The capability design was checkpointed before functional work; the scaffold suites have been replaced by behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

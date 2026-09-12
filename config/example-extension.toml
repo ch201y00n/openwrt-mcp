@@ -1,4 +1,4 @@
-# Synthetic action template; no target is configured and nothing executes by default.
+# Synthetic action template; no target is configured and its unverified process cannot execute.
 # Programs are OpenWrt target paths, never workstation commands. Never a default profile.
 [policy]
 allow_operations = ["fixture_echo"]
@@ -31,3 +31,6 @@ allowed_values = ['{"ok":true}']
 kind = "process"
 program = "/usr/bin/printf"
 args = ["%s", "{payload}"]
+
+[actions.capability]
+kind = "unverified"

@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use openwrt_mcp_core::{
-    Access, Action, Catalog, Category, CoreError, Grant, Operation, OutputMode, Parameter,
-    ParameterKind, Permission, Policy, PreparedAction, Requirement,
+    Access, Action, CapabilityRequirement, Catalog, Category, CoreError, Grant, Operation,
+    OutputMode, Parameter, ParameterKind, Permission, Policy, PreparedAction, Requirement,
 };
 use serde_json::json;
 
@@ -26,6 +26,7 @@ fn custom() -> Operation {
             program: "/usr/bin/fixture".into(),
             args: vec!["--".into(), "{device}".into()],
         },
+        capability: CapabilityRequirement::Unverified {},
         output_fields: Vec::new(),
         output_mode: OutputMode::Scalars,
     }
@@ -44,6 +45,12 @@ fn fixture_read() -> Operation {
             object: "fixture".into(),
             method: "read".into(),
             arguments: BTreeMap::new(),
+        },
+        capability: CapabilityRequirement::UbusMethod {
+            object: "fixture".into(),
+            method: "read".into(),
+            arguments: BTreeMap::new(),
+            response_contract: "fixture_read.v1".into(),
         },
         output_fields: vec!["/status".into(), "/model".into(), "/version/number".into()],
         output_mode: OutputMode::Scalars,
@@ -253,6 +260,17 @@ fn ubus_substitution_preserves_json_types_and_escapes_strings() {
             ("enabled".into(), json!("{enabled}")),
             ("literal".into(), json!("prefix-{device}")),
         ]),
+    };
+    operation.capability = CapabilityRequirement::UbusMethod {
+        object: "fixture.object".into(),
+        method: "query".into(),
+        arguments: BTreeMap::from([
+            ("name".into(), ParameterKind::String),
+            ("count".into(), ParameterKind::Integer),
+            ("enabled".into(), ParameterKind::Boolean),
+            ("literal".into(), ParameterKind::String),
+        ]),
+        response_contract: "fixture_query.v1".into(),
     };
     let catalog = fixture_catalog(vec![operation]).unwrap();
     let operation = catalog.get("diagnostic_example").unwrap();

@@ -9,6 +9,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             Category::System,
             "system",
             "board",
+            "system_board.v1",
             &[
                 "/kernel",
                 "/system",
@@ -27,6 +28,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             Category::System,
             "system",
             "info",
+            "system_info.v1",
             &[
                 "/localtime",
                 "/uptime",

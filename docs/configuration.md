@@ -61,7 +61,24 @@ Optional `[protection]` settings select age and exact named sources for internal
 
 ## Operator action extensions
 
-An action has a stable name, description, exact permission requirements, scalar parameter definitions, a fixed ubus or process target, and explicit result JSON pointers. Extensions always additionally require extensions.write and extensions.execute. Definitions are loaded once at startup and cannot be installed by a tool call.
+An action has a stable name, description, exact permission requirements, scalar parameter definitions, a fixed ubus or process target, a required capability prerequisite and explicit result JSON pointers. Extensions always additionally require extensions.write and extensions.execute. Definitions are loaded once at startup and cannot be installed by a tool call. The name `operation_capability` is reserved for the dispatcher-owned metadata tool and cannot be installed as an action.
+
+Ubus actions require an exact input-signature declaration that matches the action template, including fixed literals and optional parameter types. For example, an action targeting `system.info` with no arguments declares:
+
+```toml
+[actions.capability]
+kind = "ubus_method"
+object = "system"
+method = "info"
+arguments = {}
+response_contract = "operator_system_info.v1"
+```
+
+`arguments` maps every template argument name to `string`, `integer` or `boolean`; it is mandatory even when empty. A `response_contract` is a bounded versioned implementation identifier such as `operator_system_info.v1`, not a device availability assertion or proof of output validity. Do not use credentials as identifiers. Ubus literal null and nested inputs are unsupported. Checked Ubus integers are restricted to -2147483648 through 2147483647 because larger JSON integers use a different ubus wire type. Input schemas, literal templates, allowed values and invocation validation enforce that range.
+
+Execution also requires fresh observed prerequisites from the same backend. Only the closed reviewed objects `system`, `network.device`, `network.interface`, `network.interface.lan`, `network.interface.wan`, `iwinfo` and `service` currently support introspection. A matching custom action for another object can be configured but remains unknown and cannot execute. A missing object/method can be ACL-hidden; a missing advertised argument can be an incomplete signature. Both fail closed as unknown. A conflicting known argument type is incompatible. Extra arguments advertised by the target do not expand an action, and optional omitted inputs are not checked as transmitted fields.
+
+Process actions must explicitly declare `[actions.capability] kind = "unverified"`. They are blocked by the dispatcher until a reviewed prerequisite is implemented; neither privileged category grants nor choosing a target bypasses this restriction. A Ubus action cannot use `unverified` as an escape hatch, and capability metadata never grants permission. `check`, `catalog` and tool listing stay offline and describe configured definitions, not target availability. The `operation_capability` metadata tool authorizes and audits an exact installed operation before observing it; without invocation inputs, its status conservatively checks every potentially transmitted argument.
 
 Placeholders are whole strings of the form `{parameter}`; interpolation within strings is not supported. Ubus placeholders preserve JSON scalar types. Programs and arguments refer to the OpenWrt target, not the workstation. Local mode uses direct argv without a shell; SSH exec uses a bounded POSIX encoder quoting every program/argument because the remote SSH server invokes a shell. Parameter values may still have program-specific effects; constrain them with allowed_values where appropriate. Only JSON stdout is accepted (or empty stdout); use reviewed wrappers for non-JSON programs. Empty output_fields returns no backend payload.
 
@@ -69,4 +86,4 @@ Custom programs and fields are an operator trust decision. Do not put passwords 
 
 `output_mode = "scalars"` is the default for every operation, including custom actions: approved pointers whose values are objects/arrays are omitted. An operator can explicitly select `output_mode = "structured"` for a reviewed extension that needs nested results. Sensitive-key redaction still applies, but does not guarantee arbitrary subtrees contain no secrets. The architecture-v2 migration removes the old behavior that inferred projection safety from a built-in name; structured extensions must now opt in explicitly.
 
-The tested [example-extension.toml](../config/example-extension.toml) defines `/usr/bin/printf` with one exact synthetic JSON payload but leaves the target unconfigured. Tests use private Linux runner fixtures and fake SSH endpoints, never a real router. It demonstrates registration and permissions, not workstation-command authority. Process placeholders must be required; optional ubus parameters omit the whole key/value. Output pointers must not overlap (such as `/a` together with `/a/b`).
+The tested [example-extension.toml](../config/example-extension.toml) defines `/usr/bin/printf` with one exact synthetic JSON payload, leaves the target unconfigured and explicitly marks the process as unverified. It demonstrates registration, permissions and a blocked prerequisite, not an executable feature or workstation-command authority. Process placeholders must be required; optional ubus parameters omit the whole key/value. Output pointers must not overlap (such as `/a` together with `/a/b`).

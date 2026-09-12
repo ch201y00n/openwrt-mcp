@@ -1,5 +1,5 @@
-use crate::definition::read;
-use openwrt_mcp_core::{Action, Category, Operation};
+use crate::definition::{argument, read};
+use openwrt_mcp_core::{Category, Operation, ParameterKind};
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
@@ -9,31 +9,39 @@ pub(crate) fn operations() -> Vec<Operation> {
         Category::Services,
         "service",
         "list",
+        "service_logd_status.v1",
         &[
             "/log/instances/logd/running",
             "/log/instances/logd/pid",
             "/log/instances/logd/exit_code",
         ],
     );
-    if let Action::Ubus { arguments, .. } = &mut logd.action {
-        arguments.insert("name".to_owned(), json!("log"));
-        arguments.insert("verbose".to_owned(), json!(false));
-    }
+    argument(&mut logd, "name", ParameterKind::String, json!("log"));
+    argument(&mut logd, "verbose", ParameterKind::Boolean, json!(false));
     let mut sysntpd = read(
         "service_sysntpd_status",
         "Read running, pid and exit_code for the standard sysntpd/instance1 instance; a missing instance is unknown.",
         Category::Services,
         "service",
         "list",
+        "service_sysntpd_status.v1",
         &[
             "/sysntpd/instances/instance1/running",
             "/sysntpd/instances/instance1/pid",
             "/sysntpd/instances/instance1/exit_code",
         ],
     );
-    if let Action::Ubus { arguments, .. } = &mut sysntpd.action {
-        arguments.insert("name".to_owned(), json!("sysntpd"));
-        arguments.insert("verbose".to_owned(), json!(false));
-    }
+    argument(
+        &mut sysntpd,
+        "name",
+        ParameterKind::String,
+        json!("sysntpd"),
+    );
+    argument(
+        &mut sysntpd,
+        "verbose",
+        ParameterKind::Boolean,
+        json!(false),
+    );
     vec![logd, sysntpd]
 }

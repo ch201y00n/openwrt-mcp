@@ -1,7 +1,6 @@
 use crate::SshOptions;
 use openwrt_mcp_runtime::{RuntimeError, protection::KeySource};
 use russh::{ChannelMsg, client::Handle};
-use serde_json::Value;
 use std::{
     net::{Shutdown, TcpStream},
     sync::{
@@ -20,10 +19,19 @@ fn is_flow_control(message: &ChannelMsg) -> bool {
 #[derive(Default)]
 pub(crate) struct Control {
     failed: AtomicBool,
+    authenticated: Arc<AtomicBool>,
     socket: Mutex<Option<TcpStream>>,
 }
 
 impl Control {
+    pub(crate) fn epoch(&self) -> Option<u64> {
+        if !self.failed.load(Ordering::Acquire) && self.authenticated.load(Ordering::Acquire) {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn check(&self) -> Result<(), RuntimeError> {
         if self.failed.load(Ordering::Acquire) {
             Err(RuntimeError::BackendFailed)
@@ -34,6 +42,7 @@ impl Control {
 
     pub(crate) fn invalidate(&self) {
         self.failed.store(true, Ordering::Release);
+        self.authenticated.store(false, Ordering::Release);
         // Only assignment/shutdown hold this lock, never an await or callback.
         // Recover poison so cancellation still closes the network connection.
         let mut socket = self
@@ -79,6 +88,15 @@ impl Drop for FailureGuard<'_> {
 struct PinnedHost {
     fingerprint: String,
     rejected: Arc<AtomicBool>,
+    authenticated: Arc<AtomicBool>,
+}
+
+impl Drop for PinnedHost {
+    fn drop(&mut self) {
+        // Driver shutdown, including an idle remote disconnect, revokes the
+        // observation epoch without exposing a handle or opening another session.
+        self.authenticated.store(false, Ordering::Release);
+    }
 }
 
 impl russh::client::Handler for PinnedHost {
@@ -172,6 +190,7 @@ impl State {
             PinnedHost {
                 fingerprint: options.host_key_sha256.clone(),
                 rejected: rejected.clone(),
+                authenticated: control.authenticated.clone(),
             },
         )
         .await
@@ -192,17 +211,22 @@ impl State {
         if !authenticated.success() {
             return Err(RuntimeError::AuthenticationFailed);
         }
+        control.authenticated.store(true, Ordering::Release);
+        if handle.is_closed() {
+            control.invalidate();
+            return Err(RuntimeError::BackendFailed);
+        }
         self.handle = Some(handle);
         Ok(())
     }
 
     /// Outer errors mean uncertain connection/completion; inner errors mean a
-    /// fully completed channel with unsuccessful exit status or invalid JSON.
+    /// fully completed channel with unsuccessful exit status. Parsing is separate.
     pub(crate) async fn execute(
         &self,
         command: Vec<u8>,
         maximum: usize,
-    ) -> Result<Result<Value, RuntimeError>, RuntimeError> {
+    ) -> Result<Result<Vec<u8>, RuntimeError>, RuntimeError> {
         let handle = self.handle.as_ref().ok_or(RuntimeError::BackendFailed)?;
         let mut channel = handle
             .channel_open_session()
@@ -257,12 +281,7 @@ impl State {
                     if status != 0 {
                         return Ok(Err(RuntimeError::BackendFailed));
                     }
-                    if stdout.iter().all(u8::is_ascii_whitespace) {
-                        return Ok(Ok(Value::Null));
-                    }
-                    return Ok(
-                        serde_json::from_slice(&stdout).map_err(|_| RuntimeError::InvalidOutput)
-                    );
+                    return Ok(Ok(stdout));
                 }
                 _ => return Err(RuntimeError::BackendFailed),
             }
@@ -273,8 +292,12 @@ impl State {
 
 #[cfg(test)]
 mod tests {
-    use super::is_flow_control;
+    use super::{Control, PinnedHost, is_flow_control};
     use russh::ChannelMsg;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
 
     #[test]
     fn only_window_adjustment_bypasses_response_completion_state() {
@@ -297,5 +320,20 @@ mod tests {
         ] {
             assert!(!is_flow_control(&message));
         }
+    }
+
+    #[test]
+    fn driver_drop_revokes_an_authenticated_epoch_even_when_idle() {
+        let control = Control::default();
+        assert_eq!(control.epoch(), None);
+        let handler = PinnedHost {
+            fingerprint: "synthetic".into(),
+            rejected: Arc::new(AtomicBool::new(false)),
+            authenticated: control.authenticated.clone(),
+        };
+        control.authenticated.store(true, Ordering::Release);
+        assert_eq!(control.epoch(), Some(1));
+        drop(handler);
+        assert_eq!(control.epoch(), None);
     }
 }

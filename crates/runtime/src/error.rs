@@ -7,6 +7,10 @@ pub enum RuntimeError {
     Core(#[from] CoreError),
     #[error("unknown operation")]
     UnknownOperation,
+    #[error("operation capability has not been established")]
+    CapabilityUnknown,
+    #[error("observed capability conflicts with the operation contract")]
+    CapabilityUnsupported,
     #[error("invalid runtime configuration")]
     InvalidConfig,
     #[error("no OpenWrt target is configured")]
@@ -40,6 +44,8 @@ impl RuntimeError {
         match self {
             Self::Core(error) => error.code(),
             Self::UnknownOperation => "unknown_operation",
+            Self::CapabilityUnknown => "capability_unknown",
+            Self::CapabilityUnsupported => "capability_unsupported",
             Self::InvalidConfig => "invalid_config",
             Self::TargetNotConfigured => "target_not_configured",
             Self::UnsupportedTarget => "unsupported_target",

@@ -128,8 +128,8 @@ impl AuditWriter {
         let mut line = match self.config.format {
             AuditFormat::Json => serde_json::to_vec(&safe).map_err(|_| RuntimeError::AuditUnavailable)?,
             AuditFormat::Text => format!(
-                "timestamp_ms={} request_sequence={} phase={:?} operation={} outcome={:?} duration_ms={} ",
-                safe.timestamp_ms, safe.request_sequence, safe.phase, safe.operation, safe.outcome,
+                "timestamp_ms={} request_sequence={} kind={:?} phase={:?} operation={} outcome={:?} duration_ms={} ",
+                safe.timestamp_ms, safe.request_sequence, safe.kind, safe.phase, safe.operation, safe.outcome,
                 safe.duration_ms.map_or_else(|| "-".to_owned(), |value| value.to_string()),
             ).into_bytes(),
         };
