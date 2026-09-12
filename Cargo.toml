@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/features", "crates/runtime", "crates/adapters", "crates/mcp", "crates/server", "tools/xtask"]
+members = ["crates/core", "crates/features", "crates/runtime", "crates/adapters", "crates/mcp", "crates/server", "crates/crypto-age", "crates/key-sources", "tools/xtask"]
 default-members = ["crates/server"]
 
 [workspace.package]
@@ -21,6 +21,10 @@ rmcp = { version = "=3.3.0", default-features = false, features = ["server", "tr
 syn = { version = "2", features = ["full", "visit"] }
 quote = "1"
 proc-macro2 = "1"
+zeroize = "1"
+age = { version = "=0.12.1", default-features = false }
+zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
+rustix = { version = "1", features = ["fs", "process"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

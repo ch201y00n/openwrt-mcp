@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 2 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation. This replaces the initial three-crate foundation design.
+Contract: version 3 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -20,11 +20,15 @@ xtask (development only) -> architecture contract + Cargo metadata + source AST
 | features | Built-in definitions in src/categories, fixture contracts | I/O, orchestration, mutable policy, client-defined capabilities |
 | runtime | Dispatcher, concurrency/deadlines, backend and audit ports, safe errors | Concrete device/audit implementations, MCP, configuration file access |
 | adapters | Process execution, audit destinations and other port implementations | Authorization decisions, protocol handlers |
+| key-sources | Protected file/environment access and bounded archive-entry selection | Encryption algorithm selection/implementation, processes, automatic Vault unlocking |
+| crypto-age | age over provided streams and purpose-specific material | Key paths, filesystem/environment access, containers or Vault behavior |
 | mcp | MCP mapping, bounded framing, SDK lifecycle | Concrete backends, filesystem/process access, policy selection |
 | server | CLI, trusted configuration loading, lifecycle logs, dependency wiring | Router command execution, alternate device invocation paths |
 | tools/xtask | Contract validation and architectural regression checks | Production dependency or runtime feature implementation |
 
 Exact normal, development and build dependency allowlists are versioned in the contract; target-specific declarations are checked too. Test/example fixtures may perform local fixture I/O, but do not grant production access or authorize live router calls.
+
+Version 3 adds two specialized infrastructure crates: server -> key-sources -> runtime, and server -> crypto-age -> runtime. They cannot depend on one another. runtime::protection owns key/source/container/crypto ports, purpose-separated zeroizing material and orchestration. Runtime may name standard Read/Write traits for provided streams, but cannot open filesystem, environment, network, process or standard I/O handles. MCP cannot import protection material or concrete providers. See ADR 0003 for custody, staging, bounds and capability limitations; no raw encryption/identity-management MCP tool is introduced.
 
 ## Invocation lifecycle
 
@@ -78,4 +82,4 @@ The repository gate validates architecture and negative fixtures first, then for
 
 ## Rust references
 
-This design uses the official [module/package model](https://doc.rust-lang.org/book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html), [Cargo workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html), [package layout](https://doc.rust-lang.org/cargo/guide/project-layout.html), and [API Guidelines](https://rust-lang.github.io/api-guidelines/). Ports-and-adapters and this seven-package split are project decisions, not an official Rust application-architecture mandate.
+This design uses the official [module/package model](https://doc.rust-lang.org/book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html), [Cargo workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html), [package layout](https://doc.rust-lang.org/cargo/guide/project-layout.html), and [API Guidelines](https://rust-lang.github.io/api-guidelines/). Ports-and-adapters and this package split are project decisions, not an official Rust application-architecture mandate.

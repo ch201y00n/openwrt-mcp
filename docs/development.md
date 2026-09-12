@@ -14,6 +14,8 @@ The workspace default member is the server: ordinary release builds produce the 
 | crates/features/src/categories | Device action definitions grouped by functional category |
 | crates/runtime/src | Invocation use cases and ports; no device or filesystem I/O |
 | crates/adapters/src | Local process, audit destinations and future backup/ubus persistence adapters |
+| crates/key-sources/src | Protected file/environment providers and independent container decoders |
+| crates/crypto-age/src | age encryption/decryption; no key-location or OS access |
 | crates/mcp/src | MCP protocol/framing; cannot import concrete adapters |
 | crates/server/src | Configuration and dependency wiring; no device command execution |
 | tools/xtask/src | Architecture validation, negative fixtures and development gate |

@@ -497,3 +497,104 @@ pub fn check_source_with_aliases(
         Err(checker.errors.into_iter().collect::<Vec<_>>().join("; "))
     }
 }
+
+/// Keep producer-side public aliases from flattening a namespace forbidden to a
+/// consumer by the architecture contract. This complements, rather than replaces,
+/// Rust visibility and tests of what secret-bearing values actually disclose.
+pub fn check_public_reexports(
+    source: &str,
+    protected: &BTreeSet<String>,
+    crate_prefix: &str,
+) -> CheckResult {
+    if protected.is_empty() {
+        return Ok(());
+    }
+    let ast = syn::parse_file(source).map_err(|_| "invalid Rust source")?;
+    let mut imports = Imports::default();
+    imports.visit_file(&ast);
+    struct PublicSurface<'a> {
+        protected: &'a BTreeSet<String>,
+        crate_prefix: &'a str,
+        aliases: &'a Aliases,
+        errors: BTreeSet<String>,
+        inspect_paths: bool,
+    }
+    impl PublicSurface<'_> {
+        fn path(&mut self, path: &str) {
+            for expanded in expands(path, self.aliases) {
+                let mut local = expanded
+                    .strip_prefix(self.crate_prefix)
+                    .unwrap_or(&expanded);
+                while let Some(rest) = local
+                    .strip_prefix("crate::")
+                    .or_else(|| local.strip_prefix("self::"))
+                    .or_else(|| local.strip_prefix("super::"))
+                {
+                    local = rest;
+                }
+                if self
+                    .protected
+                    .iter()
+                    .any(|protected| prefix(local, protected))
+                {
+                    self.errors.insert(format!(
+                        "public surface flattens protected namespace {local}"
+                    ));
+                }
+            }
+        }
+    }
+    impl<'ast> Visit<'ast> for PublicSurface<'_> {
+        fn visit_item(&mut self, item: &'ast Item) {
+            if test_only(item_attributes(item)) {
+                return;
+            }
+            match item {
+                Item::Use(item) if matches!(item.vis, syn::Visibility::Public(_)) => {
+                    let mut imports = Vec::new();
+                    uses(&item.tree, "", &mut imports);
+                    for (_, path) in imports {
+                        self.path(&path);
+                    }
+                }
+                Item::Type(item) if matches!(item.vis, syn::Visibility::Public(_)) => {
+                    self.inspect_paths = true;
+                    self.visit_type(&item.ty);
+                    self.inspect_paths = false;
+                }
+                Item::Fn(item) if matches!(item.vis, syn::Visibility::Public(_)) => {
+                    self.inspect_paths = true;
+                    self.visit_signature(&item.sig);
+                    self.inspect_paths = false;
+                }
+                _ => visit::visit_item(self, item),
+            }
+        }
+        fn visit_field(&mut self, field: &'ast syn::Field) {
+            if matches!(field.vis, syn::Visibility::Public(_)) {
+                self.inspect_paths = true;
+                self.visit_type(&field.ty);
+                self.inspect_paths = false;
+            }
+        }
+        fn visit_path(&mut self, path: &'ast syn::Path) {
+            if self.inspect_paths {
+                self.path(&path_text(path));
+            }
+            visit::visit_path(self, path);
+        }
+    }
+    let mut visitor = PublicSurface {
+        protected,
+        crate_prefix,
+        aliases: &imports.aliases,
+        errors: BTreeSet::new(),
+        inspect_paths: false,
+    };
+    visitor.visit_file(&ast);
+    if visitor.errors.is_empty() {
+        Ok(())
+    } else {
+        Err(visitor.errors.into_iter().collect::<Vec<_>>().join("; "))
+    }
+}

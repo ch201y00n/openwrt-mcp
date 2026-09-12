@@ -7,7 +7,7 @@ mod spec;
 
 pub use change::validate_evolution;
 pub use metadata::check_metadata;
-pub use source::{check_source, check_source_with_aliases};
+pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
 
 use std::{
@@ -99,6 +99,20 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         let aliases = dependency_aliases(&metadata, &rule.name)?;
         check_source_with_aliases(rule, &source, development, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
+        if !development {
+            // A consumer's private-namespace ban must survive producer-side
+            // root aliases; otherwise `runtime::protection::T` becomes `runtime::T`.
+            let namespace_prefix = format!("{}::", rule.name.replace('-', "_"));
+            let protected: BTreeSet<_> = contract
+                .crates
+                .iter()
+                .flat_map(|consumer| &consumer.forbidden_paths)
+                .filter_map(|path| path.strip_prefix(&namespace_prefix))
+                .map(str::to_owned)
+                .collect();
+            check_public_reexports(&source, &protected, &namespace_prefix)
+                .map_err(|error| format!("{file}: {error}"))?;
+        }
         validate_modules(&root, file, &source)?;
     }
 

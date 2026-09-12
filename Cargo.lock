@@ -345,11 +345,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwrt-mcp-crypto-age"
+version = "0.1.0"
+dependencies = [
+ "openwrt-mcp-runtime",
+]
+
+[[package]]
 name = "openwrt-mcp-features"
 version = "0.1.0"
 dependencies = [
  "openwrt-mcp-core",
  "serde_json",
+]
+
+[[package]]
+name = "openwrt-mcp-key-sources"
+version = "0.1.0"
+dependencies = [
+ "openwrt-mcp-runtime",
 ]
 
 [[package]]

@@ -35,6 +35,8 @@ Categories: system, network, wireless, firewall, dhcp_dns, services, packages, s
 
 ## Mutation design target
 
+Architecture revision 3 selects age for archival backup encryption and introduces independent key-source, container-selection and encryption-provider ports (ADR 0003). Accept exact configured restricted files, explicitly named environment variables and keys within bounded archives; model user-unlocked OneDrive Personal Vault without automatic authentication or fallback. Separate public encryption recipients from private decryption identities. Windows protected-file/Vault support requires native ACL/handle validation and must remain explicitly unsupported until implemented and tested. Start with X25519 age and plain ZIP Stored/Deflate; other methods need reviewed adapters. Raw keys are never MCP inputs/outputs or logs. Cipher finalization and complete authentication precede backup publication/restore application. These primitives do not implement router backup/rollback transactions by themselves.
+
 Use inspect -> plan -> encrypted pre-change backup -> authorize -> apply -> verify -> confirm/rollback. The device owns the rollback timer so losing a client/SSH connection does not prevent recovery. Protected resources must be checked after resolving actual objects and indirect dependencies, not string matching alone. Bulk calls and extensions do not bypass these checks. Firmware and package changes need dedicated workflows; a timer cannot make every action reversible.
 
 ## Performance targets (not yet measured on OpenWrt)

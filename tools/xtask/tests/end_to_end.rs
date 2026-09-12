@@ -223,3 +223,17 @@ fn no_test_fixture_points_into_the_real_repository() {
         .unwrap();
     assert!(!fixture.root.canonicalize().unwrap().starts_with(repo));
 }
+
+#[test]
+fn forbidden_consumer_namespaces_cannot_escape_through_producer_root_aliases() {
+    let fixture = Fixture::new();
+    xtask::architecture(&fixture.root, None).unwrap();
+    for source in [
+        "pub mod process { pub struct Command; } pub use process::Command;",
+        "pub mod process { pub struct Command; } use process::Command as Hidden; pub type Exposed = Hidden;",
+        "pub mod process { pub struct Command; } pub fn expose() -> process::Command { process::Command }",
+    ] {
+        fixture.write("crates/tokio/src/lib.rs", source);
+        fixture.denied("public surface flattens protected namespace");
+    }
+}

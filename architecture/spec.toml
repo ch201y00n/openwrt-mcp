@@ -1,5 +1,5 @@
-version = 2
-decision = "docs/adr/0002-architecture-first.md"
+version = 3
+decision = "docs/adr/0003-key-custody-and-age.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 
@@ -27,10 +27,10 @@ allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert
 name = "openwrt-mcp-runtime"
 path = "crates/runtime"
 layer = "application"
-dependencies = ["openwrt-mcp-core", "serde", "serde_json", "thiserror", "tokio", "async-trait"]
+dependencies = ["openwrt-mcp-core", "serde", "serde_json", "thiserror", "tokio", "async-trait", "zeroize"]
 dev_dependencies = []
 build_dependencies = []
-forbidden_paths = ["std::fs", "std::io", "std::net", "std::os", "std::process", "std::env", "tokio::fs", "tokio::process", "tokio::net", "tokio::io"]
+forbidden_paths = ["std::fs", "std::io::stdin", "std::io::stdout", "std::io::stderr", "std::io::pipe", "std::net", "std::os", "std::process", "std::env", "tokio::fs", "tokio::process", "tokio::net", "tokio::io"]
 allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
 
 [[crates]]
@@ -50,18 +50,38 @@ layer = "transport"
 dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "serde_json", "tokio", "rmcp"]
 dev_dependencies = ["openwrt-mcp-features", "async-trait", "toml", "rmcp"]
 build_dependencies = []
-forbidden_paths = ["std::fs", "std::net", "std::os", "std::process", "std::thread", "std::env", "std::io::stdin", "std::io::stdout", "std::io::stderr", "tokio::fs", "tokio::process", "tokio::net", "tokio::io::stdin", "tokio::io::stdout", "tokio::io::stderr"]
+forbidden_paths = ["openwrt_mcp_runtime::protection", "std::fs", "std::net", "std::os", "std::process", "std::thread", "std::env", "std::io::stdin", "std::io::stdout", "std::io::stderr", "tokio::fs", "tokio::process", "tokio::net", "tokio::io::stdin", "tokio::io::stdout", "tokio::io::stderr"]
 allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable", "env"]
 
 [[crates]]
 name = "openwrt-mcp"
 path = "crates/server"
 layer = "composition"
-dependencies = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-adapters", "openwrt-mcp-transport", "serde", "serde_json", "toml", "tokio", "libc"]
-dev_dependencies = ["async-trait", "rmcp"]
+dependencies = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-adapters", "openwrt-mcp-transport", "openwrt-mcp-key-sources", "openwrt-mcp-crypto-age", "serde", "serde_json", "toml", "tokio", "libc"]
+dev_dependencies = ["async-trait", "rmcp", "age", "zip"]
 build_dependencies = []
 forbidden_paths = ["std::process::Command", "tokio::process::Command"]
 allowed_macros = ["json", "matches", "vec", "format", "write", "writeln", "print", "println", "eprint", "eprintln", "env", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
+
+[[crates]]
+name = "openwrt-mcp-crypto-age"
+path = "crates/crypto-age"
+layer = "infrastructure"
+dependencies = ["openwrt-mcp-runtime", "age", "zeroize"]
+dev_dependencies = []
+build_dependencies = []
+forbidden_paths = ["std::fs", "std::net", "std::os", "std::process", "std::env", "std::thread", "std::io::stdin", "std::io::stdout", "std::io::stderr", "std::io::pipe"]
+allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
+
+[[crates]]
+name = "openwrt-mcp-key-sources"
+path = "crates/key-sources"
+layer = "infrastructure"
+dependencies = ["openwrt-mcp-runtime", "serde", "zeroize", "zip", "rustix"]
+dev_dependencies = []
+build_dependencies = []
+forbidden_paths = ["std::process", "tokio::process"]
+allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "assert_ne", "debug_assert", "unreachable"]
 
 [[crates]]
 name = "xtask"
