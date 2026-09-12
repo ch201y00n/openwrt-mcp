@@ -52,6 +52,27 @@ observed_at = "2026-09-12T20:03:11Z"
 host = "linux"
 environment = "wsl"
 
+[[records]]
+id = "v6-qemu-successful-reads"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["network_interfaces", "network_interface_status", "wireless_devices", "service_status", "service_status_list", "system_board", "system_info", "network_device_status", "network_lan_status", "service_logd_status", "service_sysntpd_status", "diagnostics_watchdog_status"]
+artifacts = ["docs/emulator-validation-v6.md"]
+observed_at = "2026-09-12T21:00:58Z"
+host = "linux"
+environment = "wsl"
+
+# No successful WAN/radio observation is inferred from API presence.
+[[records]]
+id = "v6-qemu-unavailable-calls"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["network_wan_status", "wireless_radio_info"]
+artifacts = ["docs/emulator-validation-v6.md"]
+observed_at = "2026-09-12T21:00:58Z"
+host = "linux"
+environment = "wsl"
+
 # Negative acceptance is explicitly documented; these are NOT successful reads.
 [[records]]
 id = "v5-qemu-unavailable-calls"

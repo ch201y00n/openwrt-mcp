@@ -12,6 +12,12 @@ Date: 2026-09-13. This records host/fixture validation and separately scoped emu
 
 ## Verification
 
+The **v6 bounded-read implementation** passed the complete Linux-on-WSL repository gate: architecture/evolution, all **51 harness regressions**, formatting, strict all-target Clippy, workspace tests and release compilation. The inventory is **347 distinct tests**, including the compile-fail doctest, with zero ignored; repeated harness execution is counted once. Five typed contracts extend the catalog to fourteen reads. Behavioral coverage includes private selector/action binding, validation of unselected rows, exact escaped-byte accounting before cloning, nested item budgets, strict shared JSON decoding, real MCP text/structured response bounds and local/SSH error handling. Architecture-only checkpoint `eccd3e7` preceded functional changes.
+
+Independent review found a cooperative-timeout boundary: a non-yielding decoder/projector could finish late without the asynchronous timer returning an error. Explicit monotonic checks now reject late results and revoke issued observation leases before success completion; three non-yielding regressions pass. This is not CPU preemption or a hard real-time guarantee, consistent with the [Tokio timeout contract](https://docs.rs/tokio/1.53.1/tokio/time/fn.timeout.html). Independent review of finite projections, byte budgets and both backend decoder integrations found no further actionable issue in this increment; this is not an external security audit.
+
+The **v6 actual MCP/SSH emulator run** validated all five typed contracts and seven legacy reads, with two explicitly unavailable legacy calls, twelve invalid-input rejections, two unobserved selections, cache/refresh recovery and **88 safe audit events**. The exact debug executable hash, timestamps, image and operation scopes are in [v6 emulated acceptance](emulator-validation-v6.md). A valid empty wireless device list is not physical-radio acceptance. Native Windows/macOS and BPI-R4 hardware acceptance remain pending.
+
 The **v6 architecture-only checkpoint** passed the complete Linux-on-WSL repository gate with **272 distinct tests**, zero ignored: the v5 implementation's 260 plus seven new harness regressions and five explicitly named declaration scaffolds. Fifty-one tests now exercise the architecture harness. Requirements, ADR 0006, the versioned projection/decoder/result contracts and thirteen required native suites are recorded before functional implementation. No collection projector, changed feature action or strict action decoder is implemented by this checkpoint, and its scaffold checks do not add operation acceptance evidence. Independent design/source review clarified nonempty identities, bounded legacy traversal before cloning and response field presence.
 
 Current continued-development work has separately performed read-only reference identity, selected installed-package metadata and ubus method-name introspection on BPI-R4. See [reference-target.md](reference-target.md) for exact observation times and scope. No configuration was changed. This is not full operation acceptance, and no historical fixture count below is reclassified as device testing.
@@ -26,7 +32,7 @@ Architecture v5's **architecture-only checkpoint** passed the full repository ga
 
 Architecture v4 portable-host increment: the complete `tools/Test-Repository.ps1 -UseWsl` gate passes, including architecture/evolution, 32 harness regressions, formatting, strict Clippy, all workspace tests and release compilation. The test inventory contains **192 distinct tests** including one compile-fail doctest; zero tests were ignored. The harness suite is intentionally run first and again with the workspace, not counted twice. Architecture-only checkpoint `d88fb78` passed the full gate before functional implementation; its two placeholder test targets were replaced by actual suites, not counted as feature evidence.
 
-| Area | Current tests | Evidence |
+| Area | Historical v4 tests | Evidence |
 | --- | ---: | --- |
 | Server/configuration/composition | 19 | Four real-binary portable stdio cases, five typed target/config CLI cases, strict byte/schema checks, examples and unchanged protection composition |
 | Local adapter and audit | 16 | Seven private Linux runner/argv cases, seven audit/capability cases, portable unconfigured refusal and compile-fail local-constructor protection |
@@ -77,7 +83,15 @@ An independent read-only code review found three issues during implementation: b
 
 The architecture migration was verified before adding the next read operations. Independent source review found and closed simple harness bypasses involving Cargo aliases, production targets in test directories, nested target directories, raw identifiers, macro/attribute expressions and broad namespace re-exports. These findings are exercised by negative fixtures; static checks are not a proof of arbitrary macro/dependency semantics.
 
-## Current architecture-v5 host measurements
+## Current architecture-v6 host measurements
+
+After the v6 release gate on the Linux x86_64 environment above: executable **4,676,720 bytes (4.46 MiB)**, idle RSS **5,720 KiB (5.59 MiB)** and two threads. After one second of initialization warmup, a **60.00158-second** interval recorded zero process CPU ticks at 100 ticks/second: **0.0% of one core at that counter resolution**, not proof of literally zero CPU work. Default-deny/unconfigured target, enabled audit, stderr connected to null; no router call, key access or SSH session. Active-work peak memory remains unmeasured.
+
+The diagnostic reads the child process's user/system CPU counters and the host's clock-tick rate; see [Linux process stat fields](https://man7.org/linux/man-pages/man5/proc_pid_stat.5.html). Its Linux-specific implementation is a development example, not a platform restriction in the MCP server. The observation is not ARM/OpenWrt or native Windows/macOS performance acceptance.
+
+A 10,000-iteration release microbenchmark used a **1,014-operation** synthetic catalog, empty input, a prewarmed private capability cache, an in-memory backend and disabled audit destination. Policy lookup/authorization p50 **44 ns**, p95 **47 ns**; dispatcher p50 **53,510 ns**, p95 **83,973 ns**. It excludes real probing, SSH, device execution and log I/O. These are single-run host observations; other verification work ran on the host, so they are not controlled comparative benchmarks.
+
+## Historical architecture-v5 host measurements
 
 After the v5 release gate on the Linux x86_64 environment above: executable **4,443,248 bytes (4.24 MiB)**, idle RSS **5,556 KiB (5.43 MiB)**, two threads, sampled one second after MCP initialization. Default-deny/unconfigured target, enabled audit, stderr connected to null; no router call, key access or SSH session. CPU and active-work peak memory were not measured.
 
@@ -113,7 +127,7 @@ cargo run --locked --release -p openwrt-mcp --example benchmark
 cargo run --locked --release -p openwrt-mcp --example footprint -- target/release/openwrt-mcp
 ```
 
-If using CARGO_TARGET_DIR, supply that directory's release binary to footprint. The diagnostic examples use synthetic data, never SSH, ubus, or live router configuration.
+Append `60` to the footprint invocation for the current 60-second idle CPU/RSS observation (default interval: one second, after one-second warmup). It requires Linux `/proc` and `/usr/bin/getconf`. If using CARGO_TARGET_DIR, supply that directory's release binary to footprint. The diagnostic examples use synthetic data, never SSH, ubus, or live router configuration.
 
 ## Outstanding acceptance work
 

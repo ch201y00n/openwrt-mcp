@@ -1,5 +1,8 @@
 use crate::definition::{argument, read};
-use openwrt_mcp_core::{Category, Operation, Parameter, ParameterKind};
+use openwrt_mcp_core::{
+    Category, Collection, Operation, OutputMode, Parameter, ParameterKind, ScalarKind, Selection,
+    TypedProjection,
+};
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
@@ -39,5 +42,24 @@ pub(crate) fn operations() -> Vec<Operation> {
         ParameterKind::String,
         json!("{device}"),
     );
-    vec![radio]
+    let mut devices = read(
+        "wireless_devices",
+        "List unique bounded iwinfo-supported device names; an empty result does not prove physical radios are absent.",
+        Category::Wireless,
+        "iwinfo",
+        "devices",
+        "wireless_devices.v1",
+        &[],
+    );
+    devices.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        collection: Collection::ScalarArray {
+            source: "/devices".into(),
+            max_items: 128,
+            name: "device".into(),
+            value: ScalarKind::Text { max_bytes: 256 },
+            unique: true,
+        },
+        selection: Selection::All {},
+    }));
+    vec![radio, devices]
 }

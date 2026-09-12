@@ -7,7 +7,8 @@ use std::{process::Stdio, time::Duration};
 use async_trait::async_trait;
 use openwrt_mcp_core::{CapabilityObservation, PreparedAction, ProbeRequest, UnknownReason};
 use openwrt_mcp_device_codec::{
-    CommandSpec, MAX_PROBE_BYTES, compile_action, compile_probe, parse_ubus_describe,
+    CodecError, CommandSpec, MAX_PROBE_BYTES, compile_action, compile_probe, parse_action_response,
+    parse_ubus_describe,
 };
 use openwrt_mcp_runtime::{Backend, Limits, RuntimeError};
 use serde_json::Value;
@@ -66,10 +67,10 @@ impl Backend for LocalBackend {
         let deadline = tokio::time::Instant::now() + Duration::from_millis(limits.timeout_ms);
         let invocation = compile_action(action).map_err(|_| RuntimeError::BackendFailed)?;
         let stdout = run(&invocation, limits.max_output_bytes, deadline).await?;
-        if stdout.iter().all(u8::is_ascii_whitespace) {
-            return Ok(Value::Null);
-        }
-        serde_json::from_slice(&stdout).map_err(|_| RuntimeError::InvalidOutput)
+        parse_action_response(&stdout, limits.max_output_bytes).map_err(|error| match error {
+            CodecError::OutputLimit => RuntimeError::OutputLimit,
+            _ => RuntimeError::InvalidOutput,
+        })
     }
 
     async fn probe(

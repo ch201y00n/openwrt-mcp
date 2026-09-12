@@ -386,6 +386,56 @@ async fn complete_nonzero_and_invalid_json_results_leave_connection_reusable() {
 }
 
 #[tokio::test]
+async fn strict_action_decoder_rejects_completed_bad_json_without_replay_or_reconnect() {
+    let too_deep = format!("{}null{}", "[".repeat(33), "]".repeat(33)).into_bytes();
+    let too_many = format!("[{}]", vec!["0"; 65_536].join(",")).into_bytes();
+    let outputs = [
+        (br#"{"name":1,"\u006eame":2}"#.to_vec(), "invalid_output"),
+        (
+            br#"{"public":true,"foreign":{"fixture-secret":1,"fixture-secret":2}}"#.to_vec(),
+            "invalid_output",
+        ),
+        (br#"{"fixture-secret":"#.to_vec(), "invalid_output"),
+        (b"{} {}".to_vec(), "invalid_output"),
+        (b"\"\xff\"".to_vec(), "invalid_output"),
+        (b"1e400".to_vec(), "invalid_output"),
+        (too_deep, "output_limit"),
+        (too_many, "output_limit"),
+    ];
+    let mut replies = outputs
+        .iter()
+        .map(|(bytes, _)| described(bytes))
+        .collect::<Vec<_>>();
+    replies.push(success());
+    let mut fixture = Fixture::new(replies).await;
+    let source = MemoryKey::new(2);
+    let backend = SshBackend::new(fixture.options.clone(), source.clone()).unwrap();
+    let limits = Limits {
+        max_output_bytes: 256 * 1024,
+        ..Limits::default()
+    };
+    for (index, (_, code)) in outputs.iter().enumerate() {
+        let error = backend.execute(&action(), &limits).await.unwrap_err();
+        assert_eq!(error.code(), *code);
+        assert!(!error.to_string().contains("fixture-secret"));
+        assert_eq!(backend.capability_epoch(), Some(1));
+        assert_eq!(fixture.observed.commands.lock().unwrap().len(), index + 1);
+    }
+    assert_eq!(
+        backend.execute(&action(), &limits).await.unwrap(),
+        json!({"ok":true})
+    );
+    assert_eq!(
+        fixture.observed.commands.lock().unwrap().len(),
+        outputs.len() + 1
+    );
+    assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 1);
+    assert_eq!(source.reads.load(Ordering::SeqCst), 1);
+    drop(backend);
+    fixture.closed().await;
+}
+
+#[tokio::test]
 async fn stdout_and_stderr_bounds_fail_and_close_without_replay() {
     for stderr in [false, true] {
         let mut fixture = Fixture::new(vec![Reply::Complete {

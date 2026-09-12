@@ -41,6 +41,67 @@ async fn arguments_are_literal_and_output_is_json_only() {
 }
 
 #[tokio::test]
+async fn local_action_decoder_rejects_duplicate_trailing_and_malformed_responses() {
+    let backend = LocalBackend { _verified: () };
+    for output in [
+        r#"{"name":1,"name":2}"#,
+        r#"{"name":1,"\u006eame":2}"#,
+        r#"{"public":true,"foreign":{"fixture-secret":1,"fixture-secret":2}}"#,
+        r#"{"fixture-secret":"#,
+        "{} {}",
+        "\u{b}",
+        "1e400",
+    ] {
+        let error = backend
+            .execute(
+                &invocation("/usr/bin/printf", &["%s", output]),
+                &Limits::default(),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), "invalid_output");
+        assert!(!error.to_string().contains("fixture-secret"));
+    }
+    let invalid_utf8 = backend
+        .execute(
+            &invocation("/usr/bin/printf", &["%b", "\"\\377\""]),
+            &Limits::default(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(invalid_utf8.code(), "invalid_output");
+    assert_eq!(
+        backend
+            .execute(
+                &invocation("/usr/bin/printf", &["%s", "{}"]),
+                &Limits::default()
+            )
+            .await
+            .unwrap(),
+        json!({})
+    );
+}
+
+#[tokio::test]
+async fn local_action_decoder_checks_container_depth_after_complete_output() {
+    let backend = LocalBackend { _verified: () };
+    for depth in [32, 33] {
+        let output = format!("{}null{}", "[".repeat(depth), "]".repeat(depth));
+        let result = backend
+            .execute(
+                &invocation("/usr/bin/printf", &["%s", &output]),
+                &Limits::default(),
+            )
+            .await;
+        if depth == 32 {
+            assert!(result.is_ok());
+        } else {
+            assert_eq!(result.unwrap_err().code(), "output_limit");
+        }
+    }
+}
+
+#[tokio::test]
 async fn stderr_is_drained_bounded_and_never_exposed() {
     let backend = LocalBackend { _verified: () };
     let command = invocation("/usr/bin/ls", &["/openwrt-mcp-nonexistent-fixture-secret"]);

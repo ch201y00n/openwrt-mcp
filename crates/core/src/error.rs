@@ -19,6 +19,12 @@ pub enum CoreError {
     MissingArgument,
     #[error("unknown_argument")]
     UnknownArgument,
+    #[error("invalid_output")]
+    InvalidOutput,
+    #[error("output_limit")]
+    OutputLimit,
+    #[error("selection_not_observed")]
+    SelectionNotObserved,
 }
 
 impl CoreError {
@@ -32,6 +38,9 @@ impl CoreError {
             Self::InvalidArguments => "invalid_arguments",
             Self::MissingArgument => "missing_argument",
             Self::UnknownArgument => "unknown_argument",
+            Self::InvalidOutput => "invalid_output",
+            Self::OutputLimit => "output_limit",
+            Self::SelectionNotObserved => "selection_not_observed",
         }
     }
 }

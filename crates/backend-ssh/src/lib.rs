@@ -11,7 +11,8 @@ pub use options::SshOptions;
 use async_trait::async_trait;
 use openwrt_mcp_core::{CapabilityObservation, PreparedAction, ProbeRequest, UnknownReason};
 use openwrt_mcp_device_codec::{
-    CommandSpec, MAX_PROBE_BYTES, compile_action, compile_probe, encode_remote, parse_ubus_describe,
+    CodecError, CommandSpec, MAX_PROBE_BYTES, compile_action, compile_probe, encode_remote,
+    parse_action_response, parse_ubus_describe,
 };
 use openwrt_mcp_runtime::{Backend, Limits, RuntimeError, protection::KeySource};
 use serde_json::Value;
@@ -87,10 +88,10 @@ impl Backend for SshBackend {
         let stdout = self
             .run(&command, limits.max_output_bytes, deadline)
             .await?;
-        if stdout.iter().all(u8::is_ascii_whitespace) {
-            return Ok(Value::Null);
-        }
-        serde_json::from_slice(&stdout).map_err(|_| RuntimeError::InvalidOutput)
+        parse_action_response(&stdout, limits.max_output_bytes).map_err(|error| match error {
+            CodecError::OutputLimit => RuntimeError::OutputLimit,
+            _ => RuntimeError::InvalidOutput,
+        })
     }
 
     async fn probe(

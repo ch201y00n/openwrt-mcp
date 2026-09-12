@@ -1,5 +1,8 @@
 use crate::definition::{argument, read};
-use openwrt_mcp_core::{Category, Operation, Parameter, ParameterKind};
+use openwrt_mcp_core::{
+    Category, Collection, InnerRecord, Operation, OutputMode, Parameter, ParameterKind, Presence,
+    SAFE_INTEGER_MAX, ScalarField, ScalarKind, Selection, TypedProjection,
+};
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
@@ -73,28 +76,19 @@ pub(crate) fn operations() -> Vec<Operation> {
             fields,
         ),
         interface_status(),
+        interfaces(),
     ]
 }
 
 fn interface_status() -> Operation {
     let mut operation = read(
         "network_interface_status",
-        "Read selected state of a named logical interface; missing interfaces are unavailable.",
+        "Read one exact logical interface from a bounded dump; v2 returns typed fields including interface identity.",
         Category::Network,
         "network.interface",
-        "status",
-        "network_interface_status.v1",
-        &[
-            "/up",
-            "/pending",
-            "/available",
-            "/autostart",
-            "/dynamic",
-            "/uptime",
-            "/proto",
-            "/device",
-            "/l3_device",
-        ],
+        "dump",
+        "network_interface_status.v2",
+        &[],
     );
     operation.parameters.insert(
         "interface".to_owned(),
@@ -104,11 +98,74 @@ fn interface_status() -> Operation {
             allowed_values: Vec::new(),
         },
     );
-    argument(
-        &mut operation,
-        "interface",
-        ParameterKind::String,
-        json!("{interface}"),
-    );
+    // Selection is local to the prepared projection, never an ubus argument.
+    operation.output_mode =
+        OutputMode::Typed(Box::new(interface_projection(Selection::ExactOne {
+            parameter: "interface".into(),
+        })));
     operation
+}
+
+fn interfaces() -> Operation {
+    let mut operation = read(
+        "network_interfaces",
+        "List bounded logical-interface identity and selected state, without addresses, routes or configuration.",
+        Category::Network,
+        "network.interface",
+        "dump",
+        "network_interfaces.v1",
+        &[],
+    );
+    operation.output_mode = OutputMode::Typed(Box::new(interface_projection(Selection::All {})));
+    operation
+}
+
+fn interface_projection(selection: Selection) -> TypedProjection {
+    let mut fields = vec![ScalarField {
+        name: "interface".into(),
+        source: "/interface".into(),
+        presence: Presence::Required,
+        value: ScalarKind::Text { max_bytes: 256 },
+    }];
+    fields.extend(
+        ["up", "pending", "available", "autostart", "dynamic"]
+            .into_iter()
+            .map(|name| ScalarField {
+                name: name.into(),
+                source: format!("/{name}"),
+                presence: Presence::Required,
+                value: ScalarKind::Boolean {},
+            }),
+    );
+    fields.push(ScalarField {
+        name: "uptime".into(),
+        source: "/uptime".into(),
+        presence: Presence::Optional,
+        value: ScalarKind::SafeInteger {
+            min: 0,
+            max: SAFE_INTEGER_MAX,
+        },
+    });
+    fields.extend(
+        ["proto", "device", "l3_device"]
+            .into_iter()
+            .map(|name| ScalarField {
+                name: name.into(),
+                source: format!("/{name}"),
+                presence: Presence::Optional,
+                value: ScalarKind::Text { max_bytes: 256 },
+            }),
+    );
+    TypedProjection::Collection {
+        collection: Collection::ObjectArray {
+            source: "/interface".into(),
+            max_items: 128,
+            identity: "interface".into(),
+            record: InnerRecord {
+                fields,
+                collections: vec![],
+            },
+        },
+        selection,
+    }
 }

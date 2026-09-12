@@ -5,7 +5,7 @@ use std::{
     fs,
     path::PathBuf,
     process::Stdio,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -21,6 +21,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .nth(1)
             .ok_or("provide a release binary path")?,
     );
+    let sample_seconds = std::env::args()
+        .nth(2)
+        .map(|value| value.parse::<u64>())
+        .transpose()?
+        .unwrap_or(1);
+    if !(1..=60).contains(&sample_seconds) {
+        return Err("sample duration must be 1 to 60 seconds".into());
+    }
+    // Linux exposes process CPU in USER_HZ ticks, not wall-clock milliseconds.
+    // This diagnostic is host-only; no helper is invoked by the server.
+    let ticks = tokio::time::timeout(
+        Duration::from_secs(5),
+        Command::new("/usr/bin/getconf")
+            .arg("CLK_TCK")
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await??;
+    if !ticks.status.success() {
+        return Err("cannot determine host clock ticks".into());
+    }
+    let ticks_per_second = std::str::from_utf8(&ticks.stdout)?.trim().parse::<u64>()?;
+    if ticks_per_second == 0 {
+        return Err("invalid host clock ticks".into());
+    }
     let dir = std::env::temp_dir().canonicalize()?.join(format!(
         "openwrt-mcp-footprint-{}-{}",
         std::process::id(),
@@ -54,6 +81,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
         .await?;
     tokio::time::sleep(Duration::from_secs(1)).await;
+    let before = cpu_ticks(pid)?;
+    let sample_started = Instant::now();
+    tokio::time::sleep(Duration::from_secs(sample_seconds)).await;
+    let after = cpu_ticks(pid)?;
+    let elapsed_seconds = sample_started.elapsed().as_secs_f64();
+    let cpu_ticks = after.checked_sub(before).ok_or("CPU counter decreased")?;
+    let cpu_percent_one_core = cpu_ticks as f64 / ticks_per_second as f64 / elapsed_seconds * 100.0;
     let status = fs::read_to_string(format!("/proc/{pid}/status"))?;
     let rss = status
         .lines()
@@ -78,9 +112,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!(
         "{}",
-        json!({"kind":"linux_host_idle_sample","binary_bytes":binary_bytes,"rss_kib":rss,"threads":threads,"sampling":"one second after initialize","audit":"enabled; stderr connected to null","router_calls":0,"cpu_measured":false})
+        json!({"kind":"linux_host_idle_sample","binary_bytes":binary_bytes,"rss_kib":rss,"threads":threads,"warmup_seconds":1,"sample_seconds":elapsed_seconds,"cpu_ticks":cpu_ticks,"clock_ticks_per_second":ticks_per_second,"cpu_percent_one_core":cpu_percent_one_core,"audit":"enabled; stderr connected to null","router_calls":0,"cpu_measured":true})
     );
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn cpu_ticks(pid: u32) -> Result<u64, Box<dyn std::error::Error>> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    // comm (field 2) may contain whitespace and parentheses. Numeric fields
+    // begin after the final ')'; utime/stime are fields 14/15 (indices 11/12).
+    let (_, fields) = stat.rsplit_once(')').ok_or("invalid process stat")?;
+    let mut fields = fields.split_whitespace().skip(11);
+    let user = fields.next().ok_or("missing user CPU")?.parse::<u64>()?;
+    let system = fields.next().ok_or("missing system CPU")?.parse::<u64>()?;
+    user.checked_add(system)
+        .ok_or_else(|| "CPU counter overflow".into())
 }
 
 #[cfg(not(target_os = "linux"))]

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Category, CoreError, Operation, Permission, Requirement};
+use crate::{Category, CoreError, Operation, OutputMode, Permission, Requirement};
 
 const MAX_CUSTOM_OPERATIONS: usize = 1024;
 
@@ -24,6 +24,12 @@ impl Catalog {
     ) -> Result<Self, CoreError> {
         if custom.len() > MAX_CUSTOM_OPERATIONS {
             return Err(CoreError::CatalogLimitExceeded);
+        }
+        if builtins
+            .iter()
+            .any(|operation| matches!(operation.output_mode, OutputMode::Structured))
+        {
+            return Err(CoreError::InvalidDefinition);
         }
         let mut operations = builtins;
         let mut names: BTreeSet<String> = operations

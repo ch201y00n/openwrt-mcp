@@ -39,8 +39,35 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
         (
             "network_interface_status",
             ReviewedObject::NetworkInterface,
-            "status",
-            vec![("interface", ParameterKind::String)],
+            "dump",
+            vec![],
+        ),
+        (
+            "network_interfaces",
+            ReviewedObject::NetworkInterface,
+            "dump",
+            vec![],
+        ),
+        (
+            "wireless_devices",
+            ReviewedObject::Iwinfo,
+            "devices",
+            vec![],
+        ),
+        (
+            "service_status",
+            ReviewedObject::Service,
+            "list",
+            vec![
+                ("name", ParameterKind::String),
+                ("verbose", ParameterKind::Boolean),
+            ],
+        ),
+        (
+            "service_status_list",
+            ReviewedObject::Service,
+            "list",
+            vec![("verbose", ParameterKind::Boolean)],
         ),
         (
             "wireless_radio_info",
@@ -86,7 +113,14 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
                     .into_iter()
                     .map(|(key, kind)| (key.into(), kind))
                     .collect(),
-                response_contract: format!("{name}.v1"),
+                response_contract: format!(
+                    "{name}.v{}",
+                    if name == "network_interface_status" {
+                        2
+                    } else {
+                        1
+                    }
+                ),
             }
         );
         assert_eq!(operation.capability.probe_object(), Some(object));
@@ -113,7 +147,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 10);
+    assert_eq!(operations.len(), 14);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         let Action::Ubus { object, .. } = &operation.action else {
@@ -182,7 +216,7 @@ fn empty_watchdog_read_ignores_advertised_setters_and_never_adds_them() {
 }
 
 #[test]
-fn method_presence_without_interface_selector_metadata_remains_unknown() {
+fn interface_v2_requires_dump_and_does_not_invent_a_transmitted_selector() {
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
     let operation = catalog.get("network_interface_status").unwrap();
     let observation = CapabilityObservation::Ubus(ObjectObservation {
@@ -197,11 +231,28 @@ fn method_presence_without_interface_selector_metadata_remains_unknown() {
     let action = operation.prepare(&json!({"interface":"loopback"})).unwrap();
     assert_eq!(
         operation.capability.evaluate(&observation, Some(&action)),
-        Verdict::Unknown(UnknownReason::IncompleteSignature)
+        Verdict::Unknown(UnknownReason::NotObservedOrHidden)
     );
     assert_eq!(
         operation.capability.evaluate(&observation, None),
-        Verdict::Unknown(UnknownReason::IncompleteSignature)
+        Verdict::Unknown(UnknownReason::NotObservedOrHidden)
+    );
+    let dump = CapabilityObservation::Ubus(ObjectObservation {
+        object: ReviewedObject::NetworkInterface,
+        methods: BTreeMap::from([(
+            "dump".into(),
+            MethodSignature {
+                arguments: BTreeMap::new(),
+            },
+        )]),
+    });
+    assert_eq!(
+        operation.capability.evaluate(&dump, Some(&action)),
+        Verdict::Compatible
+    );
+    assert_eq!(
+        operation.capability.evaluate(&dump, None),
+        Verdict::Compatible
     );
 }
 

@@ -130,15 +130,8 @@ impl ServerHandler for McpServer {
                 .await
         };
         let result = match outcome {
-            Ok(value) => {
-                let mut result =
-                    CallToolResult::success(vec![ContentBlock::text(value.to_string())]);
-                result.structured_content = Some(value);
-                result
-            }
-            Err(error) => CallToolResult::error(vec![ContentBlock::text(
-                json!({"error": error.code()}).to_string(),
-            )]),
+            Ok(value) => crate::result::success(value),
+            Err(error) => crate::result::failure(error.code()),
         };
         Ok(result.into())
     }

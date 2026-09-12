@@ -36,6 +36,7 @@ impl Backend for RecordingBackend {
         let ProbeRequest::DescribeUbusObject(object) = request;
         let (method, arguments) = match object {
             ReviewedObject::Iwinfo => ("info", vec![("device", UbusArgumentType::String)]),
+            ReviewedObject::NetworkInterface => ("dump", vec![]),
             ReviewedObject::System => (
                 "watchdog",
                 vec![
@@ -58,17 +59,26 @@ impl Backend for RecordingBackend {
                 ));
             }
         };
+        let mut methods = BTreeMap::from([(
+            method.into(),
+            MethodSignature {
+                arguments: arguments
+                    .into_iter()
+                    .map(|(name, kind)| (name.into(), kind))
+                    .collect(),
+            },
+        )]);
+        if object == ReviewedObject::Iwinfo {
+            methods.insert(
+                "devices".into(),
+                MethodSignature {
+                    arguments: BTreeMap::new(),
+                },
+            );
+        }
         Ok(CapabilityObservation::Ubus(ObjectObservation {
             object,
-            methods: BTreeMap::from([(
-                method.into(),
-                MethodSignature {
-                    arguments: arguments
-                        .into_iter()
-                        .map(|(name, kind)| (name.into(), kind))
-                        .collect(),
-                },
-            )]),
+            methods,
         }))
     }
 
@@ -107,6 +117,7 @@ struct ReadContract {
     action: PreparedAction,
     invalid_arguments: Vec<Value>,
     responses: Vec<(Value, Value)>,
+    invalid_outputs: Vec<(Value, &'static str)>,
 }
 
 fn request(name: &str, arguments: Value) -> CallToolRequestParams {
@@ -148,6 +159,12 @@ async fn check_read_contract(contract: ReadContract) {
                 .responses
                 .iter()
                 .map(|(response, _)| response.clone())
+                .chain(
+                    contract
+                        .invalid_outputs
+                        .iter()
+                        .map(|(response, _)| response.clone()),
+                )
                 .collect(),
         ),
     });
@@ -232,13 +249,32 @@ async fn check_read_contract(contract: ReadContract) {
         }
         assert_last_audit(&audit, contract.name, "finish", "success");
     }
+    for (index, (_, expected_error)) in contract.invalid_outputs.iter().enumerate() {
+        let result = client
+            .call_tool(request(contract.name, contract.arguments.clone()))
+            .await
+            .unwrap();
+        let response = serde_json::to_value(result).unwrap();
+        assert_eq!(response["isError"], true);
+        assert!(response.get("structuredContent").is_none());
+        let error: Value =
+            serde_json::from_str(response["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(error, json!({"error": expected_error}));
+        assert!(!response.to_string().contains(PRIVATE));
+        let calls = backend.calls.lock().unwrap();
+        assert_eq!(calls.len(), contract.responses.len() + index + 1);
+        assert_eq!(calls.last(), Some(&contract.action));
+        assert_last_audit(&audit, contract.name, "finish", "failed");
+    }
     assert!(backend.responses.lock().unwrap().is_empty());
     assert_eq!(backend.probes.lock().unwrap().len(), 1);
     {
         let events = audit.0.lock().unwrap();
         assert_eq!(
             events.len(),
-            hidden.len() + contract.invalid_arguments.len() + 2 * contract.responses.len()
+            hidden.len()
+                + contract.invalid_arguments.len()
+                + 2 * (contract.responses.len() + contract.invalid_outputs.len())
         );
         assert!(!serde_json::to_string(&*events).unwrap().contains(PRIVATE));
         for event in &*events {
@@ -274,7 +310,7 @@ async fn wireless_read_mcp_contract_is_isolated_and_secret_free() {
     check_read_contract(ReadContract {
         name: "wireless_radio_info",
         category: Category::Wireless,
-        visible: vec!["wireless_radio_info"],
+        visible: vec!["wireless_radio_info", "wireless_devices"],
         arguments: json!({"device": device}),
         action: PreparedAction::Ubus {
             object: "iwinfo".into(),
@@ -318,6 +354,7 @@ async fn wireless_read_mcp_contract_is_isolated_and_secret_free() {
             ),
             (json!({"ssid": PRIVATE}), json!({})),
         ],
+        invalid_outputs: vec![],
     })
     .await;
 }
@@ -364,6 +401,7 @@ async fn watchdog_read_mcp_contract_never_accepts_setter_arguments() {
             ),
             (json!({}), json!({})),
         ],
+        invalid_outputs: vec![],
     })
     .await;
 }
@@ -373,7 +411,12 @@ async fn logd_read_mcp_contract_never_exports_commands_or_invents_missing_state(
     check_read_contract(ReadContract {
         name: "service_logd_status",
         category: Category::Services,
-        visible: vec!["service_logd_status", "service_sysntpd_status"],
+        visible: vec![
+            "service_logd_status",
+            "service_sysntpd_status",
+            "service_status",
+            "service_status_list",
+        ],
         arguments: json!({}),
         action: PreparedAction::Ubus {
             object: "service".into(),
@@ -421,6 +464,214 @@ async fn logd_read_mcp_contract_never_exports_commands_or_invents_missing_state(
                     "/log/instances/logd/exit_code": 1
                 }),
             ),
+        ],
+        invalid_outputs: vec![],
+    })
+    .await;
+}
+
+fn interface(name: &str) -> Value {
+    json!({"interface": name, "up": true, "pending": false,
+        "available": true, "autostart": true, "dynamic": false})
+}
+
+fn network_tools() -> Vec<&'static str> {
+    vec![
+        "network_device_status",
+        "network_lan_status",
+        "network_wan_status",
+        "network_interface_status",
+        "network_interfaces",
+    ]
+}
+
+fn service_tools() -> Vec<&'static str> {
+    vec![
+        "service_logd_status",
+        "service_sysntpd_status",
+        "service_status",
+        "service_status_list",
+    ]
+}
+
+#[tokio::test]
+async fn network_list_mcp_uses_fixed_dump_and_rejects_partial_or_oversized_results() {
+    let clean = interface("lan");
+    let mut raw = clean.clone();
+    raw["ipv4-address"] = json!([PRIVATE]);
+    raw["data"] = json!({"password": PRIVATE});
+    check_read_contract(ReadContract {
+        name: "network_interfaces", category: Category::Network, visible: network_tools(),
+        arguments: json!({}),
+        action: PreparedAction::Ubus { object: "network.interface".into(), method: "dump".into(), arguments: json!({}) },
+        invalid_arguments: vec![json!({"interface": "lan"}), json!({"method": "up"}), json!({"execute": true})],
+        responses: vec![(json!({"interface": [raw]}), json!({"items": [clean]})),
+            (json!({"interface": []}), json!({"items": []}))],
+        invalid_outputs: vec![(json!({}), "invalid_output"), (json!({"interface": null}), "invalid_output"),
+            (json!({"interface": (0..129).map(|i| interface(&format!("if{i}"))).collect::<Vec<_>>()}), "output_limit")],
+    }).await;
+}
+
+#[tokio::test]
+async fn interface_mcp_selector_is_local_exact_and_validates_unselected_rows() {
+    let name = "lan; $(not-a-command) / ' 한글";
+    let clean = interface(name);
+    let mut raw = clean.clone();
+    raw["route"] = json!([PRIVATE]);
+    let mut malformed = interface("other");
+    malformed["up"] = json!({"secret": PRIVATE});
+    check_read_contract(ReadContract {
+        name: "network_interface_status",
+        category: Category::Network,
+        visible: network_tools(),
+        arguments: json!({"interface": name}),
+        action: PreparedAction::Ubus {
+            object: "network.interface".into(),
+            method: "dump".into(),
+            arguments: json!({}),
+        },
+        invalid_arguments: vec![
+            json!({}),
+            json!({"interface": ""}),
+            json!({"interface": true}),
+            json!({"interface": "한".repeat(86)}),
+            json!({"interface": name, "method": "down"}),
+        ],
+        responses: vec![(
+            json!({"interface": [interface("other"), raw]}),
+            clean.clone(),
+        )],
+        invalid_outputs: vec![
+            (json!({"interface": []}), "selection_not_observed"),
+            (
+                json!({"interface": [clean.clone(), clean.clone()]}),
+                "invalid_output",
+            ),
+            (json!({"interface": [clean, malformed]}), "invalid_output"),
+        ],
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn wireless_device_list_mcp_preserves_empty_observation_and_rejects_duplicates() {
+    check_read_contract(ReadContract {
+        name: "wireless_devices",
+        category: Category::Wireless,
+        visible: vec!["wireless_radio_info", "wireless_devices"],
+        arguments: json!({}),
+        action: PreparedAction::Ubus {
+            object: "iwinfo".into(),
+            method: "devices".into(),
+            arguments: json!({}),
+        },
+        invalid_arguments: vec![json!({"device": "phy0"}), json!({"method": "scan"})],
+        responses: vec![
+            (
+                json!({"devices": ["phy0-ap0"], "ssid": PRIVATE}),
+                json!({"items": [{"device": "phy0-ap0"}]}),
+            ),
+            (json!({"devices": []}), json!({"items": []})),
+        ],
+        invalid_outputs: vec![
+            (json!({}), "invalid_output"),
+            (json!({"devices": ["dup", "dup"]}), "invalid_output"),
+            (json!({"devices": [""]}), "invalid_output"),
+            (json!({"devices": [{"key": PRIVATE}]}), "invalid_output"),
+        ],
+    })
+    .await;
+}
+
+fn raw_service() -> Value {
+    json!({"data": {"password": PRIVATE}, "instances": {
+        "primary": {"running": true, "pid": 42, "command": [PRIVATE], "env": {"TOKEN": PRIVATE}},
+        "stopped": {"running": false, "exit_code": 1, "errors": [PRIVATE]}}})
+}
+
+fn clean_service(name: &str) -> Value {
+    json!({"name": name, "instances": [{"name": "primary", "running": true, "pid": 42},
+        {"name": "stopped", "running": false, "exit_code": 1}]})
+}
+
+#[tokio::test]
+async fn service_exact_mcp_sends_fixed_read_arguments_and_filters_instance_secrets() {
+    let name = "daemon; $(not-a-command) ' 한글";
+    check_read_contract(ReadContract {
+        name: "service_status",
+        category: Category::Services,
+        visible: service_tools(),
+        arguments: json!({"name": name}),
+        action: PreparedAction::Ubus {
+            object: "service".into(),
+            method: "list".into(),
+            arguments: json!({"name": name, "verbose": false}),
+        },
+        invalid_arguments: vec![
+            json!({}),
+            json!({"name": ""}),
+            json!({"name": name, "verbose": true}),
+            json!({"name": name, "method": "delete"}),
+            json!({"name": "x".repeat(257)}),
+        ],
+        responses: vec![
+            (
+                json!({name: raw_service(), "unselected": {"instances": {}}}),
+                clean_service(name),
+            ),
+            (json!({name: {}}), json!({"name": name})),
+        ],
+        invalid_outputs: vec![
+            (json!({}), "selection_not_observed"),
+            (json!({name: {"instances": null}}), "invalid_output"),
+            (
+                json!({name: raw_service(), "unselected": {"instances": {"bad": {"running": 1}}}}),
+                "invalid_output",
+            ),
+        ],
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn service_list_mcp_exposes_only_generic_metadata_and_checks_global_nested_budget() {
+    let too_many: serde_json::Map<String, Value> = (0..3)
+        .map(|index| {
+            let instances: serde_json::Map<String, Value> = (0..85)
+                .map(|i| (format!("instance{i}"), json!({"running": true})))
+                .collect();
+            (format!("service{index}"), json!({"instances": instances}))
+        })
+        .collect();
+    check_read_contract(ReadContract {
+        name: "service_status_list",
+        category: Category::Services,
+        visible: service_tools(),
+        arguments: json!({}),
+        action: PreparedAction::Ubus {
+            object: "service".into(),
+            method: "list".into(),
+            arguments: json!({"verbose": false}),
+        },
+        invalid_arguments: vec![
+            json!({"name": "firewall"}),
+            json!({"verbose": true}),
+            json!({"method": "delete"}),
+        ],
+        responses: vec![
+            (
+                json!({"firewall": raw_service(), "vpn": {}}),
+                json!({"items": [clean_service("firewall"), {"name": "vpn"}]}),
+            ),
+            (json!({}), json!({"items": []})),
+        ],
+        invalid_outputs: vec![
+            (json!([]), "invalid_output"),
+            (
+                json!({"daemon": {"instances": {"bad": {"pid": 42}}}}),
+                "invalid_output",
+            ),
+            (Value::Object(too_many), "output_limit"),
         ],
     })
     .await;

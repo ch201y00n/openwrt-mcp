@@ -7,13 +7,14 @@ use openwrt_mcp_core::{
     UbusArgumentType, UnknownReason,
 };
 use openwrt_mcp_runtime::{
-    AuditEvent, AuditKind, AuditPhase, AuditSink, Backend, Dispatcher, Limits, RuntimeError,
+    AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, Backend, Dispatcher, Limits,
+    RuntimeError,
 };
 use serde_json::{Value, json};
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -594,4 +595,158 @@ async fn cancellation_of_refresh_discards_old_success_and_admission_stays_bounde
     );
     assert_eq!(target.probes.load(Ordering::SeqCst), 3);
     assert_eq!(target.calls.load(Ordering::SeqCst), 0);
+}
+
+// Deliberately violates cooperative scheduling, like a synchronous decode or
+// projection that takes longer than the remaining time. No real device I/O.
+#[derive(Default)]
+struct NonYieldingTarget {
+    slow_probe: AtomicBool,
+    slow_execute: AtomicBool,
+    probes: AtomicUsize,
+    calls: AtomicUsize,
+}
+#[async_trait]
+impl Backend for NonYieldingTarget {
+    fn capability_epoch(&self) -> Option<u64> {
+        Some(1)
+    }
+
+    async fn probe(
+        &self,
+        _: ProbeRequest,
+        _: &Limits,
+    ) -> Result<CapabilityObservation, RuntimeError> {
+        self.probes.fetch_add(1, Ordering::SeqCst);
+        if self.slow_probe.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        Ok(CapabilityObservation::Ubus(ObjectObservation {
+            object: ReviewedObject::System,
+            methods: [(
+                "query".into(),
+                MethodSignature {
+                    arguments: [("name".into(), UbusArgumentType::String)].into(),
+                },
+            )]
+            .into(),
+        }))
+    }
+
+    async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.slow_execute.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        Ok(json!({"uptime":42,"password":"synthetic-late-secret"}))
+    }
+}
+
+fn nonyielding_fixture() -> (Dispatcher, Arc<NonYieldingTarget>, Arc<Audit>) {
+    let target = Arc::new(NonYieldingTarget::default());
+    let audit = Arc::new(Audit::default());
+    let runtime = dispatcher(
+        target.clone(),
+        audit.clone(),
+        true,
+        Limits {
+            timeout_ms: 100,
+            ..Limits::default()
+        },
+    );
+    (runtime, target, audit)
+}
+
+fn assert_failed_finish(audit: &Audit, kind: AuditKind) {
+    let events = audit.events.lock().unwrap();
+    let event = events.last().unwrap();
+    assert_eq!(event.kind, kind);
+    assert_eq!(event.phase, AuditPhase::Finish);
+    assert_eq!(event.outcome, AuditOutcome::Failed);
+    assert!(
+        !serde_json::to_string(&*events)
+            .unwrap()
+            .contains("synthetic-late-secret")
+    );
+}
+
+#[tokio::test]
+async fn nonyielding_late_probe_never_starts_action_and_revokes_cached_lease() {
+    let (runtime, target, audit) = nonyielding_fixture();
+    target.slow_probe.store(true, Ordering::SeqCst);
+    assert_eq!(
+        runtime
+            .invoke("fixture_query", json!({"name":"test"}))
+            .await
+            .unwrap_err()
+            .code(),
+        "timeout"
+    );
+    assert_eq!(target.probes.load(Ordering::SeqCst), 1);
+    assert_eq!(target.calls.load(Ordering::SeqCst), 0);
+    assert_failed_finish(&audit, AuditKind::Invocation);
+
+    target.slow_probe.store(false, Ordering::SeqCst);
+    runtime
+        .invoke("fixture_query", json!({"name":"test"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        target.probes.load(Ordering::SeqCst),
+        2,
+        "late probe cannot seed the next invocation"
+    );
+    assert_eq!(target.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn nonyielding_late_execute_returns_timeout_with_failed_audit_not_success() {
+    let (runtime, target, audit) = nonyielding_fixture();
+    target.slow_execute.store(true, Ordering::SeqCst);
+    assert_eq!(
+        runtime
+            .invoke("fixture_query", json!({"name":"test"}))
+            .await
+            .unwrap_err()
+            .code(),
+        "timeout"
+    );
+    assert_eq!(target.probes.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        target.calls.load(Ordering::SeqCst),
+        1,
+        "no automatic replay"
+    );
+    assert_failed_finish(&audit, AuditKind::Invocation);
+
+    target.slow_execute.store(false, Ordering::SeqCst);
+    runtime
+        .invoke("fixture_query", json!({"name":"test"}))
+        .await
+        .unwrap();
+    assert_eq!(target.probes.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn nonyielding_late_capability_status_is_not_reported_as_compatible() {
+    let (runtime, target, audit) = nonyielding_fixture();
+    target.slow_probe.store(true, Ordering::SeqCst);
+    assert_eq!(
+        runtime
+            .capability_status(json!({"operation":"fixture_query"}))
+            .await
+            .unwrap_err()
+            .code(),
+        "timeout"
+    );
+    assert_eq!(target.calls.load(Ordering::SeqCst), 0);
+    assert_failed_finish(&audit, AuditKind::Capability);
+
+    target.slow_probe.store(false, Ordering::SeqCst);
+    let status = runtime
+        .capability_status(json!({"operation":"fixture_query"}))
+        .await
+        .unwrap();
+    assert_eq!(status.compatibility, "compatible");
+    assert_eq!(target.probes.load(Ordering::SeqCst), 2);
 }

@@ -54,7 +54,7 @@ impl Observation {
             && self.started.elapsed() < TTL
     }
 
-    fn revoke(&self) {
+    pub(crate) fn revoke(&self) {
         self.valid.store(false, Ordering::Release);
     }
 

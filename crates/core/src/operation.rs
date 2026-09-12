@@ -5,8 +5,8 @@ use serde_json::{Map, Value, json};
 
 use crate::capability::checked_integer;
 use crate::{
-    CAPABILITY_TOOL_NAME, CapabilityRequirement, CoreError, Requirement, UBUS_INTEGER_MAX,
-    UBUS_INTEGER_MIN,
+    CAPABILITY_TOOL_NAME, CapabilityRequirement, CoreError, PreparedInvocation, Requirement,
+    TypedProjection, UBUS_INTEGER_MAX, UBUS_INTEGER_MIN,
 };
 
 const MAX_PARAMETERS: usize = 32;
@@ -50,12 +50,13 @@ pub enum Action {
 }
 
 /// Scalar leaves are the safe default; structured projection is explicit operator metadata.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputMode {
     #[default]
     Scalars,
     Structured,
+    Typed(Box<TypedProjection>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +158,7 @@ fn scalar_text(value: &Value) -> Option<String> {
     }
 }
 
-fn sensitive_key(key: &str) -> bool {
+pub(crate) fn sensitive_key(key: &str) -> bool {
     let normalized: String = key
         .chars()
         .filter(|ch| ch.is_ascii_alphanumeric())
@@ -208,7 +209,6 @@ impl Operation {
             || self.parameters.len() > MAX_PARAMETERS
             || self.requirements.iter().collect::<BTreeSet<_>>().len() != self.requirements.len()
             || !disjoint_output_fields(&self.output_fields)
-            || serde_json::to_vec(self).map_err(|_| invalid)?.len() > MAX_DEFINITION_BYTES
         {
             return Err(invalid);
         }
@@ -252,6 +252,15 @@ impl Operation {
             }
         }
         let mut used = BTreeSet::new();
+        if let OutputMode::Typed(projection) = &self.output_mode {
+            if !self.output_fields.is_empty() {
+                return Err(invalid);
+            }
+            projection.validate(&self.parameters)?;
+            if let Some((name, _)) = projection.selector() {
+                used.insert(name.to_owned());
+            }
+        }
         let mut validate_reference = |value: &str| -> Result<(), CoreError> {
             if !bounded_string(value, MAX_VALUE_BYTES) {
                 return Err(invalid);
@@ -318,6 +327,10 @@ impl Operation {
         }
         self.capability
             .validate_for(&self.action, &self.parameters)?;
+        // Bound every constituent before allocating the serialized definition.
+        if serde_json::to_vec(self).map_err(|_| invalid)?.len() > MAX_DEFINITION_BYTES {
+            return Err(invalid);
+        }
         Ok(())
     }
 
@@ -355,6 +368,17 @@ impl Operation {
                         .allowed_values
                         .contains(&scalar_text(value).ok_or(CoreError::InvalidArguments)?))
             {
+                return Err(CoreError::InvalidArguments);
+            }
+        }
+        if let OutputMode::Typed(projection) = &self.output_mode
+            && let Some((name, max)) = projection.selector()
+        {
+            let text = values
+                .get(name)
+                .and_then(Value::as_str)
+                .ok_or(CoreError::InvalidArguments)?;
+            if text.is_empty() || !bounded_string(text, max) {
                 return Err(CoreError::InvalidArguments);
             }
         }
@@ -413,10 +437,21 @@ impl Operation {
                     }),
                 );
                 if parameter.kind == ParameterKind::String {
-                    schema.insert("maxLength".into(), json!(MAX_VALUE_BYTES));
+                    let selector_limit = match &self.output_mode {
+                        OutputMode::Typed(projection) => projection
+                            .selector()
+                            .filter(|(parameter, _)| *parameter == name)
+                            .map(|(_, max)| max),
+                        _ => None,
+                    };
+                    let max = selector_limit.unwrap_or(MAX_VALUE_BYTES);
+                    schema.insert("maxLength".into(), json!(max));
+                    if selector_limit.is_some() {
+                        schema.insert("minLength".into(), json!(1));
+                    }
                     schema.insert(
                         "description".into(),
-                        json!("At most 1024 UTF-8 bytes; NUL is not permitted."),
+                        json!(format!("At most {max} UTF-8 bytes; NUL is not permitted.")),
                     );
                 }
                 if parameter.kind == ParameterKind::Integer
@@ -456,6 +491,10 @@ impl Operation {
     /// arbitrary extension output. Built-ins therefore avoid broad subtrees.
     pub fn project(&self, output: &Value) -> Value {
         let mut projected = Map::new();
+        // Typed schemas have no unbound legacy execution path.
+        if matches!(self.output_mode, OutputMode::Typed(_)) {
+            return Value::Object(projected);
+        }
         // Catalog construction rejects overlaps. Keep the public projection
         // method defensive even when called on a separately constructed value.
         if !disjoint_output_fields(&self.output_fields) {
@@ -482,5 +521,9 @@ impl Operation {
             }
         }
         Value::Object(projected)
+    }
+
+    pub fn prepare_invocation(&self, input: &Value) -> Result<PreparedInvocation<'_>, CoreError> {
+        PreparedInvocation::new(self, input)
     }
 }

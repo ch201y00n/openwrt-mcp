@@ -11,18 +11,19 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Ten conservative, structured ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- Fourteen conservative ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- Five typed response contracts for bounded interface, wireless-device and service collections, including exact local interface/service selection. [Read contracts](docs/collection-read-contracts.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
 - Explicit OpenWrt targets: unconfigured by default, verified on-device execution, or native persistent SSH independent of the workstation OS.
-- Bounded process output, deadlines, input frames and backend concurrency.
+- Bounded process output, deadlines, input frames and backend concurrency; strict action JSON decoding and bounded normalized/MCP tool results.
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
 - Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-The v5 Linux-on-WSL gate passes 260 distinct tests. A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated seven successful reads and three explicit unavailable/error cases. See [scoped emulated acceptance](docs/emulator-validation.md); this does not establish BPI-R4 hardware or native Windows/macOS acceptance.
+The v6 Linux-on-WSL gate passes 347 distinct tests. A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including five typed contracts, and two explicit unavailable/error cases. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware and native Windows/macOS acceptance remain pending.
 
 ## Build and check
 
@@ -64,9 +65,13 @@ This grants system reads and network read/write capability, but no execution. It
 
 Start from [read-only.toml](config/read-only.toml) for system/network only, [observability.toml](config/observability.toml) to opt into all currently implemented read categories, or [deny-all.toml](config/deny-all.toml). No example grants execute permission. See [security](docs/security.md) for authority boundaries and [configuration](docs/configuration.md) for audit settings and extensions.
 
+Generic Services.Read exposes service/instance names and running/PID/exit metadata across service categories, never command lines, environment or settings. To retain only the fixed logd/sysntpd views, deny `service_status` and `service_status_list` through the operation denylist.
+
+`network_interface_status` now always uses `network.interface.dump {}` and exact local selection. Its development-stage response contract is v2: ordinary field names, including `interface`, replace the former slash-prefixed keys. It does not retry or bypass an incomplete `status` signature.
+
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v5](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts and mandatory native host tests. The capability design was checkpointed before functional work; the scaffold suites have been replaced by behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v6](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, response limits and mandatory native host tests. The capability and bounded-collection designs were separately checkpointed before functional work; their required suites now contain behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

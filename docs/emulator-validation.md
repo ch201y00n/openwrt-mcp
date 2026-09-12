@@ -1,5 +1,7 @@
 # Architecture-v5 emulated acceptance
 
+Historical v5 executable evidence. The current v6 run, including typed interface dump/selection, is recorded separately in [architecture-v6 emulated acceptance](emulator-validation-v6.md).
+
 Run: **2026-09-12T20:02:13.755357Z to 2026-09-12T20:03:11.817704Z**. Result: passed with three explicitly unavailable calls, not ten successful management operations. See [environment/provenance](emulator-environment.md).
 
 The actual Linux debug executable communicated over MCP stdio through the Rust SSH backend to official OpenWrt 25.12.5 running in isolated ARM64 QEMU. This exercised real target commands rather than a fake SSH responder. The executable was built from the uncommitted v5 implementation following architecture checkpoints `943dcf2` and `2bf6b48`; SHA256:
@@ -27,7 +29,7 @@ All calls used an operator-owned read-only configuration without execution or ex
 
 A successful signature observation proves neither an instance nor an output schema. Missing fields are not invented. The emulator's absent WAN caused a nonzero ubus describe result; that error does not prove absence on other targets or distinguish absence from every authorization failure. The iwinfo API was present although no physical radio was available.
 
-The global interface-status limitation is deliberate fail-closed behavior: netifd advertises no `interface` argument in this method's introspection despite a handler that accepts it. Version labels or earlier manual calls cannot override a missing observation. A future bounded dump-and-select adapter needs its own reviewed response contract.
+The historical global interface-status limitation is deliberate fail-closed behavior: netifd advertises no `interface` argument in this method's introspection despite a handler that accepts it. Version labels or earlier manual calls cannot override a missing observation. V6 subsequently implemented a separately reviewed bounded dump-and-select response contract; that later evidence does not reclassify this v5 result.
 
 ## Negative and lifecycle assertions
 

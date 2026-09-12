@@ -12,8 +12,28 @@ use tokio::sync::{Semaphore, SemaphorePermit};
 
 use crate::{
     AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, Backend, CapabilityStatus, Limits,
-    RuntimeError, capability::CapabilityCache,
+    RuntimeError,
+    capability::{CapabilityCache, Observation},
 };
+
+// Tokio timeouts are cooperative: a non-yielding backend decoder or pure
+// projector can return Ready after the timer elapsed. Reject such late results
+// and revoke every clone of evidence issued to the timed-out invocation. This
+// is deadline-aware result admission, not preemption of synchronous work.
+fn enforce_deadline<T>(
+    deadline: tokio::time::Instant,
+    observation: Option<&Observation>,
+    result: Result<T, RuntimeError>,
+) -> Result<T, RuntimeError> {
+    if tokio::time::Instant::now() >= deadline {
+        if let Some(observation) = observation {
+            observation.revoke();
+        }
+        Err(RuntimeError::Timeout)
+    } else {
+        result
+    }
+}
 
 pub struct Dispatcher {
     catalog: Catalog,
@@ -67,7 +87,7 @@ impl Dispatcher {
         let request_sequence = self.sequence.fetch_add(1, Ordering::Relaxed);
         let kind = AuditKind::Invocation;
         let operation = self.authorize(name, request_sequence, kind).await?;
-        let invocation = match operation.prepare(&arguments) {
+        let invocation = match operation.prepare_invocation(&arguments) {
             Ok(invocation) => invocation,
             Err(error) => {
                 self.reject(
@@ -82,7 +102,9 @@ impl Dispatcher {
         };
         let _permit = self.admit(operation, request_sequence, kind).await?;
         let started = Instant::now();
-        let result = tokio::time::timeout(Duration::from_millis(self.limits.timeout_ms), async {
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(self.limits.timeout_ms);
+        let mut issued = None;
+        let result = tokio::time::timeout_at(deadline, async {
             let observation = self
                 .capabilities
                 .observe(
@@ -92,22 +114,34 @@ impl Dispatcher {
                     false,
                 )
                 .await?;
+            issued = Some(observation.clone());
+            enforce_deadline(deadline, Some(&observation), Ok(()))?;
             match observation.verdict(
                 self.backend.as_ref(),
                 &operation.capability,
-                Some(&invocation),
+                Some(invocation.action()),
             ) {
                 Verdict::Compatible => (),
                 Verdict::Unknown(_) => return Err(RuntimeError::CapabilityUnknown),
                 Verdict::Incompatible(_) => return Err(RuntimeError::CapabilityUnsupported),
             }
-            self.backend
-                .execute(&invocation, &self.limits)
-                .await
-                .map(|output| operation.project(&output))
+            enforce_deadline(deadline, Some(&observation), Ok(()))?;
+            let output = enforce_deadline(
+                deadline,
+                Some(&observation),
+                self.backend
+                    .execute(invocation.action(), &self.limits)
+                    .await,
+            )?;
+            enforce_deadline(
+                deadline,
+                Some(&observation),
+                invocation.project(&output).map_err(Into::into),
+            )
         })
         .await
         .unwrap_or(Err(RuntimeError::Timeout));
+        let result = enforce_deadline(deadline, issued.as_ref(), result);
         self.finish(request_sequence, operation, kind, started, result)
             .await
     }
@@ -163,19 +197,29 @@ impl Dispatcher {
             .unwrap_or(false);
         let _permit = self.admit(operation, request_sequence, kind).await?;
         let started = Instant::now();
-        let result = tokio::time::timeout(Duration::from_millis(self.limits.timeout_ms), async {
-            self.capabilities
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(self.limits.timeout_ms);
+        let mut issued = None;
+        let result = tokio::time::timeout_at(deadline, async {
+            let observation = self
+                .capabilities
                 .observe(
                     self.backend.as_ref(),
                     &operation.capability,
                     &self.limits,
                     refresh,
                 )
-                .await
-                .map(|observation| observation.status(self.backend.as_ref(), &operation.capability))
+                .await?;
+            issued = Some(observation.clone());
+            enforce_deadline(deadline, Some(&observation), Ok(()))?;
+            enforce_deadline(
+                deadline,
+                Some(&observation),
+                Ok(observation.status(self.backend.as_ref(), &operation.capability)),
+            )
         })
         .await
         .unwrap_or(Err(RuntimeError::Timeout));
+        let result = enforce_deadline(deadline, issued.as_ref(), result);
         self.finish(request_sequence, operation, kind, started, result)
             .await
     }

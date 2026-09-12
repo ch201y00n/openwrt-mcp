@@ -1,6 +1,6 @@
 # First typed collection read contracts
 
-Status: reviewed design for ADR 0006; not implemented or accepted on a device at the architecture-only checkpoint. Existing v5 evidence remains scoped to the v5 executable. All source responses are untrusted and may include sensitive fields that must not reach the result or audit.
+Status: implemented after the validated architecture-only ADR 0006 checkpoint, with synthetic behavioral tests and [v6 actual MCP/SSH emulator acceptance](emulator-validation-v6.md) for all five typed contracts. These contracts are part of fourteen built-in reads. Native Windows/macOS and physical-device acceptance remain pending; historical v5 evidence is scoped to the v5 executable, not these new or changed response contracts. All source responses are untrusted and may include sensitive fields that must not reach the result or audit.
 
 | Operation | Fixed action / input | Permission | Response contract |
 | --- | --- | --- | --- |
@@ -38,4 +38,6 @@ Services.Read intentionally exposes generic daemon names and running/PID/exit me
 
 ## Required tests
 
-For every new/changed catalog contract, cover expected action and capability metadata, deny-by-default/category isolation, selector validation before any probe, selected-key/type allowlists, secret-bearing unknown siblings, missing/empty/malformed responses, identity duplication, exact and excessive row/string/byte limits, nested aggregate budgets and no automatic retry. List and single-result shapes must match this record. Keep fixtures distinct from actual userspace or hardware acceptance; response-contract versions do not create positive runtime capability observations.
+The behavioral suite in `crates/features/tests/collection_contracts.rs` derives the set of typed operation/response-contract IDs from the actual catalog and requires an exactly matching exercised fixture set. It checks fixed action/prerequisite metadata, deny-by-default/category isolation, selector bounds/schema, selected-field/type allowlists, secret-bearing siblings, missing/empty/malformed results, identity duplication, exact/excessive row/string/byte limits and shared nested budgets. The network contract is exercised at exactly 65,536 normalized JSON bytes and with an escaped-character overflow. Prior scalar privacy/rejection tests are retained and interface cases migrated to v2.
+
+Core, runtime, codec and MCP suites separately validate finite metadata, prepared selector binding, pre-I/O validation and audit, strict JSON decoding, no replay and complete serialized tool-result limits. List and single-result shapes must match this record. Keep synthetic fixtures distinct from actual userspace or hardware acceptance; response-contract versions do not create positive runtime capability observations. Current full-gate results belong in [validation.md](validation.md), not in historical v5 evidence.

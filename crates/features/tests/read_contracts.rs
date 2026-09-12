@@ -34,8 +34,8 @@ fn new_reads_prepare_exact_fixed_objects_methods_and_arguments() {
             "network_interface_status",
             json!({"interface":"guest"}),
             "network.interface",
-            "status",
-            json!({"interface":"guest"}),
+            "dump",
+            json!({}),
         ),
         (
             "wireless_radio_info",
@@ -123,7 +123,7 @@ fn selector_injection_text_remains_json_data() {
             "network_interface_status",
             "interface",
             "network.interface",
-            "status",
+            "dump",
         ),
         ("wireless_radio_info", "device", "iwinfo", "info"),
     ] {
@@ -134,7 +134,11 @@ fn selector_injection_text_remains_json_data() {
             PreparedAction::Ubus {
                 object: object.into(),
                 method: method.into(),
-                arguments: json!({(parameter):literal}),
+                arguments: if parameter == "interface" {
+                    json!({})
+                } else {
+                    json!({(parameter):literal})
+                },
             }
         );
     }
@@ -191,7 +195,11 @@ fn reads_use_only_their_exact_category_and_unrelated_grants_cannot_authorize_the
     ];
     for (name, category) in NEW_READS {
         let operation = operation(name);
-        assert_eq!(operation.output_mode, OutputMode::Scalars);
+        if name == "network_interface_status" {
+            assert!(matches!(operation.output_mode, OutputMode::Typed(_)));
+        } else {
+            assert_eq!(operation.output_mode, OutputMode::Scalars);
+        }
         assert_eq!(
             operation.requirements,
             vec![Requirement {
@@ -244,7 +252,9 @@ fn read_and_read_write_grants_do_not_imply_execution_permission() {
 
 #[test]
 fn interface_projection_excludes_address_route_dns_and_data_subtrees() {
-    let projected = operation("network_interface_status").project(&json!({
+    let operation = operation("network_interface_status");
+    let projected = operation.prepare_invocation(&json!({"interface":"guest"})).unwrap().project(&json!({"interface":[{
+        "interface":"guest",
         "up":true, "pending":false, "available":true, "autostart":true,
         "dynamic":false, "uptime":123, "proto":"static", "device":"br-fixture", "l3_device":"br-fixture",
         "ipv4-address":[{"address":"synthetic-private-address"}],
@@ -254,12 +264,12 @@ fn interface_projection_excludes_address_route_dns_and_data_subtrees() {
         "data":{"credential":"synthetic-secret"},
         "config":{"password":"synthetic-secret"},
         "metric":100
-    }));
+    }]})).unwrap();
     assert_eq!(
         projected,
         json!({
-            "/up":true, "/pending":false, "/available":true, "/autostart":true,
-            "/dynamic":false, "/uptime":123, "/proto":"static", "/device":"br-fixture", "/l3_device":"br-fixture"
+            "interface":"guest", "up":true, "pending":false, "available":true, "autostart":true,
+            "dynamic":false, "uptime":123, "proto":"static", "device":"br-fixture", "l3_device":"br-fixture"
         })
     );
     assert!(!projected.to_string().contains("synthetic-"));
@@ -334,9 +344,39 @@ fn watchdog_projection_is_limited_to_documented_scalar_status_fields() {
 }
 
 #[test]
-fn every_new_scalar_pointer_rejects_object_and_array_substitutions() {
+fn every_new_read_field_rejects_object_and_array_substitutions() {
     for (name, _) in NEW_READS {
         let operation = operation(name);
+        if name == "network_interface_status" {
+            let invocation = operation
+                .prepare_invocation(&json!({"interface":"guest"}))
+                .unwrap();
+            for field in [
+                "interface",
+                "up",
+                "pending",
+                "available",
+                "autostart",
+                "dynamic",
+                "uptime",
+                "proto",
+                "device",
+                "l3_device",
+            ] {
+                for malformed in [
+                    json!({"unexpected":"synthetic-secret"}),
+                    json!(["synthetic-secret"]),
+                ] {
+                    let mut row = json!({"interface":"guest","up":true,"pending":false,"available":true,"autostart":true,"dynamic":false});
+                    row[field] = malformed;
+                    assert_eq!(
+                        invocation.project(&json!({"interface":[row]})),
+                        Err(CoreError::InvalidOutput)
+                    );
+                }
+            }
+            continue;
+        }
         for pointer in &operation.output_fields {
             for malformed in [
                 json!({"unexpected":"synthetic-secret"}),
@@ -362,7 +402,17 @@ fn missing_results_are_not_synthesized_as_healthy_or_stopped_states() {
     for (name, _) in NEW_READS {
         let operation = operation(name);
         for source in [json!({}), json!(null), json!([])] {
-            assert_eq!(operation.project(&source), json!({}), "{name}");
+            if name == "network_interface_status" {
+                assert_eq!(
+                    operation
+                        .prepare_invocation(&json!({"interface":"guest"}))
+                        .unwrap()
+                        .project(&source),
+                    Err(CoreError::InvalidOutput)
+                );
+            } else {
+                assert_eq!(operation.project(&source), json!({}), "{name}");
+            }
         }
     }
     for (name, service, instance) in [

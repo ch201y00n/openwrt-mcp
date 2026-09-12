@@ -23,6 +23,8 @@ Use `"refresh": true` to discard the previous observation and probe again. Refre
 
 The result includes `compatibility`, a fixed `reason`, `scope: "input_signature_only"`, the operator-owned `response_contract` identifier and optional `remaining_ttl_ms`. It never returns raw signatures, host keys, authentication identities or device payloads. Without invocation arguments, status conservatively checks all potentially transmitted fields, including optional ones. Normal invocation checks only the fields it actually sends.
 
+Projection-only selectors are not transmitted fields. In v6, `network_interface_status` binds the required `interface` input locally while its fixed `network.interface.dump` call sends `{}`. Its capability prerequisite therefore describes `dump` with no input fields and response contract `network_interface_status.v2`.
+
 | Result | Meaning |
 | --- | --- |
 | compatible / signature_matched | Advertised input signature matches; no promise of successful response or hardware availability |
@@ -48,8 +50,18 @@ External configuration or package changes within the TTL may not be immediately 
 
 ## Known initial variant cases
 
-The official 25.12.5 ARM64 emulator advertises `{}` for global `network.interface.status` even though a controlled call with an interface selector succeeds. At the reviewed revisions, netifd modifies the object's dispatch methods while libubus publishes the original object's type methods. Missing metadata is therefore **unknown**, not proof of unsupported behavior. This tool remains blocked under that incomplete signature until a verifiable typed replacement is implemented; source or test success does not bypass the gate. [netifd implementation](https://github.com/openwrt/netifd/blob/cbb83a18/ubus.c), [ubus object registration](https://github.com/openwrt/ubus/blob/24864e78/libubus-obj.c)
+The historical v5 official 25.12.5 ARM64 emulator run advertised `{}` for global `network.interface.status` even though a controlled call with an interface selector succeeded. At the reviewed revisions, netifd modifies the object's dispatch methods while libubus publishes the original object's type methods. Missing metadata is therefore **unknown**, not proof of unsupported behavior; the old v1 operation was correctly blocked. [netifd implementation](https://github.com/openwrt/netifd/blob/cbb83a18/ubus.c), [ubus object registration](https://github.com/openwrt/ubus/blob/24864e78/libubus-obj.c)
+
+The current v2 operation always uses a separately reviewed fixed `dump {}` implementation and an exact local typed selector. It does not attempt `status`, retry after a failure, or treat source/emulator evidence as a positive runtime observation. A target without a matching fresh `dump` observation is still blocked. V2 uses ordinary output names and includes the interface identity instead of v1's slash-prefixed scalar keys. See [the collection response contracts](collection-read-contracts.md). The historical v5 run is not v2 device acceptance.
 
 The same emulator can advertise iwinfo without having a physical radio, and can have LAN without WAN. Those are distinct API, instance and hardware facts, not grounds for synthesizing a healthy or stopped status. BPI-R4's actual netifd/rpcd package revisions differ from the base emulator; matching the release does not make their acceptance evidence interchangeable.
 
 Generic Process extensions are now explicitly unverified and blocked, even with administrator grants. Custom Ubus definitions need matching required metadata and a reviewed object. This is an intentional narrowing of early extension behavior, not an undocumented fallback. See [configuration](configuration.md) and [ADR 0005](adr/0005-capability-observations.md).
+
+## Response validation is separate from capability discovery
+
+V6 implements finite typed collection responses for five contracts. After a compatible method executes, the prepared projection still checks required fields, exact scalar types/ranges, nonempty identities, uniqueness and bounded collection sizes, including unselected rows. A compatible signature cannot turn malformed output into success.
+
+Typed shape/type failures use `invalid_output`; an exact selector with no observed match uses `selection_not_observed`; exceeded byte or item budgets use `output_limit`. None returns a partial list, chooses the first duplicate or retries the device operation. Optional fields/instances stay omitted, while a valid empty list is only an observation of returned entries, not proof of complete visibility or absent hardware.
+
+Both target backends share strict action JSON decoding with duplicate-key rejection and byte/depth/node bounds. Normalized results are capped at 64 KiB and complete serialized MCP tool results at 256 KiB, including text and structured copies. Synthetic tests and the [v6 architecture](adr/0006-bounded-read-projections.md) define these boundaries; current emulator/native-host/physical-device acceptance is separately recorded, never inferred from a signature match.
