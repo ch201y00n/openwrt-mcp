@@ -4,7 +4,10 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
-use openwrt_mcp_core::{Access, Catalog, Category, Grant, Invocation, Policy};
+use openwrt_mcp_core::{
+    Access, Action, Catalog, Category, Grant, Operation, OutputMode, Parameter, ParameterKind,
+    Permission, Policy, PreparedAction, Requirement,
+};
 use openwrt_mcp_runtime::{
     AuditEvent, AuditOutcome, AuditPhase, AuditSink, Backend, Dispatcher, Limits, RuntimeError,
 };
@@ -36,7 +39,7 @@ struct FakeBackend {
 
 #[async_trait]
 impl Backend for FakeBackend {
-    async fn execute(&self, _: &Invocation, _: &Limits) -> Result<Value, RuntimeError> {
+    async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         self.count.fetch_add(1, Ordering::SeqCst);
         if self.fail {
             Err(RuntimeError::BackendFailed)
@@ -46,6 +49,42 @@ impl Backend for FakeBackend {
             )
         }
     }
+}
+
+fn fixture_catalog() -> Catalog {
+    let read = Operation {
+        name: "fixture_read".into(),
+        description: "Synthetic read action for application-port tests.".into(),
+        requirements: vec![Requirement {
+            category: Category::System,
+            permission: Permission::Read,
+        }],
+        parameters: Default::default(),
+        action: Action::Ubus {
+            object: "fixture".into(),
+            method: "read".into(),
+            arguments: Default::default(),
+        },
+        output_fields: vec!["/model".into()],
+        output_mode: OutputMode::Scalars,
+    };
+    let mut query = read.clone();
+    query.name = "fixture_query".into();
+    query.requirements[0].category = Category::Network;
+    query.parameters.insert(
+        "name".into(),
+        Parameter {
+            kind: ParameterKind::String,
+            required: true,
+            allowed_values: vec![],
+        },
+    );
+    query.action = Action::Ubus {
+        object: "fixture".into(),
+        method: "query".into(),
+        arguments: [("name".into(), json!("{name}"))].into(),
+    };
+    Catalog::with_builtins(vec![read, query], vec![]).unwrap()
 }
 
 fn read_policy() -> Policy {
@@ -72,14 +111,7 @@ fn read_policy() -> Policy {
 }
 
 fn dispatcher(policy: Policy, backend: Arc<dyn Backend>, audit: Arc<dyn AuditSink>) -> Dispatcher {
-    Dispatcher::new(
-        Catalog::new(vec![]).unwrap(),
-        policy,
-        backend,
-        audit,
-        Limits::default(),
-    )
-    .unwrap()
+    Dispatcher::new(fixture_catalog(), policy, backend, audit, Limits::default()).unwrap()
 }
 
 #[tokio::test]
@@ -88,7 +120,7 @@ async fn denied_is_hidden_audited_and_never_executed() {
     let audit = Arc::new(RecordingAudit::default());
     let dispatcher = dispatcher(Policy::default(), backend.clone(), audit.clone());
     assert!(dispatcher.available_operations().is_empty());
-    assert!(dispatcher.invoke("system_board", json!({})).await.is_err());
+    assert!(dispatcher.invoke("fixture_read", json!({})).await.is_err());
     assert_eq!(backend.count.load(Ordering::SeqCst), 0);
     let events = audit.events.lock().unwrap();
     assert_eq!(events.len(), 1);
@@ -107,15 +139,10 @@ async fn unknown_names_and_invalid_arguments_are_never_logged_or_executed() {
         .unwrap_err();
     assert_eq!(unknown.code(), "unknown_operation");
     let invalid = dispatcher
-        .invoke("system_board", json!({"password": "fixture-secret"}))
+        .invoke("fixture_read", json!({"password": "fixture-secret"}))
         .await;
     assert!(invalid.is_err());
-    assert!(
-        dispatcher
-            .invoke("network_device_status", json!({}))
-            .await
-            .is_err()
-    );
+    assert!(dispatcher.invoke("fixture_query", json!({})).await.is_err());
     assert_eq!(backend.count.load(Ordering::SeqCst), 0);
     let serialized = serde_json::to_string(&*audit.events.lock().unwrap()).unwrap();
     assert!(!serialized.contains("fixture-secret"));
@@ -132,7 +159,7 @@ async fn successful_call_projects_output_and_links_audit_events() {
         audit.clone(),
     );
     assert_eq!(
-        dispatcher.invoke("system_board", json!({})).await.unwrap(),
+        dispatcher.invoke("fixture_read", json!({})).await.unwrap(),
         json!({"/model": "synthetic-board"})
     );
     let events = audit.events.lock().unwrap();
@@ -158,7 +185,7 @@ async fn failed_backend_is_audited_without_device_data() {
     });
     let dispatcher = dispatcher(read_policy(), backend, audit.clone());
     let error = dispatcher
-        .invoke("system_board", json!({}))
+        .invoke("fixture_read", json!({}))
         .await
         .unwrap_err();
     assert_eq!(error.code(), "backend_failed");
@@ -178,7 +205,7 @@ async fn start_audit_failure_prevents_backend_execution() {
     let dispatcher = dispatcher(read_policy(), backend.clone(), audit);
     assert_eq!(
         dispatcher
-            .invoke("system_board", json!({}))
+            .invoke("fixture_read", json!({}))
             .await
             .unwrap_err()
             .code(),
@@ -197,7 +224,7 @@ async fn completion_audit_failure_reports_uncertain_completed_work() {
     let dispatcher = dispatcher(read_policy(), backend.clone(), audit);
     assert_eq!(
         dispatcher
-            .invoke("system_board", json!({}))
+            .invoke("fixture_read", json!({}))
             .await
             .unwrap_err()
             .code(),
@@ -213,7 +240,7 @@ struct BlockingBackend {
 
 #[async_trait]
 impl Backend for BlockingBackend {
-    async fn execute(&self, _: &Invocation, _: &Limits) -> Result<Value, RuntimeError> {
+    async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         self.entered.notify_one();
         self.release.notified().await;
         Ok(json!({}))
@@ -229,7 +256,7 @@ async fn saturation_rejects_immediately_instead_of_queuing() {
     let audit = Arc::new(RecordingAudit::default());
     let dispatcher = Arc::new(
         Dispatcher::new(
-            Catalog::new(vec![]).unwrap(),
+            fixture_catalog(),
             read_policy(),
             backend.clone(),
             audit.clone(),
@@ -242,11 +269,11 @@ async fn saturation_rejects_immediately_instead_of_queuing() {
     );
     let first_dispatcher = dispatcher.clone();
     let first =
-        tokio::spawn(async move { first_dispatcher.invoke("system_board", json!({})).await });
+        tokio::spawn(async move { first_dispatcher.invoke("fixture_read", json!({})).await });
     backend.entered.notified().await;
     let second = tokio::time::timeout(
         std::time::Duration::from_millis(100),
-        dispatcher.invoke("system_board", json!({})),
+        dispatcher.invoke("fixture_read", json!({})),
     )
     .await
     .unwrap()
@@ -311,7 +338,7 @@ async fn blocked_audit_has_a_deadline_keeps_timers_live_and_never_spawns_more_wo
     let backend = Arc::new(FakeBackend::default());
     let dispatcher = Arc::new(
         Dispatcher::new(
-            Catalog::new(vec![]).unwrap(),
+            fixture_catalog(),
             read_policy(),
             backend.clone(),
             audit.clone(),
@@ -324,7 +351,7 @@ async fn blocked_audit_has_a_deadline_keeps_timers_live_and_never_spawns_more_wo
     );
     let first_dispatcher = dispatcher.clone();
     let first =
-        tokio::spawn(async move { first_dispatcher.invoke("system_board", json!({})).await });
+        tokio::spawn(async move { first_dispatcher.invoke("fixture_read", json!({})).await });
     tokio::time::timeout(std::time::Duration::from_secs(1), audit.entered.notified())
         .await
         .unwrap();
@@ -343,7 +370,7 @@ async fn blocked_audit_has_a_deadline_keeps_timers_live_and_never_spawns_more_wo
     for _ in 0..10 {
         assert_eq!(
             dispatcher
-                .invoke("system_board", json!({}))
+                .invoke("fixture_read", json!({}))
                 .await
                 .unwrap_err()
                 .code(),

@@ -310,13 +310,28 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "libc",
+ "openwrt-mcp-adapters",
  "openwrt-mcp-core",
+ "openwrt-mcp-features",
  "openwrt-mcp-runtime",
- "rmcp",
+ "openwrt-mcp-transport",
  "serde",
  "serde_json",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "openwrt-mcp-adapters"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "libc",
+ "openwrt-mcp-core",
+ "openwrt-mcp-runtime",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -330,16 +345,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwrt-mcp-features"
+version = "0.1.0"
+dependencies = [
+ "openwrt-mcp-core",
+ "serde_json",
+]
+
+[[package]]
 name = "openwrt-mcp-runtime"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "libc",
  "openwrt-mcp-core",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "openwrt-mcp-transport"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "openwrt-mcp-core",
+ "openwrt-mcp-features",
+ "openwrt-mcp-runtime",
+ "rmcp",
+ "serde_json",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -847,6 +883,18 @@ name = "winnow"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 2.0.119",
+ "toml",
+]
 
 [[package]]
 name = "zmij"

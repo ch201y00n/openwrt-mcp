@@ -1,6 +1,7 @@
 [workspace]
-resolver = "2"
-members = ["crates/core", "crates/runtime", "crates/server"]
+resolver = "3"
+members = ["crates/core", "crates/features", "crates/runtime", "crates/adapters", "crates/mcp", "crates/server", "tools/xtask"]
+default-members = ["crates/server"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,6 +18,9 @@ toml = "0.9"
 tokio = { version = "1", features = ["rt", "macros", "io-util", "io-std", "process", "time", "sync"] }
 async-trait = "0.1"
 rmcp = { version = "=3.3.0", default-features = false, features = ["server", "transport-io"] }
+syn = { version = "2", features = ["full", "visit"] }
+quote = "1"
+proc-macro2 = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

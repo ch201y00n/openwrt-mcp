@@ -11,9 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Prepare Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
           rustup default stable
       - name: Verify architecture, policy, protocol and release build
-        run: sh tools/test.sh
+        env:
+          ARCHITECTURE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$ARCHITECTURE_BASE" ] || [ "$ARCHITECTURE_BASE" = "0000000000000000000000000000000000000000" ]; then
+            ARCHITECTURE_BASE=HEAD
+          fi
+          sh tools/test.sh "$ARCHITECTURE_BASE"

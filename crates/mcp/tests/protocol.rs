@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use openwrt_mcp::{config::Config, protocol::McpServer};
-use openwrt_mcp_core::Invocation;
+use openwrt_mcp_core::{Policy, PreparedAction};
 use openwrt_mcp_runtime::{AuditEvent, AuditSink, Backend, Dispatcher, Limits, RuntimeError};
+use openwrt_mcp_transport::McpServer;
 use rmcp::{ServiceExt, model::CallToolRequestParams};
 use serde_json::{Value, json};
 use std::sync::{
@@ -15,7 +15,7 @@ struct FixtureBackend(AtomicUsize);
 impl Backend for FixtureBackend {
     async fn execute(
         &self,
-        _invocation: &Invocation,
+        _invocation: &PreparedAction,
         _limits: &Limits,
     ) -> Result<Value, RuntimeError> {
         self.0.fetch_add(1, Ordering::SeqCst);
@@ -40,15 +40,15 @@ impl AuditSink for MemoryAudit {
 
 #[tokio::test]
 async fn real_mcp_handshake_discovery_calls_and_hidden_tool_denial() {
-    let config: Config = toml::from_str("[policy.categories.system]\naccess = 'read'\n").unwrap();
+    let policy: Policy = toml::from_str("[categories.system]\naccess = 'read'\n").unwrap();
     let backend = Arc::new(FixtureBackend(AtomicUsize::new(0)));
     let audit = Arc::new(MemoryAudit::default());
     let dispatcher = Dispatcher::new(
-        config.catalog().unwrap(),
-        config.policy,
+        openwrt_mcp_features::catalog(vec![]).unwrap(),
+        policy,
         backend.clone(),
         audit.clone(),
-        config.limits,
+        Limits::default(),
     )
     .unwrap();
     let (client_io, server_io) = tokio::io::duplex(65_536);

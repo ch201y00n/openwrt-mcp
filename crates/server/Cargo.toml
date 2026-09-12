@@ -10,18 +10,19 @@ description = "Policy-controlled MCP server for OpenWrt"
 [dependencies]
 openwrt-mcp-core = { path = "../core" }
 openwrt-mcp-runtime = { path = "../runtime" }
+openwrt-mcp-features = { path = "../features" }
+openwrt-mcp-adapters = { path = "../adapters" }
+openwrt-mcp-transport = { path = "../mcp" }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 tokio.workspace = true
-rmcp.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [dev-dependencies]
 async-trait.workspace = true
-rmcp = { workspace = true, features = ["client"] }
 
 [lints]
 workspace = true

@@ -1,6 +1,6 @@
 use openwrt_mcp_core::{Operation, Permission};
 use openwrt_mcp_runtime::Dispatcher;
-use rmcp::{ErrorData, RoleServer, ServerHandler, model::*, service::RequestContext};
+use rmcp::{ErrorData, RoleServer, ServerHandler, ServiceExt, model::*, service::RequestContext};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -14,6 +14,23 @@ impl McpServer {
         Self {
             dispatcher: Arc::new(dispatcher),
         }
+    }
+
+    /// Serve caller-supplied streams. Only composition selects the actual I/O handles.
+    pub async fn run<R, W>(self, input: R, output: W) -> Result<(), &'static str>
+    where
+        R: tokio::io::AsyncRead + Send + Unpin + 'static,
+        W: tokio::io::AsyncWrite + Send + Unpin + 'static,
+    {
+        let service = self
+            .serve((input, output))
+            .await
+            .map_err(|_| "mcp_initialization_failed")?;
+        service
+            .waiting()
+            .await
+            .map_err(|_| "mcp_transport_failed")?;
+        Ok(())
     }
 
     fn tool(operation: Operation) -> Tool {

@@ -1,10 +1,7 @@
-use openwrt_mcp::{
-    config::{Config, LogLevel, Logging},
-    framing::BoundedInput,
-    protocol::McpServer,
-};
-use openwrt_mcp_runtime::{AuditWriter, Dispatcher, LocalBackend};
-use rmcp::ServiceExt;
+use openwrt_mcp::config::{Config, LogLevel, Logging};
+use openwrt_mcp_adapters::{AuditWriter, LocalBackend};
+use openwrt_mcp_runtime::Dispatcher;
+use openwrt_mcp_transport::{BoundedInput, McpServer};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 const HELP: &str = "OpenWrt MCP\nUsage: openwrt-mcp <check|catalog|serve> --config <path>\n\ncheck    Validate policy, catalog and limits without contacting a router\ncatalog  Print names and schemas of authorized operations without contacting a router\nserve    Run the stdio MCP server against this local OpenWrt device\n\nNo network listener is opened. Configuration is local operator authority.\n";
@@ -83,14 +80,9 @@ async fn run() -> Result<(), &'static str> {
         .logging
         .event(LogLevel::Info, "server_starting")
         .await?;
-    let service = McpServer::new(dispatcher)
-        .serve((BoundedInput::new(tokio::io::stdin()), tokio::io::stdout()))
-        .await
-        .map_err(|_| "mcp_initialization_failed")?;
-    service
-        .waiting()
-        .await
-        .map_err(|_| "mcp_transport_failed")?;
+    McpServer::new(dispatcher)
+        .run(BoundedInput::new(tokio::io::stdin()), tokio::io::stdout())
+        .await?;
     config
         .logging
         .event(LogLevel::Info, "server_stopped")

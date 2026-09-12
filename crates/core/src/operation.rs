@@ -45,6 +45,15 @@ pub enum Action {
     },
 }
 
+/// Scalar leaves are the safe default; structured projection is explicit operator metadata.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputMode {
+    #[default]
+    Scalars,
+    Structured,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Operation {
@@ -56,12 +65,21 @@ pub struct Operation {
     pub action: Action,
     #[serde(default)]
     pub output_fields: Vec<String>,
+    #[serde(default)]
+    pub output_mode: OutputMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Invocation {
-    pub program: String,
-    pub args: Vec<String>,
+pub enum PreparedAction {
+    Ubus {
+        object: String,
+        method: String,
+        arguments: Value,
+    },
+    Process {
+        program: String,
+        args: Vec<String>,
+    },
 }
 
 fn identifier(value: &str) -> bool {
@@ -290,7 +308,7 @@ impl Operation {
         Ok(())
     }
 
-    pub fn prepare(&self, input: &Value) -> Result<Invocation, CoreError> {
+    pub fn prepare(&self, input: &Value) -> Result<PreparedAction, CoreError> {
         self.validate()?;
         let values = input.as_object().ok_or(CoreError::InvalidArguments)?;
         for name in values.keys() {
@@ -337,15 +355,10 @@ impl Operation {
                         prepared.insert(key.clone(), value.clone());
                     }
                 }
-                Ok(Invocation {
-                    program: "/bin/ubus".to_owned(),
-                    args: vec![
-                        "-S".to_owned(),
-                        "call".to_owned(),
-                        object.clone(),
-                        method.clone(),
-                        Value::Object(prepared).to_string(),
-                    ],
+                Ok(PreparedAction::Ubus {
+                    object: object.clone(),
+                    method: method.clone(),
+                    arguments: Value::Object(prepared),
                 })
             }
             Action::Process { program, args } => {
@@ -358,7 +371,7 @@ impl Operation {
                         prepared.push(arg.clone());
                     }
                 }
-                Ok(Invocation {
+                Ok(PreparedAction::Process {
                     program: program.clone(),
                     args: prepared,
                 })
@@ -433,9 +446,10 @@ impl Operation {
                 continue;
             }
             if let Some(value) = output.pointer(pointer) {
-                // Built-in schemas select scalar leaves only. A malformed
+                // Scalar schemas select leaves only. A malformed
                 // backend cannot widen a scalar field into an entire subtree.
-                if crate::catalog::is_builtin(&self.name) && (value.is_array() || value.is_object())
+                if self.output_mode == OutputMode::Scalars
+                    && (value.is_array() || value.is_object())
                 {
                     continue;
                 }

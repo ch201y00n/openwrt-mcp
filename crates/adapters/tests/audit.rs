@@ -7,10 +7,8 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use openwrt_mcp_runtime::{
-    AuditConfig, AuditDestination, AuditEvent, AuditFormat, AuditOutcome, AuditPhase, AuditSink,
-    AuditWriter,
-};
+use openwrt_mcp_adapters::{AuditConfig, AuditDestination, AuditFormat, AuditWriter};
+use openwrt_mcp_runtime::{AuditEvent, AuditOutcome, AuditPhase, AuditSink};
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 

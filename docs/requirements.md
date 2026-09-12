@@ -4,13 +4,15 @@ OpenWrt MCP is an independent community project. It aims to give AI agents compr
 
 ## User goals and acceptance criteria
 
+Architecture revision 2 adds a mandatory development constraint: architecture and directory ownership are designed before implementation. The executable harness checks that contract. Requirements that cannot fit it must first update the architecture, ADR and harness; neither production code nor feature convenience may bypass those controls. See ADR 0002 and docs/development.md.
+
 | Goal | Concrete requirement | Verification |
 | --- | --- | --- |
 | Comprehensive control | Cover base services and installed packages with capability discovery, typed native adapters and reviewed extensions; publish a coverage matrix per OpenWrt version | Adapter contract tests plus emulator/device acceptance tests |
 | Accurate and fast | Validate arguments, distinguish configuration from effective state, return structured bounded results, check postconditions after changes | Negative tests, fault injection, real-state verification and latency benchmarks |
 | Low resource use | Single Rust process, on-demand work, bounded concurrency/output, minimal SDK features, no embedded model | Binary size, idle RSS/CPU, per-call p50/p95 measurements |
 | Easy security settings | Readable category settings, read-only example, explicit execution flag, policy check command, deny wins | Permission matrix and bypass regression tests |
-| Clear structure | Enforce core/runtime/server dependencies; no direct device I/O in protocol handlers | Automated architecture checks and review |
+| Clear structure | Enforce core/features/runtime/adapters/mcp/server ownership and dependency direction; no direct device I/O in protocol handlers | Versioned contract, AST/metadata checks, negative fixtures, evolution gate and review |
 | Configurable usage logs | Audit attempts, decisions and outcomes; JSON/text, stderr/file/syslog, size rotation and retention; no payloads/secrets | Rotation, failure and secret-leak tests |
 
 ## Meaning of full coverage
@@ -43,8 +45,8 @@ Default call deadline 10 seconds, stdout/stderr cap 64 KiB each, two in-flight o
 
 ## Delivery sequence
 
-1. v0.1 foundation: three-crate architecture, stdio MCP, policy engine, strict catalog, structured selected ubus reads, privileged fixed-action extensions, audit outputs, fake-device tests and local benchmarks.
-2. Native capability inventory, core read adapters, response schemas and OpenWrt emulator matrix.
+1. v0.1 foundation: stdio MCP, policy engine, strict catalog, selected ubus reads, privileged fixed-action extensions, audit outputs, fake-device tests and local benchmarks. The initial three-crate split is historical.
+2. Architecture-first prerequisite: migrate to the version-2 six-layer workspace plus xtask, enforce dependencies/source ownership/evolution and pass regression tests before adding device features. Then capability inventory, core read adapters, response schemas and OpenWrt emulator matrix.
 3. Transactional UCI mutation, encrypted backup, durable device-side rollback and protected-resource rules.
 4. Service, package, storage, VPN and firmware adapters with adapter-specific verification.
 5. Optional authenticated remote MCP transport and OpenWrt package delivery; performance profiling on supported targets.

@@ -1,0 +1,75 @@
+use crate::definition::read;
+use openwrt_mcp_core::{Action, Category, Operation, Parameter, ParameterKind};
+use serde_json::json;
+
+pub(crate) fn operations() -> Vec<Operation> {
+    let mut device = read(
+        "network_device_status",
+        "Read selected link state and traffic counters for a named network device.",
+        Category::Network,
+        "network.device",
+        "status",
+        &[
+            "/type",
+            "/external",
+            "/present",
+            "/up",
+            "/carrier",
+            "/mtu",
+            "/mtu6",
+            "/txqueuelen",
+            "/speed",
+            "/duplex",
+            "/statistics/rx_bytes",
+            "/statistics/tx_bytes",
+            "/statistics/rx_packets",
+            "/statistics/tx_packets",
+            "/statistics/rx_errors",
+            "/statistics/tx_errors",
+            "/statistics/rx_dropped",
+            "/statistics/tx_dropped",
+        ],
+    );
+    device.parameters.insert(
+        "name".to_owned(),
+        Parameter {
+            kind: ParameterKind::String,
+            required: true,
+            allowed_values: Vec::new(),
+        },
+    );
+    if let Action::Ubus { arguments, .. } = &mut device.action {
+        arguments.insert("name".to_owned(), json!("{name}"));
+    }
+    let fields = &[
+        "/up",
+        "/pending",
+        "/available",
+        "/autostart",
+        "/dynamic",
+        "/uptime",
+        "/proto",
+        "/device",
+        "/l3_device",
+        "/metric",
+    ];
+    vec![
+        device,
+        read(
+            "network_lan_status",
+            "Read selected state of the conventional lan interface; unavailable if absent or renamed.",
+            Category::Network,
+            "network.interface.lan",
+            "status",
+            fields,
+        ),
+        read(
+            "network_wan_status",
+            "Read selected state of the conventional wan interface; unavailable if absent or renamed.",
+            Category::Network,
+            "network.interface.wan",
+            "status",
+            fields,
+        ),
+    ]
+}

@@ -57,4 +57,6 @@ Placeholders are whole strings of the form `{parameter}`; interpolation within s
 
 Custom programs and fields are an operator trust decision. Do not put passwords in definitions or expose secret-producing programs. Adding a package-specific adapter with checked semantics and tests is the preferred route to product coverage. See architecture.md for the public data types.
 
+`output_mode = "scalars"` is the default for every operation, including custom actions: approved pointers whose values are objects/arrays are omitted. An operator can explicitly select `output_mode = "structured"` for a reviewed extension that needs nested results. Sensitive-key redaction still applies, but does not guarantee arbitrary subtrees contain no secrets. The architecture-v2 migration removes the old behavior that inferred projection safety from a built-in name; structured extensions must now opt in explicitly.
+
 The tested [example-extension.toml](../config/example-extension.toml) runs only `/usr/bin/printf` with one exact synthetic JSON payload. It demonstrates registration and permissions without router changes. Process placeholders must be required; optional ubus parameters omit the whole key/value. Output pointers must not overlap (such as `/a` together with `/a/b`).

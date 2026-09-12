@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use openwrt_mcp_core::{
-    Access, Action, Catalog, Category, CoreError, Grant, Operation, Parameter, ParameterKind,
-    Permission, Policy, Requirement,
+    Access, Action, Catalog, Category, CoreError, Grant, Operation, OutputMode, Parameter,
+    ParameterKind, Permission, Policy, PreparedAction, Requirement,
 };
-use serde_json::{Value, json};
+use serde_json::json;
 
 fn custom() -> Operation {
     Operation {
@@ -27,7 +27,31 @@ fn custom() -> Operation {
             args: vec!["--".into(), "{device}".into()],
         },
         output_fields: Vec::new(),
+        output_mode: OutputMode::Scalars,
     }
+}
+
+fn fixture_read() -> Operation {
+    Operation {
+        name: "fixture_read".into(),
+        description: "Synthetic, source-independent read definition.".into(),
+        requirements: vec![Requirement {
+            category: Category::System,
+            permission: Permission::Read,
+        }],
+        parameters: BTreeMap::new(),
+        action: Action::Ubus {
+            object: "fixture".into(),
+            method: "read".into(),
+            arguments: BTreeMap::new(),
+        },
+        output_fields: vec!["/status".into(), "/model".into(), "/version/number".into()],
+        output_mode: OutputMode::Scalars,
+    }
+}
+
+fn fixture_catalog(custom: Vec<Operation>) -> Result<Catalog, CoreError> {
+    Catalog::with_builtins(vec![fixture_read()], custom)
 }
 
 fn policy(category: Category, access: Access, execute: bool) -> Policy {
@@ -97,7 +121,7 @@ fn allowlist_is_exact_denials_win_and_cross_category_needs_every_grant() {
 
 #[test]
 fn extensions_always_require_write_and_execute() {
-    let catalog = Catalog::new(vec![custom()]).unwrap();
+    let catalog = fixture_catalog(vec![custom()]).unwrap();
     let operation = catalog.get("diagnostic_example").unwrap();
     for access in [Access::Deny, Access::Read, Access::ReadWrite] {
         for execute in [false, true] {
@@ -117,16 +141,16 @@ fn extensions_always_require_write_and_execute() {
 #[test]
 fn builtins_cannot_be_replaced_and_unknown_names_stay_unknown() {
     let mut operation = custom();
-    operation.name = "system_board".into();
+    operation.name = "fixture_read".into();
     assert_eq!(
-        Catalog::new(vec![operation]).unwrap_err(),
+        fixture_catalog(vec![operation]).unwrap_err(),
         CoreError::DuplicateOperation
     );
     assert_eq!(
-        Catalog::new(vec![custom(), custom()]).unwrap_err(),
+        fixture_catalog(vec![custom(), custom()]).unwrap_err(),
         CoreError::DuplicateOperation
     );
-    let catalog = Catalog::new(Vec::new()).unwrap();
+    let catalog = fixture_catalog(Vec::new()).unwrap();
     assert!(catalog.get("not_installed").is_none());
     let configured = Policy {
         deny_operations: BTreeSet::from(["not_installed".into()]),
@@ -140,10 +164,10 @@ fn builtins_cannot_be_replaced_and_unknown_names_stay_unknown() {
 
 #[test]
 fn catalog_metadata_is_not_mutated_through_a_clone() {
-    let catalog = Catalog::new(Vec::new()).unwrap();
-    let mut cloned = catalog.get("system_board").unwrap().clone();
+    let catalog = fixture_catalog(Vec::new()).unwrap();
+    let mut cloned = catalog.get("fixture_read").unwrap().clone();
     cloned.requirements.clear();
-    assert_eq!(catalog.get("system_board").unwrap().requirements.len(), 1);
+    assert_eq!(catalog.get("fixture_read").unwrap().requirements.len(), 1);
     assert!(
         policy(Category::System, Access::Read, false)
             .authorize(&cloned)
@@ -153,7 +177,7 @@ fn catalog_metadata_is_not_mutated_through_a_clone() {
 
 #[test]
 fn scalar_inputs_reject_missing_unknown_nested_wrong_types_and_overlong_values() {
-    let catalog = Catalog::new(vec![custom()]).unwrap();
+    let catalog = fixture_catalog(vec![custom()]).unwrap();
     let operation = catalog.get("diagnostic_example").unwrap();
     assert_eq!(
         operation.prepare(&json!({})),
@@ -183,12 +207,17 @@ fn scalar_inputs_reject_missing_unknown_nested_wrong_types_and_overlong_values()
 
 #[test]
 fn shell_text_is_one_literal_argument_and_program_is_never_client_selected() {
-    let catalog = Catalog::new(vec![custom()]).unwrap();
+    let catalog = fixture_catalog(vec![custom()]).unwrap();
     let operation = catalog.get("diagnostic_example").unwrap();
     let payload = "eth0; $(echo fake-secret) | sh\n`id`";
     let invocation = operation.prepare(&json!({"device":payload})).unwrap();
-    assert_eq!(invocation.program, "/usr/bin/fixture");
-    assert_eq!(invocation.args, vec!["--", payload]);
+    assert_eq!(
+        invocation,
+        PreparedAction::Process {
+            program: "/usr/bin/fixture".into(),
+            args: vec!["--".into(), payload.into()],
+        }
+    );
     assert!(
         operation
             .prepare(&json!({"device":"eth0","program":"/bin/sh"}))
@@ -225,29 +254,24 @@ fn ubus_substitution_preserves_json_types_and_escapes_strings() {
             ("literal".into(), json!("prefix-{device}")),
         ]),
     };
-    let catalog = Catalog::new(vec![operation]).unwrap();
+    let catalog = fixture_catalog(vec![operation]).unwrap();
     let operation = catalog.get("diagnostic_example").unwrap();
     let invocation = operation
         .prepare(&json!({"device":"a\"; fake-secret", "count":4, "enabled":true}))
         .unwrap();
-    assert_eq!(invocation.program, "/bin/ubus");
     assert_eq!(
-        &invocation.args[..4],
-        &["-S", "call", "fixture.object", "query"]
-    );
-    let args: Value = serde_json::from_str(&invocation.args[4]).unwrap();
-    assert_eq!(
-        args,
-        json!({"name":"a\"; fake-secret", "count":4, "enabled":true, "literal":"prefix-{device}"})
+        invocation,
+        PreparedAction::Ubus {
+            object: "fixture.object".into(),
+            method: "query".into(),
+            arguments: json!({"name":"a\"; fake-secret", "count":4, "enabled":true, "literal":"prefix-{device}"}),
+        }
     );
     let optional = operation
         .prepare(&json!({"device":"eth0", "count":4}))
         .unwrap();
     assert!(
-        serde_json::from_str::<Value>(&optional.args[4])
-            .unwrap()
-            .get("enabled")
-            .is_none()
+        matches!(optional, PreparedAction::Ubus { arguments, .. } if arguments.get("enabled").is_none())
     );
     for input in [
         json!({"device":"eth0","count":"4"}),
@@ -326,12 +350,12 @@ fn invalid_definitions_are_rejected_without_echoing_them() {
     };
     cases.push(action);
     for action in cases {
-        let error = Catalog::new(vec![action]).unwrap_err();
+        let error = fixture_catalog(vec![action]).unwrap_err();
         assert_eq!(error, CoreError::InvalidDefinition);
         assert!(!error.to_string().contains("fake-secret"));
     }
     assert_eq!(
-        Catalog::new(vec![custom(); 1025]).unwrap_err(),
+        fixture_catalog(vec![custom(); 1025]).unwrap_err(),
         CoreError::CatalogLimitExceeded
     );
 }
@@ -341,6 +365,7 @@ fn projection_defaults_to_nothing_and_redacts_sensitive_keys_recursively() {
     let mut action = custom();
     let source = json!({"result": {"ok":true, "password":"fake-password", "WiFi_PSK":"fake-wifi", "private_key":"fake-key", "nested":[{"value":7,"API_TOKEN":"fake-token"}]}, "credential":{"visible":"fake-visible"}, "a/b":{"~value":3}, "other":"fake-other"});
     assert_eq!(action.project(&source), json!({}));
+    action.output_mode = OutputMode::Structured;
     action.output_fields = vec![
         "/result".into(),
         "/credential/visible".into(),
@@ -355,20 +380,41 @@ fn projection_defaults_to_nothing_and_redacts_sensitive_keys_recursively() {
 }
 
 #[test]
-fn builtin_outputs_omit_raw_configuration_and_malformed_subtrees() {
-    let catalog = Catalog::new(Vec::new()).unwrap();
-    let board = catalog.get("system_board").unwrap();
-    let source = json!({"kernel":"6.6.fixture", "model":{"unrecognized":"fake-secret"},"hostname":"fake-host", "release":{"version":"fixture","password":"fake-password"},"wireless":{"key":"fake-psk"},"network":{"password":"fake-network"}});
+fn scalar_projection_omits_raw_configuration_and_malformed_subtrees() {
+    let operation = fixture_read();
+    let source = json!({
+        "status":"available",
+        "model":{"unrecognized":"fake-secret"},
+        "version":{"number":"fixture","password":"fake-password"},
+        "configuration":{"key":"fake-secret"},
+    });
     assert_eq!(
-        board.project(&source),
-        json!({"/kernel":"6.6.fixture","/release/version":"fixture"})
+        operation.project(&source),
+        json!({"/status":"available","/version/number":"fixture"})
     );
-    let network = catalog.get("network_device_status").unwrap();
+}
+
+#[test]
+fn output_mode_defaults_to_scalars_and_never_depends_on_a_reserved_name() {
+    let mut operation = fixture_read();
+    operation.name = "extension_fixture".into();
+    let mut serialized = serde_json::to_value(operation).unwrap();
+    serialized.as_object_mut().unwrap().remove("output_mode");
+    let defaulted: Operation = serde_json::from_value(serialized).unwrap();
+    assert_eq!(defaulted.output_mode, OutputMode::Scalars);
     assert_eq!(
-        network.prepare(&json!({"name":"eth0"})).unwrap().args[4],
-        "{\"name\":\"eth0\"}"
+        defaulted.project(&json!({"model":{"unexpected":"fake-secret"}})),
+        json!({})
     );
-    assert_eq!(network.project(&json!({"up":true,"statistics":{"rx_bytes":4,"password":"fake-secret"},"macaddr":"fake-mac","wireless":{"key":"fake-key"}})), json!({"/up":true,"/statistics/rx_bytes":4}));
+}
+
+#[test]
+fn catalog_rejects_duplicates_among_reviewed_definitions() {
+    assert_eq!(
+        Catalog::with_builtins(vec![fixture_read(), fixture_read()], vec![]).unwrap_err(),
+        CoreError::DuplicateOperation
+    );
+    assert!(Catalog::new(vec![]).unwrap().operations().is_empty());
 }
 
 #[test]
@@ -394,7 +440,7 @@ fn optional_process_parameters_are_rejected_to_preserve_argument_positions() {
         ],
     };
     assert_eq!(
-        Catalog::new(vec![action.clone()]).unwrap_err(),
+        fixture_catalog(vec![action.clone()]).unwrap_err(),
         CoreError::InvalidDefinition
     );
     assert_eq!(
@@ -403,12 +449,20 @@ fn optional_process_parameters_are_rejected_to_preserve_argument_positions() {
     );
 
     action.parameters.get_mut("device").unwrap().required = true;
-    let catalog = Catalog::new(vec![action]).unwrap();
+    let catalog = fixture_catalog(vec![action]).unwrap();
     let action = catalog.get("diagnostic_example").unwrap();
     assert_eq!(action.prepare(&json!({})), Err(CoreError::MissingArgument));
     assert_eq!(
-        action.prepare(&json!({"device":"eth0"})).unwrap().args,
-        ["--device", "eth0", "--mode", "status"]
+        action.prepare(&json!({"device":"eth0"})).unwrap(),
+        PreparedAction::Process {
+            program: "/usr/bin/fixture".into(),
+            args: vec![
+                "--device".into(),
+                "eth0".into(),
+                "--mode".into(),
+                "status".into()
+            ],
+        }
     );
 }
 
@@ -424,7 +478,7 @@ fn overlapping_projection_paths_are_rejected_before_cloning_output() {
         let mut action = custom();
         action.output_fields = fields.iter().map(|field| (*field).to_owned()).collect();
         assert_eq!(
-            Catalog::new(vec![action.clone()]).unwrap_err(),
+            fixture_catalog(vec![action.clone()]).unwrap_err(),
             CoreError::InvalidDefinition
         );
         assert_eq!(action.project(&json!({"a":{"b":"fixture"}})), json!({}));
@@ -432,7 +486,7 @@ fn overlapping_projection_paths_are_rejected_before_cloning_output() {
     let mut nested = custom();
     nested.output_fields = (1..=64).map(|depth| "/a".repeat(depth)).collect();
     assert_eq!(
-        Catalog::new(vec![nested]).unwrap_err(),
+        fixture_catalog(vec![nested]).unwrap_err(),
         CoreError::InvalidDefinition
     );
 }
@@ -443,7 +497,7 @@ fn projection_overlap_check_compares_decoded_segments_not_string_prefixes() {
     action.output_fields = ["/a", "/ab", "/a~1b", "/~01", "/~1"]
         .map(str::to_owned)
         .to_vec();
-    let catalog = Catalog::new(vec![action]).unwrap();
+    let catalog = fixture_catalog(vec![action]).unwrap();
     let action = catalog.get("diagnostic_example").unwrap();
     assert_eq!(
         action.project(&json!({"a":1,"ab":2,"a/b":3,"~1":4,"/":5})),
@@ -452,5 +506,5 @@ fn projection_overlap_check_compares_decoded_segments_not_string_prefixes() {
 
     let mut slash = custom();
     slash.output_fields = vec!["/a~1b".into(), "/a/b".into()];
-    assert!(Catalog::new(vec![slash]).is_ok());
+    assert!(fixture_catalog(vec![slash]).is_ok());
 }

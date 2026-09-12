@@ -1,5 +1,3 @@
-//! MCP transport and operator configuration. Device operations belong in runtime.
+//! Local operator configuration and composition for the OpenWrt MCP executable.
 
 pub mod config;
-pub mod framing;
-pub mod protocol;

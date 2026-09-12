@@ -8,10 +8,12 @@ Rust로 개발하는 OpenWrt 관리용 MCP 서버입니다. 에이전트가 Open
 2. 입력 검증, 구조화된 응답, 실제 상태 확인을 통한 정확성과 속도.
 3. 단일 Rust 프로세스와 사용량 제한을 통한 낮은 리소스 소비.
 4. 카테고리별 `차단 / 읽기 / 읽기·쓰기`와 별도 `실행` 설정.
-5. 기능을 추가해도 유지해야 하는 core · runtime · server 경계.
+5. 기능을 추가해도 유지해야 하는 문서화된 계층과 자동 아키텍처 검사.
 6. 호출 시도·거절·실행 결과의 감사 기록과 일반적인 로그 설정.
 
-코드 의존 방향은 **server → runtime → core**입니다. 권한과 작업 명세를 다루는 core에는 운영체제·네트워크·MCP 의존성이 없고, 프로토콜 계층은 공통 실행기를 통해서만 장치에 접근합니다.
+코드는 **core / features / runtime / adapters / mcp / server** 여섯 계층과 개발용 **xtask**로 나뉩니다. 권한·검증은 core, 범주별 작업 정의는 features, 실행 흐름은 runtime, 실제 장치·로그 접근은 adapters, 통신은 mcp, 조립·설정은 server가 담당합니다. 프로토콜은 공통 실행기를 통해서만 장치에 접근합니다.
+
+아키텍처 하네스는 의존성·소스 경계·디렉터리 소유권을 검사합니다. 새 요구가 경계를 바꿔야 한다면 **요구사항 → 설계 결정(ADR) → 아키텍처·하네스 확장 → 구조 검증 → 기능 구현** 순서를 지켜야 합니다. 자세한 규칙은 [개발 절차](docs/development.md)와 [기계 판독 계약](architecture/spec.toml)에 있습니다.
 
 ## 현재 구현
 
@@ -25,6 +27,7 @@ v0.1 초기 기반 구현입니다. 실제 MCP 표준입출력 통신, 다섯 �
 
 - [요구사항과 성능 목표](docs/requirements.md)
 - [아키텍처와 모듈 계약](docs/architecture.md)
+- [아키텍처 우선 개발 절차](docs/development.md)
 - [기능별 구현 범위](docs/coverage.md)
 - [보안 모델과 현재 한계](docs/security.md)
 - [권한·로그 설정](docs/configuration.md)

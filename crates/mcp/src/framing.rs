@@ -1,6 +1,6 @@
 //! Bound newline-delimited MCP frames before the SDK allocates/parses a whole message.
 use std::{
-    io,
+    io::{Error, ErrorKind, Result as IoResult},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -29,13 +29,10 @@ impl<R: AsyncRead + Unpin> AsyncRead for BoundedInput<R> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         destination: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    ) -> Poll<IoResult<()>> {
         let this = self.get_mut();
         if this.failed {
-            return Poll::Ready(Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "frame_too_large",
-            )));
+            return Poll::Ready(Err(Error::new(ErrorKind::InvalidData, "frame_too_large")));
         }
         if destination.remaining() == 0 {
             return Poll::Ready(Ok(()));
@@ -54,8 +51,8 @@ impl<R: AsyncRead + Unpin> AsyncRead for BoundedInput<R> {
                         this.line_bytes += 1;
                         if this.line_bytes > MAX_FRAME_BYTES {
                             this.failed = true;
-                            return Poll::Ready(Err(io::Error::new(
-                                io::ErrorKind::InvalidData,
+                            return Poll::Ready(Err(Error::new(
+                                ErrorKind::InvalidData,
                                 "frame_too_large",
                             )));
                         }

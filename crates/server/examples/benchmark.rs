@@ -1,16 +1,15 @@
 //! Host microbenchmark; no router calls. Run with --release.
 use async_trait::async_trait;
-use openwrt_mcp_core::{
-    Access, Catalog, Category, Grant, Invocation, Permission, Policy, Requirement,
-};
-use openwrt_mcp_runtime::{AuditConfig, AuditWriter, Backend, Dispatcher, Limits, RuntimeError};
+use openwrt_mcp_adapters::{AuditConfig, AuditWriter};
+use openwrt_mcp_core::{Access, Category, Grant, Permission, Policy, PreparedAction, Requirement};
+use openwrt_mcp_runtime::{Backend, Dispatcher, Limits, RuntimeError};
 use serde_json::{Value, json};
 use std::{hint::black_box, sync::Arc, time::Instant};
 
 struct Fixture;
 #[async_trait]
 impl Backend for Fixture {
-    async fn execute(&self, _: &Invocation, _: &Limits) -> Result<Value, RuntimeError> {
+    async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
         Ok(json!({"uptime": 100}))
     }
 }
@@ -22,7 +21,7 @@ fn percentile(samples: &mut [u128], percent: usize) -> u128 {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let base = Catalog::new(vec![]).unwrap();
+    let base = openwrt_mcp_features::catalog(vec![]).unwrap();
     let template = base.get("system_info").unwrap();
     let mut custom = Vec::new();
     for index in 0..1000 {
@@ -34,7 +33,7 @@ async fn main() {
         }];
         custom.push(op);
     }
-    let catalog = Catalog::new(custom).unwrap();
+    let catalog = openwrt_mcp_features::catalog(custom).unwrap();
     let mut policy = Policy::default();
     policy.categories.insert(
         Category::System,

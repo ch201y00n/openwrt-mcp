@@ -9,5 +9,5 @@ mod policy;
 
 pub use catalog::Catalog;
 pub use error::CoreError;
-pub use operation::{Action, Invocation, Operation, Parameter, ParameterKind};
+pub use operation::{Action, Operation, OutputMode, Parameter, ParameterKind, PreparedAction};
 pub use policy::{Access, Category, Grant, Permission, Policy, Requirement};

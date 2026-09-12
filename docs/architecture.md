@@ -1,67 +1,81 @@
 # Architecture
 
-Status: initial architecture for v0.1; see requirements.md for the product target.
+Contract: version 2 in [architecture/spec.toml](../architecture/spec.toml). Read [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation. This replaces the initial three-crate foundation design.
 
-## Dependency direction
+## Rust structure and dependency direction
 
-`server (MCP/CLI) -> runtime (dispatcher, backend, audit) -> core (policy, catalog, validation)`
+Rust does not prescribe one application architecture. This project combines conventional Cargo workspaces/packages, explicit module visibility and integration-test directories with ports and adapters. Separate crates make dependency direction compiler-visible; the harness further constrains dependencies and production source access.
 
-The Rust workspace enforces separate crates. Core may depend only on serde, serde_json, toml, and thiserror. It has no I/O. Runtime has no MCP dependency. Server never accesses the router except through the dispatcher. Architecture checks reject forbidden dependencies/imports. No convenience path may bypass these boundaries.
+```text
+server (composition) ─┬─> mcp (protocol) ─────> runtime (use cases / ports) ─> core
+                     ├─> adapters (I/O) ────> runtime + core
+                     └─> features (category definitions) ────────────────> core
+
+xtask (development only) -> architecture contract + Cargo metadata + source AST
+```
+
+| Crate / directory | Owns | Must not own |
+| --- | --- | --- |
+| core | Permission rules, validation, prepared actions, safe output projection | Device I/O, processes, async runtime, logging, MCP, built-in device catalog |
+| features | Built-in definitions in src/categories, fixture contracts | I/O, orchestration, mutable policy, client-defined capabilities |
+| runtime | Dispatcher, concurrency/deadlines, backend and audit ports, safe errors | Concrete device/audit implementations, MCP, configuration file access |
+| adapters | Process execution, audit destinations and other port implementations | Authorization decisions, protocol handlers |
+| mcp | MCP mapping, bounded framing, SDK lifecycle | Concrete backends, filesystem/process access, policy selection |
+| server | CLI, trusted configuration loading, lifecycle logs, dependency wiring | Router command execution, alternate device invocation paths |
+| tools/xtask | Contract validation and architectural regression checks | Production dependency or runtime feature implementation |
+
+Exact normal, development and build dependency allowlists are versioned in the contract; target-specific declarations are checked too. Test/example fixtures may perform local fixture I/O, but do not grant production access or authorize live router calls.
 
 ## Invocation lifecycle
 
-1. Protocol parses a named operation and JSON argument object.
-2. Dispatcher resolves immutable, operator-installed metadata.
-3. Policy checks ALL operation requirements, explicit operation denials, and exact operation allowlists.
-4. Input validator rejects unknown/missing keys, wrong types, size violations, and unapproved enum values.
-5. Dispatcher records a start event before backend execution; audit failure prevents execution.
-6. Backend executes a fixed program and argument vector without a shell, with deadline, output bounds, null stdin, and process cleanup.
-7. Output is projected using operator-owned JSON pointers. Nothing is returned by default. Raw backend errors are never returned.
-8. Dispatcher records a completion outcome, duration and request sequence. Failed outcome logging does not imply an operation was undone.
+1. MCP maps a named tool and JSON object into a dispatcher invocation.
+2. The dispatcher resolves immutable, operator-installed metadata.
+3. Policy checks ALL category requirements, exact allowlists and explicit denials.
+4. Pure validation rejects unknown/missing arguments, invalid types and unapproved values, then creates a PreparedAction.
+5. The dispatcher acquires bounded execution capacity and records a start event. Audit failure prevents execution.
+6. The backend executes the prepared action. The local adapter compiles ubus actions into fixed program/argv calls without a shell.
+7. The operation projects approved output fields. The dispatcher records the outcome and duration before returning.
 
-Read and action discovery are filtered through the same authorization as execution. Discovery is not evidence that a target provides that capability; calls report unavailable methods as backend failures. v0.1 describes the configured catalog, not complete live device discovery.
+Handlers cannot bypass the dispatcher. Backend ports are trusted infrastructure, not client-accessible tools. Discovery and execution use the same authorization; a catalog entry indicates configured support, not proof that the device provides the method. Device actions are never automatically retried.
 
-## Permissions
+## Domain contracts
 
-Category access is deny/read/read_write. Execute is an independent boolean, disabled by default. Each operation carries a list of category requirements: read, write, or execute. A mutation can require write AND execute; a cross-category action requires every affected category. Category names are a closed enum with a dedicated extensions category. A profile cannot make an unknown operation safe by calling it read-only. Exact operation allowlists can narrow category access, and explicit denials win.
+- Category: system, network, wireless, firewall, dhcp_dns, services, packages, storage, vpn, firmware, diagnostics, extensions. Unknown values fail validation.
+- A category Grant combines Access (Deny, Read, ReadWrite) and an independent execute boolean. Defaults are deny / false. Mutations can require write AND execute; cross-category actions require every affected category.
+- Policy holds grants and optional exact operation allow/deny sets. Denial wins; references must resolve against the catalog.
+- Parameter has a scalar kind (string/integer/boolean), required flag and optional allowed values. Client strings are bounded to 1024 bytes and cannot contain NUL. Unknown keys are rejected.
+- Action is an operator-owned Ubus { object, method, arguments } or Process { program, args } template. Only a whole {parameter} value is substituted. Programs are fixed absolute paths. Process placeholders are required so missing arguments cannot shift meanings; optional ubus parameters omit their entire key.
+- Operation::prepare returns PreparedAction::Ubus { object, method, arguments: Value } or PreparedAction::Process { program, args }. Core does not know /bin/ubus or compile command lines.
+- Catalog::with_builtins(builtins, custom) validates definitions and rejects duplicate names. Catalog::new(custom) is a generic zero-builtins convenience. The features crate composes the device catalog.
+- Operation::project maps approved JSON pointers to values. OutputMode::Scalars defaults to rejecting object/array subtrees. Structured output is opt-in for trusted extensions, with sensitive-key redaction as defense in depth, not guaranteed secret detection.
+- Empty projection lists return no raw output. Decoded pointers must be distinct and non-overlapping to prevent response amplification. Errors never echo untrusted arguments, configuration excerpts or backend text.
 
-The server process uses one operator-selected policy. MCP clientInfo and tool arguments cannot choose an identity or elevate a profile. Separate stdio processes/configs isolate principals. HTTP, multi-user authentication, and token management are future work.
+The MCP process uses one operator-selected policy. Client labels and tool arguments cannot select another policy or elevate permission. Separate stdio processes/configurations isolate principals; HTTP and multi-user authentication are not implemented.
+
+## Runtime and infrastructure contracts
+
+Backend::execute(&PreparedAction, &Limits) is an async port returning JSON or a safe RuntimeError. AuditSink::record(&AuditEvent) is a synchronous port. Dispatcher owns authorization and orchestration with injected implementations and cannot import an adapter.
+
+Limits have bounded nonzero values: defaults are 10 seconds, 64 KiB backend output and two concurrent actions. The local adapter clears the child environment, supplies fixed PATH/LANG, null stdin, concurrent bounded stdout/stderr reads, and kills/reaps timed-out or overflowing children. Empty output becomes null; other output must be JSON. Raw stderr is never returned or logged.
+
+Audit events contain timestamp, request sequence, phase, trusted operation name, safe outcome and duration, not payloads. Unknown names become a constant. Denials and invalid arguments are audited. The adapter supports JSON/text and stderr/file/Unix syslog, size rotation and retention. Files must be regular, restricted and in trusted directories; symlinks/hardlinks are rejected. Unsupported settings fail validation. stdout is reserved for MCP.
+
+Audit writes run outside the async executor, with one writer per dispatcher, bounded waiting, a deadline and a permanent failure latch. A blocked write cannot spawn unbounded tasks. Runtime shutdown also has a deadline; an OS-blocked write cannot be forcibly cancelled. This is not durable/fsync logging or a sandbox. Failed completion logging does not imply undo, and cancellation is not rollback.
 
 ## Coverage and extension boundary
 
-Built-in operations cover selected structured ubus reads. Trusted local action definitions can expose additional ubus methods and fixed executable argv for installed packages. They have exact names, mandatory permissions, strict parameters, and explicit output projection. Custom actions always require extensions.write AND extensions.execute, plus their declared category requirements. This is a privileged operator extension mechanism, not a sandbox for untrusted plugin authors. Generic root programs, scripts, arbitrary file writes, and package installation can bypass category isolation; they must not be offered to restricted clients as a universal shell tool.
+The executable is an on-device or companion stdio server. An operator can carry stdio over SSH to a binary on the device; there is no built-in SSH client, TCP listener, polling daemon, database or embedded interpreter. The official Rust MCP SDK handles the protocol.
 
-v0.1 supports an on-device/companion stdio process. It can be carried over an operator-configured SSH connection to a binary on the device; no in-server SSH transport is claimed. Standard MCP handling uses the official Rust SDK. No TCP listener, polling loop, database, or embedded language runtime is needed.
+The [coverage matrix](coverage.md) distinguishes configured operations, fixture validation and device acceptance. Trusted local extensions can name extra ubus methods or fixed executables, but always require extensions.write AND extensions.execute plus declared effects. They cannot replace built-ins or grant permission. Extensions are an administrator capability, not a sandbox for untrusted authors. Privileged programs can defeat category isolation and must not be exposed to restricted clients.
 
-UCI mutation transactions, encrypted backup streaming, postcondition verification, durable rollback, protected resources, package/firmware workflows, native ubus socket integration and full package coverage require explicit later adapters. v0.1 has no built-in UCI write, firmware flash, or arbitrary shell tool. Defining a custom action is not equivalent to implementing these workflows.
+Full OpenWrt support is a product target, not the current implementation claim. UCI transactions, encrypted backup streaming, verification/rollback, protected resources, package/firmware workflows, native ubus and package-specific coverage need explicit contracts and acceptance tests before being advertised. A generic action template does not constitute a tested workflow.
 
-## Internal interface contract
+## Mandatory architecture evolution
 
-Core public types (re-exported by lib.rs):
+When a requirement cannot fit this design, feature implementation pauses: update acceptance requirements, record an ADR, revise this document and the versioned contract, then add harness rejection/regression tests. Migrate the affected layers and pass the architecture gate BEFORE implementing new behavior. Convenience imports, command escape hatches, ignored checks and temporary exceptions are prohibited.
 
-- `Category`: System, Network, Wireless, Firewall, DhcpDns, Services, Packages, Storage, Vpn, Firmware, Diagnostics, Extensions; snake_case serde.
-- `Access`: Deny, Read, ReadWrite; `Permission`: Read, Write, Execute.
-- `Requirement { category: Category, permission: Permission }`.
-- `Grant { access: Access, execute: bool }` (deny / false default).
-- `Policy { categories: BTreeMap<Category, Grant>, allow_operations: Option<BTreeSet<String>>, deny_operations: BTreeSet<String> }` with defaults; `authorize(&self, operation: &Operation) -> Result<(), CoreError>`.
-- `Parameter { kind: ParameterKind, required: bool, allowed_values: Vec<String> }`; kinds String, Integer, Boolean. No nested inputs. Strings max 1024 bytes and no NUL; parameter names are safe identifiers.
-- `Action` tagged by `kind`: `Ubus { object: String, method: String, arguments: BTreeMap<String, serde_json::Value> }`, or `Process { program: String, args: Vec<String> }`. A value/string of exactly `{parameter}` is substituted; no interpolation within strings. Ubus values retain input JSON types; process args stringify scalar types. Programs must be absolute, and cannot be client-selected.
-- `Operation { name: String, description: String, requirements: Vec<Requirement>, parameters: BTreeMap<String, Parameter>, action: Action, output_fields: Vec<String> }`. output_fields are nonempty JSON pointers; empty list returns only completion, never raw output.
-- `Invocation { program: String, args: Vec<String> }` generated by `Operation::prepare(&Value) -> Result<Invocation, CoreError>`; ubus program is `/bin/ubus`, argv `-S call object method json`.
-- `Catalog::new(custom: Vec<Operation>) -> Result<Catalog, CoreError>` installs built-ins and validated custom definitions; `operations(&self) -> &[Operation]`, `get(&self, name: &str) -> Option<&Operation>`.
-- `Operation::input_schema(&self) -> Value`; `Operation::project(&self, output: &Value) -> Value`, with projection encoded as a map from JSON pointer to selected value. Projected objects/arrays are recursively redacted by sensitive-key heuristics (defense-in-depth, not complete secret detection).
-- `CoreError`: stable safe codes/messages only. Config and client strings must not appear in errors.
+The repository gate validates architecture and negative fixtures first, then formatting, strict linting, behavioral tests and release compilation. CI checks evolution against the pull request base; local verification compares with HEAD unless supplied another baseline. Static analysis cannot prove all semantic properties of approved dependencies or macros; review remains required.
 
-Runtime public types:
+## Rust references
 
-- `Limits { timeout_ms: u64, max_output_bytes: usize, max_concurrent: usize }`, defaults 10000 / 65536 / 2; validate bounded nonzero values.
-- async `Backend: Send + Sync` with `execute(&self, invocation: &Invocation, limits: &Limits) -> Result<Value, RuntimeError>`; `LocalBackend` uses tokio child processes, null stdin and bounded stdout/stderr, kills/reaps on deadline or output overflow; empty output becomes null, otherwise JSON only.
-- `AuditEvent` contains timestamp, request sequence, phase, operation name (only trusted names), outcome, duration; never input/output. `AuditSink: Send + Sync` with `record(&self, event: &AuditEvent) -> Result<(), RuntimeError>`.
-- `AuditConfig`: enabled bool, format Json/Text, destination Stderr/File/Syslog, optional path, max_bytes, retained_files. AuditWriter creates/reopens append-only permission-restricted files, rotates at configured size. Syslog uses Unix datagram /dev/log on Unix; unsupported platforms fail config validation, no silent fallback. No output on stdout.
-- `Dispatcher::new(catalog: Catalog, policy: Policy, backend: Arc<dyn Backend>, audit: Arc<dyn AuditSink>, limits: Limits) -> Result<Self, RuntimeError>`; `available_operations(&self) -> Vec<Operation>`; `async invoke(&self, name: &str, arguments: Value) -> Result<Value, RuntimeError>`. Unknown names log a constant, not the untrusted name. Denials and invalid inputs are audited. Use a bounded semaphore with try_acquire for saturation, not an unbounded wait queue.
-
-Runtime and protocol errors are safe codes. Post-dispatch cancellation is not rollback. Mutations with uncertain completion must be checked on the device before retry; automatic retries are forbidden.
-
-Process parameters must be required so omitting a value cannot shift the meaning of following command flags. Ubus optional parameters omit their entire JSON key/value. Output pointers must be disjoint (after JSON Pointer decoding); overlapping ancestor/descendant projections are rejected to prevent response memory amplification.
-
-Audit sink writes run off the async executor with one bounded in-flight writer per dispatcher, a deadline, and a permanent failure latch. A stalled logger must not stop device deadlines or grow an unbounded set of writer tasks. The executable bounds runtime shutdown waits because an OS-blocked write cannot be forcibly cancelled. This is not durable logging or an OS sandbox.
+This design uses the official [module/package model](https://doc.rust-lang.org/book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html), [Cargo workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html), [package layout](https://doc.rust-lang.org/cargo/guide/project-layout.html), and [API Guidelines](https://rust-lang.github.io/api-guidelines/). Ports-and-adapters and this seven-package split are project decisions, not an official Rust application-architecture mandate.

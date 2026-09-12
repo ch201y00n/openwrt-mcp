@@ -2,12 +2,13 @@
 
 use std::time::{Duration, Instant};
 
-use openwrt_mcp_core::Invocation;
-use openwrt_mcp_runtime::{Backend, Limits, LocalBackend};
+use openwrt_mcp_adapters::LocalBackend;
+use openwrt_mcp_core::PreparedAction;
+use openwrt_mcp_runtime::{Backend, Limits};
 use serde_json::json;
 
-fn invocation(program: &str, args: &[&str]) -> Invocation {
-    Invocation {
+fn invocation(program: &str, args: &[&str]) -> PreparedAction {
+    PreparedAction::Process {
         program: program.to_owned(),
         args: args.iter().map(|arg| (*arg).to_owned()).collect(),
     }

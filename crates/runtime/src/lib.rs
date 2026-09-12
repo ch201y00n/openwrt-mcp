@@ -1,15 +1,11 @@
-//! Device I/O is reachable through the policy-enforcing dispatcher only.
-//! Backends and audit sinks are injectable so tests never require a router.
+//! Policy-enforcing use cases and injectable ports; no device or filesystem I/O.
 
 mod audit;
 mod backend;
 mod dispatcher;
 mod error;
 
-pub use audit::{
-    AuditConfig, AuditDestination, AuditEvent, AuditFormat, AuditOutcome, AuditPhase, AuditSink,
-    AuditWriter,
-};
-pub use backend::{Backend, Limits, LocalBackend};
+pub use audit::{AuditEvent, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};
+pub use backend::{Backend, Limits};
 pub use dispatcher::Dispatcher;
 pub use error::RuntimeError;

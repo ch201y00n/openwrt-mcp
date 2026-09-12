@@ -1,5 +1,6 @@
+use openwrt_mcp_adapters::AuditConfig;
 use openwrt_mcp_core::{Catalog, Operation, Policy};
-use openwrt_mcp_runtime::{AuditConfig, Limits};
+use openwrt_mcp_runtime::Limits;
 use serde::Deserialize;
 use std::{
     fs::OpenOptions,
@@ -132,7 +133,8 @@ impl Config {
     }
 
     pub fn catalog(&self) -> Result<Catalog, &'static str> {
-        let catalog = Catalog::new(self.actions.clone()).map_err(|_| "catalog_invalid")?;
+        let catalog =
+            openwrt_mcp_features::catalog(self.actions.clone()).map_err(|_| "catalog_invalid")?;
         self.policy
             .validate(&catalog)
             .map_err(|_| "policy_invalid")?;
