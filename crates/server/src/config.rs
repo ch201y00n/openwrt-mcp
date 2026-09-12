@@ -3,13 +3,12 @@ use openwrt_mcp_core::{Catalog, Operation, Policy};
 use openwrt_mcp_runtime::Limits;
 use serde::Deserialize;
 use std::{
-    fs::OpenOptions,
-    io::{Read, Write},
+    io::Write,
     path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-const MAX_CONFIG_BYTES: u64 = 1_048_576;
+const MAX_CONFIG_BYTES: usize = 1_048_576;
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -20,6 +19,7 @@ pub struct Config {
     pub logging: Logging,
     pub actions: Vec<Operation>,
     pub protection: Option<crate::protection::ProtectionConfig>,
+    pub target: crate::target::TargetConfig,
 }
 
 #[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -88,49 +88,45 @@ impl Logging {
 }
 
 impl Config {
-    /// Load only the explicitly selected local operator config; never print parse contents.
+    /// Load only the explicit operator config through the host's protection profile.
     pub fn load(path: &Path) -> Result<Self, &'static str> {
-        let metadata = std::fs::symlink_metadata(path).map_err(|_| "config_unreadable")?;
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err("config_not_regular_file");
-        }
-        #[cfg(unix)]
+        use openwrt_mcp_host_platform::HostError;
+        let contents =
+            openwrt_mcp_host_platform::read_config(path, MAX_CONFIG_BYTES).map_err(|error| {
+                match error {
+                    HostError::Unsupported => "config_protection_unsupported",
+                    HostError::Limit => "config_too_large",
+                    HostError::Insecure => "config_insecure",
+                    HostError::InvalidPath => "config_path_invalid",
+                    HostError::Unavailable => "config_unreadable",
+                }
+            })?;
+        Self::parse(&contents)
+    }
+
+    /// No .env discovery or fallback. The original OS environment cannot be erased.
+    pub fn load_from_environment(variable: &str) -> Result<Self, &'static str> {
+        if variable.is_empty()
+            || variable.len() > 128
+            || !variable.bytes().enumerate().all(|(index, byte)| {
+                byte.is_ascii_alphabetic() || byte == b'_' || (index > 0 && byte.is_ascii_digit())
+            })
         {
-            use std::os::unix::fs::PermissionsExt;
-            if metadata.permissions().mode() & 0o022 != 0 {
-                return Err("config_writable_by_others");
-            }
+            return Err("config_environment_invalid");
         }
-        let mut options = OpenOptions::new();
-        options.read(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-        }
-        let file = options.open(path).map_err(|_| "config_unreadable")?;
-        let opened = file.metadata().map_err(|_| "config_unreadable")?;
-        if !opened.is_file() {
-            return Err("config_not_regular_file");
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::{MetadataExt, PermissionsExt};
-            if opened.permissions().mode() & 0o022 != 0 {
-                return Err("config_writable_by_others");
-            }
-            if metadata.ino() != opened.ino() || metadata.dev() != opened.dev() {
-                return Err("config_changed_during_open");
-            }
-        }
-        let mut contents = String::new();
-        file.take(MAX_CONFIG_BYTES + 1)
-            .read_to_string(&mut contents)
-            .map_err(|_| "config_unreadable")?;
-        if contents.len() as u64 > MAX_CONFIG_BYTES {
+        let value = std::env::var_os(variable).ok_or("config_unreadable")?;
+        // var_os returns an owned OS copy before it can be bounded. No second
+        // copy or parsing occurs for an oversized or non-Unicode value.
+        let contents = value.to_str().ok_or("config_invalid")?;
+        Self::parse(contents.as_bytes())
+    }
+
+    fn parse(contents: &[u8]) -> Result<Self, &'static str> {
+        if contents.len() > MAX_CONFIG_BYTES {
             return Err("config_too_large");
         }
-        toml::from_str(&contents).map_err(|_| "config_invalid")
+        let contents = std::str::from_utf8(contents).map_err(|_| "config_invalid")?;
+        toml::from_str(contents).map_err(|_| "config_invalid")
     }
 
     pub fn catalog(&self) -> Result<Catalog, &'static str> {
@@ -141,6 +137,9 @@ impl Config {
             .map_err(|_| "policy_invalid")?;
         self.limits.validate().map_err(|_| "limits_invalid")?;
         self.audit.validate().map_err(|_| "audit_config_invalid")?;
+        self.target
+            .validate()
+            .map_err(|_| "target_config_invalid")?;
         if let Some(protection) = &self.protection {
             protection
                 .validate()
@@ -167,5 +166,19 @@ mod tests {
         assert!(toml::from_str::<Config>("unknown = true").is_err());
         assert!(toml::from_str::<Config>("[policy.categories.typo]\naccess = 'read'").is_err());
         assert!(toml::from_str::<Config>("[logging]\nlevel = 'verbose'").is_err());
+    }
+
+    #[test]
+    fn config_byte_bounds_and_encoding_fail_before_parsing_with_fixed_errors() {
+        assert!(Config::parse(&vec![b' '; MAX_CONFIG_BYTES]).is_ok());
+        assert_eq!(
+            Config::parse(&vec![b' '; MAX_CONFIG_BYTES + 1]).err(),
+            Some("config_too_large")
+        );
+        assert_eq!(Config::parse(&[0xff]).err(), Some("config_invalid"));
+        assert_eq!(
+            Config::parse(b"secret = 'synthetic-do-not-echo'").err(),
+            Some("config_invalid")
+        );
     }
 }

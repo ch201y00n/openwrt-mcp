@@ -13,7 +13,8 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Authorization enforced on every call, with the same filtering for tool discovery.
 - Ten conservative, structured ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
-- JSON/text audit output to stderr, rotating files, or Unix syslog.
+- JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
+- Explicit OpenWrt targets: unconfigured by default, verified on-device execution, or native persistent SSH independent of the workstation OS.
 - Bounded process output, deadlines, input frames and backend concurrency.
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
 - Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
@@ -22,7 +23,7 @@ This version has no built-in configuration mutation, firmware upgrade, encrypted
 
 ## Build and check
 
-Use Rust 1.95 or newer and a C linker. Build on a workstation, not a router:
+Use Rust 1.95 or newer, a C compiler and a linker (the SSH crypto backend includes native code). Build on a workstation, not a router:
 
 ```sh
 cargo build --locked --release
@@ -30,17 +31,17 @@ cargo run --locked -p openwrt-mcp -- check --config config/read-only.toml
 cargo run --locked -p openwrt-mcp -- catalog --config config/read-only.toml
 ```
 
-`check` and `catalog` are offline. No router connection is attempted. Check validates configuration structure; audit destination access is checked when serving. Config files must be regular files, not symlinks; on Unix they must not be writable by group/others. On WSL-mounted Windows drives, Unix mode emulation can make the checked-in file appear writable by everyone; use a copy in an operator-owned Linux directory with mode 0600 for runtime commands, or enable WSL metadata. Do not weaken permission checks.
+`check` and `catalog` are offline and never read SSH or age key sources. The file examples above require the implemented Linux protected-file profile and trusted parent directories. They are not native Windows/macOS instructions. For the common host path, explicitly provision the TOML configuration in an operator-managed environment variable and use `--config-env OPENWRT_MCP_CONFIG`. Do not put private keys in that TOML or command history. No `.env` discovery or fallback occurs. See the [platform support and evidence matrix](docs/platform-support.md).
 
 ## Deployment model
 
-Run the binary on an OpenWrt device with `/bin/ubus`. The MCP client owns the stdio process, directly or through SSH:
+Run the binary on a Windows/Linux/macOS workstation with an explicit SSH target, as illustrated by [ssh-environment.toml](config/ssh-environment.toml). Provision the configuration and separate authentication source securely, then let the MCP client own the stdio process:
 
 ```sh
-openwrt-mcp serve --config /etc/openwrt-mcp/config.toml
+openwrt-mcp serve --config-env OPENWRT_MCP_CONFIG
 ```
 
-A client can start `ssh -T <router-alias> /usr/bin/openwrt-mcp serve --config /etc/openwrt-mcp/config.toml` once the operator has deployed a matching binary and configured trusted SSH host keys and authentication. The alias belongs in the client's SSH configuration. This is a persistent stdio connection; there is no SSH connection per tool call. No router deployment has been performed by this repository setup.
+The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Native Windows/macOS acceptance and OpenWrt device acceptance remain pending, despite the common implementation and required three-host CI.
 
 Only JSON-RPC goes to stdout. Audit and operational messages use their configured destination (stderr by default). One process/config represents one principal; client metadata never selects privileges. On-device builds require the correct OpenWrt SDK/musl target and linker. The host verification binary is not an OpenWrt release artifact.
 
@@ -62,7 +63,7 @@ Start from [read-only.toml](config/read-only.toml) for system/network only, [obs
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v3](architecture/spec.toml) specifies each directory and allowed dependency; recursive AST checks and negative fixtures guard the boundaries. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v4](architecture/spec.toml) specifies directories, dependencies, portable layers and mandatory native host tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

@@ -101,6 +101,33 @@ impl SourceRegistry {
             })),
         }
     }
+
+    /// Resolve a key-purpose source offline, retaining larger reads inside containers.
+    pub fn resolve_key(&self, name: &str) -> Result<Arc<dyn KeySource>, ProtectionError> {
+        Ok(Arc::new(PurposeSource {
+            source: self.resolve(name)?,
+            cap: self.limits.max_key_bytes,
+        }))
+    }
+}
+
+struct PurposeSource {
+    source: Arc<dyn KeySource>,
+    cap: usize,
+}
+
+impl KeySource for PurposeSource {
+    fn read(&self, max_bytes: usize) -> Result<KeyMaterial, ProtectionError> {
+        let limit = max_bytes.min(self.cap);
+        if limit == 0 {
+            return Err(ProtectionError::ResourceLimit);
+        }
+        let material = self.source.read(limit)?;
+        if material.expose_bytes().len() > limit {
+            return Err(ProtectionError::ResourceLimit);
+        }
+        Ok(material)
+    }
 }
 
 struct FileSource {
@@ -154,5 +181,42 @@ impl KeySource for ArchiveSource {
         limits.validate()?;
         let container = self.source.read(limits.max_container_bytes)?;
         self.container.read_entry(&container, &self.entry, &limits)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PurposeSource;
+    use openwrt_mcp_runtime::protection::{KeyMaterial, KeySource, ProtectionError};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    struct IgnoringLimitSource(AtomicUsize);
+
+    impl KeySource for IgnoringLimitSource {
+        fn read(&self, max_bytes: usize) -> Result<KeyMaterial, ProtectionError> {
+            self.0.store(max_bytes, Ordering::SeqCst);
+            KeyMaterial::new(b"four".to_vec(), 4)
+        }
+    }
+
+    #[test]
+    fn purpose_source_checks_actual_material_and_rejects_zero_before_reading() {
+        let inner = Arc::new(IgnoringLimitSource(AtomicUsize::new(0)));
+        let source = PurposeSource {
+            source: inner.clone(),
+            cap: 3,
+        };
+        assert_eq!(
+            source.read(1024).unwrap_err(),
+            ProtectionError::ResourceLimit
+        );
+        assert_eq!(inner.0.load(Ordering::SeqCst), 3);
+        assert_eq!(source.read(2).unwrap_err(), ProtectionError::ResourceLimit);
+        assert_eq!(inner.0.load(Ordering::SeqCst), 2);
+        assert_eq!(source.read(0).unwrap_err(), ProtectionError::ResourceLimit);
+        assert_eq!(inner.0.load(Ordering::SeqCst), 2);
     }
 }

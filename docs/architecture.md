@@ -11,7 +11,9 @@ server (composition) ─┬─> mcp (protocol) ─────> runtime (use cas
                      ├─> adapters (I/O) ────> runtime + core
                      ├─> features (category definitions) ────────────────> core
                      ├─> key-sources (custody / containers) ──> runtime::protection
-                     └─> crypto-age (provided streams only) ─> runtime::protection
+                     ├─> crypto-age (provided streams only) ─> runtime::protection
+                     ├─> backend-ssh (remote execution) ────> runtime + core
+                     └─> host-platform <── key-sources + adapters (native host I/O)
 
 xtask (development only) -> architecture contract + Cargo metadata + source AST
 ```
@@ -68,13 +70,13 @@ Backend::execute(&PreparedAction, &Limits) is an async port returning JSON or a 
 
 Limits have bounded nonzero values: defaults are 10 seconds, 64 KiB backend output and two concurrent actions. The local adapter clears the child environment, supplies fixed PATH/LANG, null stdin, concurrent bounded stdout/stderr reads, and kills/reaps timed-out or overflowing children. Empty output becomes null; other output must be JSON. Raw stderr is never returned or logged.
 
-Audit events contain timestamp, request sequence, phase, trusted operation name, safe outcome and duration, not payloads. Unknown names become a constant. Denials and invalid arguments are audited. The adapter supports JSON/text and stderr/file/Unix syslog, size rotation and retention. Files must be regular, restricted and in trusted directories; symlinks/hardlinks are rejected. Unsupported settings fail validation. stdout is reserved for MCP.
+Audit events contain timestamp, request sequence, phase, trusted operation name, safe outcome and duration, not payloads. Unknown names become a constant. Denials and invalid arguments are audited. The adapter renders JSON/text; host-platform owns private rotating files and optional native system logs. Linux file and /dev/log profiles are implemented; other native profiles fail explicitly until available. Files must be regular, restricted and in trusted directories; symlinks/hardlinks are rejected. stdout is reserved for MCP.
 
 Audit writes run outside the async executor, with one writer per dispatcher, bounded waiting, a deadline and a permanent failure latch. A blocked write cannot spawn unbounded tasks. Runtime shutdown also has a deadline; an OS-blocked write cannot be forcibly cancelled. This is not durable/fsync logging or a sandbox. Failed completion logging does not imply undo, and cancellation is not rollback.
 
 ## Coverage and extension boundary
 
-The executable is an on-device or companion stdio server. An operator can carry stdio over SSH to a binary on the device; there is no built-in SSH client, TCP listener, polling daemon, database or embedded interpreter. The official Rust MCP SDK handles the protocol.
+The executable is an on-device or companion stdio server with explicit target selection. The native persistent SSH backend manages a remote OpenWrt target from a workstation; verified OpenWrt-local mode runs on the device. There is no application network listener, polling daemon, database or embedded interpreter. The official Rust MCP SDK handles the protocol. See [platform support](platform-support.md) for implementation versus native acceptance.
 
 The [coverage matrix](coverage.md) distinguishes configured operations, fixture validation and device acceptance. Trusted local extensions can name extra ubus methods or fixed executables, but always require extensions.write AND extensions.execute plus declared effects. They cannot replace built-ins or grant permission. Extensions are an administrator capability, not a sandbox for untrusted authors. Privileged programs can defeat category isolation and must not be exposed to restricted clients.
 

@@ -2,6 +2,8 @@
 
 This contract is defined before provider implementation. These are internal library interfaces, not MCP tools and not a complete backup/restore workflow.
 
+The source/provider ports remain current. Architecture v4 supersedes the original Unix-wide file-profile assumption: Linux native checks now belong to host-platform; Windows/macOS return explicit unsupported until their native DACL/ACL/volume profiles are implemented. See [portable host contract](portability-contract.md).
+
 ## Application-owned types: runtime::protection
 
 Keep this namespace explicit; do not re-export its contents from runtime's root. Crypto and source adapters import it directly, while MCP is forbidden from doing so.

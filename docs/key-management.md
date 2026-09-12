@@ -18,13 +18,13 @@ These are internal library primitives and offline configuration validation, not 
 | Component | Scope |
 | --- | --- |
 | age | Native X25519, streaming encrypt/authenticated decrypt, bounded I/O, cooperative deadline |
-| Restricted file | Unix ownership, permissions, regular-file and no-follow opened-handle checks |
+| Restricted file | Linux owner/mode/parent/opened-handle profile through host-platform; Windows/macOS protection explicitly unsupported until native profiles exist |
 | Environment | Only the exact configured variable; explicit opt-in, no fallback/enumeration |
 | ZIP member | Plain Stored/Deflate, one exact entry, bounded metadata/decompression, no extraction |
 | Personal Vault | Protected-file abstraction; no automatic unlock/account access. Native Windows ACL/Vault access is not yet implemented and fails closed |
 | Encrypted ZIP / 7z / other cipher | Not implemented; needs an explicit reviewed adapter |
 
-The age provider accepts native X25519 text documents, optionally with blank/comment lines, and writes binary age format. Passphrases, SSH/plugin/PQ identity schemes and other algorithms are not silently accepted. The established Rust age library performs cryptography; this project does not implement raw primitives. Upstream classifies its pre-1.0 releases as beta: this is not a production-readiness or external-audit claim. [Rust age documentation](https://docs.rs/age/0.12.1/age/)
+The age provider accepts native X25519 text documents, optionally with blank/comment lines, and writes binary age format. Passphrases, SSH/plugin/PQ identity schemes and other algorithms are not silently accepted. The established Rust age library performs cryptography; this project does not implement raw primitives. The reviewed combination uses age 0.11.5's maintained X25519-compatible line alongside the current SSH backend; see the dependency rationale in [ADR 0004](adr/0004-cross-platform-hosts.md). Upstream classifies its pre-1.0 releases as beta: this is not a production-readiness or external-audit claim. [Rust age documentation](https://docs.rs/age/0.11.5/age/)
 
 ## Separate public and private authority
 
@@ -36,7 +36,7 @@ Sources are re-read per operation, not cached indefinitely. Owned key buffers ar
 
 Configuration contains aliases and locations, never literal keys. Default configuration has no key authority. The [environment example](../config/protection-environment.toml) uses public recipients only and grants no device permissions. `check` and `catalog` remain offline: success does not prove source availability or platform protection.
 
-Unix file plus optional archive-held identity (placeholder paths; no files are created):
+Linux protected file plus optional archive-held identity (placeholder paths; no files are created):
 
 ```toml
 [protection]

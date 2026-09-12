@@ -12,7 +12,27 @@ Date: 2026-09-13. This is host/fixture validation, not a production or real-rout
 
 ## Verification
 
-Architecture v3 age/key-custody increment: the complete `tools/Test-Repository.ps1` gate passes with 143 distinct tests. The architecture-only checkpoint `c9131a8` passed the full gate with 88 tests before implementing new providers. The mandatory gate covers architecture/evolution, negative regressions, formatting, strict Clippy, workspace behavioral tests and release compilation. The changes add 62 tests to the prior 81-test baseline:
+Architecture v4 portable-host increment: the complete `tools/Test-Repository.ps1 -UseWsl` gate passes, including architecture/evolution, 32 harness regressions, formatting, strict Clippy, all workspace tests and release compilation. The test inventory contains **192 distinct tests** including one compile-fail doctest; zero tests were ignored. The harness suite is intentionally run first and again with the workspace, not counted twice. Architecture-only checkpoint `d88fb78` passed the full gate before functional implementation; its two placeholder test targets were replaced by actual suites, not counted as feature evidence.
+
+| Area | Current tests | Evidence |
+| --- | ---: | --- |
+| Server/configuration/composition | 19 | Four real-binary portable stdio cases, five typed target/config CLI cases, strict byte/schema checks, examples and unchanged protection composition |
+| Local adapter and audit | 16 | Seven private Linux runner/argv cases, seven audit/capability cases, portable unconfigured refusal and compile-fail local-constructor protection |
+| SSH | 13 | Twelve loopback cases with synthetic in-memory keys; pin/auth failures, quoting, reuse, bounds, no retry, cancellation/socket closure, bounded source worker; one receive-loop WindowAdjusted classifier regression |
+| Host platform | 13 | Linux ownership/modes/links/trusted handles/rotation/marker fixtures and explicit unsupported-capability/limit behavior |
+| Key sources | 23 | Protected-file/profile and registry/environment/ZIP tests, offline purpose-limited bindings and actual-length rechecking |
+| Core/features/runtime/MCP/age | 76 | Existing policy, catalog, dispatcher, protection, protocol and all 18 age provider regressions |
+| Architecture harness | 32 | Layer/source/evolution guards plus portable OS-boundary, required-test activation and native CI matrix regressions |
+
+The real-binary SSH test covers MCP -> authorization -> native SSH -> approved output projection -> audit with one reused loopback connection. No remote command actually runs in the fake endpoint. A 128-KiB stdout plus 128-KiB stderr case exercises multiple receive windows; it is distinct from the focused informational WindowAdjusted classifier test and is not a raw inbound window-adjustment injection test. Independent review identified and fixed ignored unknown fields on unit target variants, legitimate flow-control events being rejected, and a smaller configured identity limit not applying to direct sources.
+
+The reviewed dependency combination is russh 0.63.3/ring with age 0.11.5; all 18 age tests pass without provider code changes. See [ADR 0004](adr/0004-cross-platform-hosts.md) for the incompatible ML-KEM transitive resolution and maintained-release choice. Cargo reports a third-party future-Rust incompatibility notice for proc-macro-error2 2.0.1; it is not a current gate failure and is not suppressed. Dependency/security review remains required before release.
+
+**Actual execution environment remains Linux on WSL, not native Windows.** Three native CI jobs are configured and enforced by the harness but have not been run/pushed from this task. Native Windows/macOS acceptance, native protected files/Vault on those hosts and actual OpenWrt deployment remain outstanding. No real keys, Vault files or router state were read. See [platform support](platform-support.md).
+
+## Historical architecture-v3 verification
+
+Architecture v3 age/key-custody increment: the complete repository gate passed with 143 distinct tests. The architecture-only checkpoint `c9131a8` passed the full gate with 88 tests before implementing new providers. The mandatory gate covered architecture/evolution, negative regressions, formatting, strict Clippy, workspace behavioral tests and release compilation. The changes added 62 tests to the prior 81-test baseline:
 
 | Added area | Tests | Scope |
 | --- | ---: | --- |
@@ -45,7 +65,11 @@ An independent read-only code review found three issues during implementation: b
 
 The architecture migration was verified before adding the next read operations. Independent source review found and closed simple harness bypasses involving Cargo aliases, production targets in test directories, nested target directories, raw identifiers, macro/attribute expressions and broad namespace re-exports. These findings are exercised by negative fixtures; static checks are not a proof of arbitrary macro/dependency semantics.
 
-## Current architecture-v3 idle sample
+## Current architecture-v4 idle sample
+
+After the final v4 release gate on the same Linux x86_64 host: executable **4,316,272 bytes (4.12 MiB)**, idle RSS **5,304 KiB (5.18 MiB)**, two threads. Sampled one second after MCP initialization with default-deny/unconfigured target, enabled audit and stderr connected to null. No router call, SSH connection or key source was opened; CPU was not measured. This is an idle-host observation, not active SSH/crypto peak memory, a native Windows/macOS measurement or ARM/musl/OpenWrt acceptance. Native SSH now contributes to the executable; historical sizes below are not measurements of this build.
+
+## Historical architecture-v3 idle sample
 
 After the final provider/configuration integration and release gate on the same Linux x86_64 host: binary 2,619,328 bytes (2.50 MiB), idle RSS 4,332 KiB (4.23 MiB), two threads, sampled one second after MCP initialization. Default deny/audit configuration, stderr connected to null, no router calls or key sources opened. This measures the current stdio executable at idle, not active encryption, native Windows/Vault access, a future integrated backup workflow, ARM/musl or sustained CPU use. Active crypto throughput/peak memory remain unmeasured.
 
@@ -75,6 +99,8 @@ If using CARGO_TARGET_DIR, supply that directory's release binary to footprint. 
 
 ## Outstanding acceptance work
 
+- Run the configured native Windows/Linux/macOS CI gates and platform-specific acceptance; WSL alone is not platform parity.
+- Implement Windows/macOS protected file/log profiles and actual Personal Vault integration through the architecture-first workflow.
 - Cross-compile and package using a declared OpenWrt SDK/target.
 - Run structured adapter tests in an OpenWrt emulator, then separately authorized hardware tests.
 - Verify built-in field schemas against declared OpenWrt releases and report unavailable interfaces accurately.

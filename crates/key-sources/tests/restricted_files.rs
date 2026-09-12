@@ -1,4 +1,4 @@
-#![cfg(unix)]
+#![cfg(target_os = "linux")]
 
 use openwrt_mcp_key_sources::{FileProtection, NativeFileAccess, ProtectedFileAccess};
 use openwrt_mcp_runtime::protection::ProtectionError;

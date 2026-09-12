@@ -31,6 +31,8 @@ Runtime adds safe TargetNotConfigured, UnsupportedTarget, HostKeyRejected and Au
 
 Operator `target.kind` is unconfigured by default, openwrt_local or ssh. SSH adds options, an identity-source alias, source declarations and key limits. Selection is immutable and never comes from MCP arguments. OpenWrt-local can be constructed only after host-platform verification; its verified state is private. Unit-only fixture execution must not create a public constructor bypass.
 
+Target composition uses `SourceRegistry::resolve_key` to bind the selected source to the configured `max_key_bytes` as well as the SSH adapter's 64-KiB ceiling. That offline key-sources wrapper limits the read request and checks actual returned bytes, including direct file/environment sources; a raw container source's larger container allowance is not a private-key allowance. Existing crypto sessions already enforce their purpose limit.
+
 `--config <path>` uses protected config loading; `--config-env <variable>` reads only that exact operator environment variable with the same size/schema validation. Unknown flags, missing/both sources, invalid names and unsupported native protection fail with fixed codes. This does not unlock Vault or access other environment values. `check`/`catalog` never read keys, connect SSH or probe the router.
 
 Native required suites cover real stdio binary lifecycle via controlled child environment and fake SSH endpoints. The fixture endpoint may bind loopback only, generate keys in memory and must never run router commands. Native OS CI and actual OpenWrt acceptance are separately reported.

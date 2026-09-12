@@ -4,4 +4,4 @@ mod audit;
 mod backend;
 
 pub use audit::{AuditConfig, AuditDestination, AuditFormat, AuditWriter};
-pub use backend::LocalBackend;
+pub use backend::{LocalBackend, UnconfiguredBackend};

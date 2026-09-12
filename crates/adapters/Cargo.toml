@@ -9,13 +9,11 @@ publish.workspace = true
 [dependencies]
 openwrt-mcp-core = { path = "../core" }
 openwrt-mcp-runtime = { path = "../runtime" }
+openwrt-mcp-host-platform = { path = "../host-platform" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
-
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
 
 [lints]
 workspace = true

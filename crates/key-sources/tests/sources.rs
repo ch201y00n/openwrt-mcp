@@ -370,6 +370,74 @@ fn archive_decorator_selects_only_configured_member() {
 }
 
 #[test]
+fn purpose_resolution_bounds_direct_files_and_archive_entries_without_limiting_containers() {
+    for archived in [false, true] {
+        for bytes in [b"four".as_slice(), b"large".as_slice()] {
+            let files = Arc::new(FakeFile {
+                calls: AtomicUsize::new(0),
+                result: Ok(if archived {
+                    zip_data(&[("key", bytes)], zip::CompressionMethod::Stored)
+                } else {
+                    bytes.to_vec()
+                }),
+            });
+            let mut configs = BTreeMap::from([(
+                "file".to_owned(),
+                SourceConfig::RestrictedFile {
+                    path: absolute_fixture_path(),
+                },
+            )]);
+            let alias = if archived {
+                configs.insert(
+                    "entry".to_owned(),
+                    SourceConfig::ArchiveEntry {
+                        source: "file".to_owned(),
+                        format: ContainerFormat::Zip,
+                        entry: "key".to_owned(),
+                    },
+                );
+                "entry"
+            } else {
+                "file"
+            };
+            let registry = SourceRegistry::with_file_access(
+                configs,
+                KeyLimits {
+                    max_key_bytes: 4,
+                    ..KeyLimits::default()
+                },
+                files.clone(),
+            )
+            .unwrap();
+            let source = registry.resolve_key(alias).unwrap();
+            assert_eq!(files.calls.load(Ordering::SeqCst), 0);
+            assert_eq!(source.read(0).unwrap_err(), ProtectionError::ResourceLimit);
+            assert_eq!(files.calls.load(Ordering::SeqCst), 0);
+            assert!(matches!(
+                registry.resolve_key("unknown"),
+                Err(ProtectionError::InvalidConfig)
+            ));
+            if bytes.len() == 4 {
+                assert_eq!(source.read(1024).unwrap().expose_bytes(), bytes);
+            } else {
+                assert_eq!(
+                    source.read(1024).unwrap_err(),
+                    ProtectionError::ResourceLimit
+                );
+            }
+            assert_eq!(source.read(3).unwrap_err(), ProtectionError::ResourceLimit);
+            // Raw sources may carry an entire container, unlike purpose-bound keys.
+            let raw = registry.resolve("file").unwrap().read(1024).unwrap();
+            if archived {
+                assert!(raw.expose_bytes().len() > 4);
+            } else {
+                assert_eq!(raw.expose_bytes(), bytes);
+            }
+        }
+    }
+}
+
+#[test]
 fn container_format_selection_is_explicit_and_unknown_formats_fail() {
     use serde::Deserialize;
     use serde::de::value::{Error, StrDeserializer};
@@ -446,6 +514,35 @@ fn environment_source_child() {
     let source = registry.resolve("env").unwrap();
     assert_eq!(source.read(1024).unwrap().expose_bytes(), b"synthetic-only");
     assert_eq!(source.read(1).unwrap_err(), ProtectionError::ResourceLimit);
+    for max_key_bytes in [b"synthetic-only".len(), b"synthetic-only".len() - 1] {
+        let purpose_registry = SourceRegistry::new(
+            BTreeMap::from([(
+                "env".to_owned(),
+                SourceConfig::Environment {
+                    variable: "OPENWRT_MCP_SYNTHETIC_KEY".to_owned(),
+                },
+            )]),
+            KeyLimits {
+                max_key_bytes,
+                ..KeyLimits::default()
+            },
+        )
+        .unwrap();
+        let purpose = purpose_registry.resolve_key("env").unwrap();
+        assert_eq!(purpose.read(0).unwrap_err(), ProtectionError::ResourceLimit);
+        assert_eq!(purpose.read(1).unwrap_err(), ProtectionError::ResourceLimit);
+        if max_key_bytes == b"synthetic-only".len() {
+            assert_eq!(
+                purpose.read(1024).unwrap().expose_bytes(),
+                b"synthetic-only"
+            );
+        } else {
+            assert_eq!(
+                purpose.read(1024).unwrap_err(),
+                ProtectionError::ResourceLimit
+            );
+        }
+    }
     let missing = SourceRegistry::new(
         BTreeMap::from([(
             "missing".to_owned(),

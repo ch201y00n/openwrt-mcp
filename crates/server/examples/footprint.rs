@@ -1,5 +1,5 @@
 //! Measure an initialized, idle Linux stdio server without contacting a router.
-#![cfg_attr(not(unix), allow(unused_imports))]
+#![cfg_attr(not(target_os = "linux"), allow(unused_imports))]
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -12,7 +12,7 @@ use tokio::{
     process::Command,
 };
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::os::unix::fs::PermissionsExt;
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .nth(1)
             .ok_or("provide a release binary path")?,
     );
-    let dir = std::env::temp_dir().join(format!(
+    let dir = std::env::temp_dir().canonicalize()?.join(format!(
         "openwrt-mcp-footprint-{}-{}",
         std::process::id(),
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
@@ -83,7 +83,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 fn main() {
-    eprintln!("This diagnostic reads Linux /proc.");
+    eprintln!("unsupported_diagnostic: this measurement requires Linux /proc");
+    std::process::exit(1);
 }

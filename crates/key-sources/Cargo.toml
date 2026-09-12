@@ -8,12 +8,10 @@ publish.workspace = true
 
 [dependencies]
 openwrt-mcp-runtime = { path = "../runtime" }
+openwrt-mcp-host-platform = { path = "../host-platform" }
 serde.workspace = true
 zeroize.workspace = true
 zip.workspace = true
-
-[target.'cfg(unix)'.dependencies]
-rustix.workspace = true
 
 [lints]
 workspace = true

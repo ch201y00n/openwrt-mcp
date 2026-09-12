@@ -2,7 +2,7 @@
 
 Internal age/key-source/container primitives are fixture-tested library infrastructure, not additional MCP/device tools. Native Windows Vault access, password-encrypted archives, backup publication, secure restore staging and device rollback remain unimplemented. See [key management](key-management.md).
 
-Catalog entries describe configured adapter support, not live target availability. All built-in calls execute `/bin/ubus -S call ...` using fixed argv and typed parameters. Only declared output fields reach the agent.
+Catalog entries describe configured adapter support, not live target availability. All built-in calls target `/bin/ubus -S call ...` using typed parameters and fixed local argv or quoted remote SSH arguments. Targets are explicit; an unconfigured server never executes host programs. Only declared output fields reach the agent. Host portability, native optional facilities and actual test evidence are tracked separately in [platform support](platform-support.md).
 
 | Category | Current built-in operations (host fixtures) | Device prerequisites / limitations |
 | --- | --- | --- |

@@ -42,6 +42,12 @@ The existing v3 host I/O paths are migrated within their infrastructure/composit
 
 ## Acceptance
 
+### Dependency compatibility decision during implementation
+
+Keep russh 0.63.3 with ring and select age 0.11.5 with default features disabled for the existing native-X25519-only provider. This changes neither the protection ports nor the supported age file/key format. age 0.12.1's mandatory ml-kem 0.2 dependency and current russh's ml-kem 0.3 dependency select incompatible prerelease/final kem APIs; the corrected older ml-kem pin cannot coexist under Cargo's resolution. Do not patch external crypto internals or weaken the approved algorithm profile to work around this.
+
+The [official maintained 0.11 release](https://github.com/str4d/rage/releases/tag/v0.11.4) includes age 0.11.5's parsing fixes; its [normal dependency manifest](https://crates.io/api/v1/crates/age/0.11.5/dependencies) has no ml-kem edge. We do not use the 0.12 post-quantum key format. An older compatible SSH line is rejected because the [upstream parser advisory](https://github.com/Eugeny/russh/security/advisories/GHSA-4r3c-5hpg-58qr) covers russh below 0.61.0. Pin the reviewed combination in Cargo.lock, rerun all existing age/provider and SSH tests together, and reassess on future updates. This is compatibility evidence, not a claim of a complete dependency security audit.
+
 Preserve policy/protocol/crypto/container regressions. Add portable real-binary stdio startup/list/call-denial/shutdown tests using controlled child environment, and fake in-memory SSH tests for authentication/pinning, argument encoding, connection reuse, bounds and no replay. Do not use a real router or secrets. Keep Linux-only process/file tests explicitly Linux; replace shared shell-program fixtures with Rust fixtures when those tests exercise host-portable behavior. Unsupported native capabilities must have explicit tests; none may report success without operating.
 
 Three native host gates plus separately authorized OpenWrt acceptance are required before broad support claims. This increment can implement the common remote baseline while native protected files/Vault and device testing remain planned. Record exact tested hosts, fixtures, limits and unresolved capabilities.

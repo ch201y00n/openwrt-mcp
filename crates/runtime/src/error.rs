@@ -9,6 +9,14 @@ pub enum RuntimeError {
     UnknownOperation,
     #[error("invalid runtime configuration")]
     InvalidConfig,
+    #[error("no OpenWrt target is configured")]
+    TargetNotConfigured,
+    #[error("this host is not a supported local OpenWrt target")]
+    UnsupportedTarget,
+    #[error("SSH host key did not match the configured pin")]
+    HostKeyRejected,
+    #[error("SSH authentication failed")]
+    AuthenticationFailed,
     #[error("requested audit destination is unsupported")]
     UnsupportedAuditDestination,
     #[error("operation capacity is exhausted")]
@@ -33,6 +41,10 @@ impl RuntimeError {
             Self::Core(error) => error.code(),
             Self::UnknownOperation => "unknown_operation",
             Self::InvalidConfig => "invalid_config",
+            Self::TargetNotConfigured => "target_not_configured",
+            Self::UnsupportedTarget => "unsupported_target",
+            Self::HostKeyRejected => "host_key_rejected",
+            Self::AuthenticationFailed => "authentication_failed",
             Self::UnsupportedAuditDestination => "unsupported_audit_destination",
             Self::Busy => "busy",
             Self::BackendFailed => "backend_failed",

@@ -1,6 +1,12 @@
 # Configuration
 
-Config is TOML with strict keys. Unknown names/values fail startup rather than silently broadening access. The CLI accepts an explicit config path; it never reads credentials from chat or a project `.env`.
+Config is TOML with strict keys. Unknown names/values fail startup rather than silently broadening access. The CLI accepts exactly one explicit `--config <path>` or `--config-env <variable>` source; it never reads credentials from chat or discovers a project `.env`. Configuration is bounded to 1 MiB. Environment names use ASCII letters/underscore with digits after the first character, up to 128 bytes; the original OS environment copy cannot be erased. `--config` requires the native integrity-protection profile, currently Linux only, with trusted owner/parents and a regular single-linked, non-symlink file. A failed file read never falls back to the environment.
+
+## OpenWrt target
+
+No `[target]` means unconfigured: allowed tools return `target_not_configured` and cannot run programs on the host. Select `kind = "ssh"` using the [SSH environment example](../config/ssh-environment.toml), supply a verified Ed25519 host fingerprint and a separate authentication source. The SSH source registry uses the same file/environment/archive abstraction as age but has a separate binding. Only one unencrypted OpenSSH Ed25519 authentication key is accepted, bounded to 64 KiB. These are not age identities.
+
+Alternatively, `[target] kind = "openwrt_local"` opts into local programs after protected OpenWrt marker verification. Windows/macOS and non-OpenWrt Linux hosts are rejected for local execution. SSH has no host-shell subprocess or local fallback. `check` and `catalog` validate targets offline without reading keys, probing host markers or contacting the router. See [platform support](platform-support.md) for optional facilities and native acceptance status.
 
 ## Categories and operation selection
 
@@ -36,7 +42,7 @@ level = "info"           # off | error | warn | info | debug | trace
 format = "json"          # json | text
 ```
 
-`logging` controls safe application lifecycle messages on stderr. It does not turn off audit events. Raw SDK debug logging is deliberately not enabled. `audit.enabled = false` explicitly disables usage recording. For syslog, the destination is the local Unix `/dev/log` datagram socket, not a user-provided network endpoint. File/syslog support is platform dependent; unsupported configurations fail rather than pretending to provide secure storage. Create a trusted log directory on a suitable RAM/persistent volume; avoid excessive flash writes. Rotation is size-based, not time-based. Time rotation, remote log delivery and compression can be managed by the operating system and are not built-in options.
+`logging` controls safe application lifecycle messages on stderr. It does not turn off audit events. Raw SDK debug logging is deliberately not enabled. `audit.enabled = false` explicitly disables usage recording. Stderr is the common host path. File logging uses the host's private-file protection profile. Syslog currently means the Linux local `/dev/log` datagram socket, not a user-provided endpoint or a universal Unix facility. Unsupported profiles fail; no unprotected fallback occurs. Create a trusted log directory on a suitable RAM/persistent volume; avoid excessive flash writes. Rotation is size-based, not time-based. Time rotation, remote delivery and compression can be managed outside the application.
 
 ## Limits
 
@@ -47,7 +53,7 @@ max_output_bytes = 65536
 max_concurrent = 2
 ```
 
-The runtime rejects zero and unreasonable bounds. Overflow, timeout and saturation return safe errors. Device calls are never automatically retried.
+The runtime rejects zero and unreasonable bounds. Overflow, timeout and saturation return safe errors. Device calls are never automatically retried. SSH additionally permits one active channel per backend and returns `busy` for overlap even when the dispatcher limit is higher. Its deadline includes key acquisition, connection, authentication and channel completion. Timeout/cancellation or uncertain connection failure latches that backend until restart; restarting does not establish whether an earlier operation completed.
 
 ## Key sources and encryption
 
@@ -57,10 +63,10 @@ Optional `[protection]` settings select age and exact named sources for internal
 
 An action has a stable name, description, exact permission requirements, scalar parameter definitions, a fixed ubus or process target, and explicit result JSON pointers. Extensions always additionally require extensions.write and extensions.execute. Definitions are loaded once at startup and cannot be installed by a tool call.
 
-Placeholders are whole strings of the form `{parameter}`; interpolation within strings is not supported. Ubus placeholders preserve JSON scalar types. Process placeholders become one argv element, never shell code. Parameter values may still have program-specific effects; the operator must constrain them with allowed_values where appropriate. Only JSON stdout is accepted (or empty stdout); use reviewed wrappers for programs with non-JSON output. Empty output_fields returns no backend payload.
+Placeholders are whole strings of the form `{parameter}`; interpolation within strings is not supported. Ubus placeholders preserve JSON scalar types. Programs and arguments refer to the OpenWrt target, not the workstation. Local mode uses direct argv without a shell; SSH exec uses a bounded POSIX encoder quoting every program/argument because the remote SSH server invokes a shell. Parameter values may still have program-specific effects; constrain them with allowed_values where appropriate. Only JSON stdout is accepted (or empty stdout); use reviewed wrappers for non-JSON programs. Empty output_fields returns no backend payload.
 
 Custom programs and fields are an operator trust decision. Do not put passwords in definitions or expose secret-producing programs. Adding a package-specific adapter with checked semantics and tests is the preferred route to product coverage. See architecture.md for the public data types.
 
 `output_mode = "scalars"` is the default for every operation, including custom actions: approved pointers whose values are objects/arrays are omitted. An operator can explicitly select `output_mode = "structured"` for a reviewed extension that needs nested results. Sensitive-key redaction still applies, but does not guarantee arbitrary subtrees contain no secrets. The architecture-v2 migration removes the old behavior that inferred projection safety from a built-in name; structured extensions must now opt in explicitly.
 
-The tested [example-extension.toml](../config/example-extension.toml) runs only `/usr/bin/printf` with one exact synthetic JSON payload. It demonstrates registration and permissions without router changes. Process placeholders must be required; optional ubus parameters omit the whole key/value. Output pointers must not overlap (such as `/a` together with `/a/b`).
+The tested [example-extension.toml](../config/example-extension.toml) defines `/usr/bin/printf` with one exact synthetic JSON payload but leaves the target unconfigured. Tests use private Linux runner fixtures and fake SSH endpoints, never a real router. It demonstrates registration and permissions, not workstation-command authority. Process placeholders must be required; optional ubus parameters omit the whole key/value. Output pointers must not overlap (such as `/a` together with `/a/b`).

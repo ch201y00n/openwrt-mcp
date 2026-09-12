@@ -8,6 +8,7 @@ fn documented_example_policies_are_valid_and_non_mutating() {
         "deny-all.toml",
         "observability.toml",
         "protection-environment.toml",
+        "ssh-environment.toml",
     ] {
         // Parse fixtures directly; do not weaken live config permission checks for WSL mounts.
         let config: openwrt_mcp::config::Config =

@@ -1,4 +1,5 @@
-# Synthetic workstation demonstration; no router functions. Never a default profile.
+# Synthetic action template; no target is configured and nothing executes by default.
+# Programs are OpenWrt target paths, never workstation commands. Never a default profile.
 [policy]
 allow_operations = ["fixture_echo"]
 

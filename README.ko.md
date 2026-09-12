@@ -10,6 +10,7 @@ Rust로 개발하는 OpenWrt 관리용 MCP 서버입니다. 에이전트가 Open
 4. 카테고리별 `차단 / 읽기 / 읽기·쓰기`와 별도 `실행` 설정.
 5. 기능을 추가해도 유지해야 하는 문서화된 계층과 자동 아키텍처 검사.
 6. 호출 시도·거절·실행 결과의 감사 기록과 일반적인 로그 설정.
+7. 암호화뿐 아니라 공통 기능 전체를 Windows·Linux·macOS에서 사용할 수 있는 구조.
 
 코드는 **core / features / runtime / adapters / mcp / server** 여섯 계층과 개발용 **xtask**로 나뉩니다. 권한·검증은 core, 범주별 작업 정의는 features, 실행 흐름은 runtime, 실제 장치·로그 접근은 adapters, 통신은 mcp, 조립·설정은 server가 담당합니다. 프로토콜은 공통 실행기를 통해서만 장치에 접근합니다.
 
@@ -25,7 +26,11 @@ v0.1 개발 단계입니다. 아키텍처 v2의 구조 검증을 마친 뒤 시�
 
 ## 문서와 검증
 
-아키텍처 v3에서는 키 보관 위치(`key-sources`), ZIP 내부 항목 선택, 암호화(`crypto-age`)를 분리했습니다. 공개키로 암호화하고 개인키는 복호화에만 사용하는 내부 기반 기능을 제공합니다. 환경변수·Unix 제한 파일·일반 ZIP을 지원하며, Windows Vault의 실제 권한 검증과 암호화 백업 MCP 작업은 아직 미구현입니다. [키 관리와 지원 범위](docs/key-management.md)를 확인하세요.
+아키텍처 v3에서는 키 보관 위치(`key-sources`), ZIP 내부 항목 선택, 암호화(`crypto-age`)를 분리했습니다. 공개키로 암호화하고 개인키는 복호화에만 사용하는 내부 기반 기능을 제공합니다. 환경변수·Linux 제한 파일·일반 ZIP을 지원하며, Vault의 실제 권한 검증과 암호화 백업 MCP 작업은 아직 미구현입니다. [키 관리와 지원 범위](docs/key-management.md)를 확인하세요.
+
+v4에서는 MCP가 실행되는 컴퓨터와 관리 대상 OpenWrt를 분리했습니다. 기본값은 대상 미설정이며, 내장 SSH 연결 또는 검증된 OpenWrt 장치의 로컬 실행을 명시적으로 선택합니다. SSH 실패 시 PC에서 대신 실행하지 않습니다. OS별 설정·키·감사 파일 보호는 `host-platform`, 공통 원격 실행은 `backend-ssh`가 담당합니다. 환경변수 설정·키 소스와 stderr 로그가 공통 경로입니다. Windows·macOS의 보호 파일 기능은 검증 없이 허용하지 않고 현재 명시적으로 미지원 처리합니다.
+
+세 OS의 네이티브 CI와 필수 테스트를 하네스로 강제하지만, 현재 실제 실행 증거는 Linux-on-WSL 테스트입니다. 이를 Windows 검증이라고 표시하지 않습니다. [플랫폼별 구현·검증 범위](docs/platform-support.md)를 확인하세요.
 
 - [요구사항과 성능 목표](docs/requirements.md)
 - [아키텍처와 모듈 계약](docs/architecture.md)

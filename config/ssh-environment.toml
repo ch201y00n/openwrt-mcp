@@ -1,0 +1,25 @@
+# Offline template: replace endpoint and independently verified host fingerprint.
+# Private authentication keys are provisioned outside this file/repository.
+# Until configured, the placeholder pin deliberately cannot match a real host.
+[target]
+kind = "ssh"
+identity_source = "router-ssh"
+
+[target.options]
+host = "router.example.invalid"
+port = 22
+username = "root"
+host_key_sha256 = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+[target.sources.router-ssh]
+kind = "environment"
+variable = "OPENWRT_MCP_SSH_IDENTITY"
+
+[policy.categories.system]
+access = "read"
+execute = false
+
+[audit]
+enabled = true
+destination = "stderr"
+format = "json"

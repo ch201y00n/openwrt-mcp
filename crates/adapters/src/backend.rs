@@ -1,4 +1,7 @@
 //! Local process implementation of the application backend port.
+#[cfg(all(test, target_os = "linux"))]
+mod fixtures;
+
 use std::{path::Path, process::Stdio, time::Duration};
 
 use async_trait::async_trait;
@@ -36,8 +39,34 @@ fn compile(action: &PreparedAction) -> Invocation {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct LocalBackend;
+/// This constructor only accepts a verified local OpenWrt host. The private
+/// state deliberately prevents a public unit/default constructor bypass.
+///
+/// ```compile_fail
+/// let backend = openwrt_mcp_adapters::LocalBackend;
+/// ```
+#[derive(Debug)]
+pub struct LocalBackend {
+    _verified: (),
+}
+
+impl LocalBackend {
+    pub fn new() -> Result<Self, RuntimeError> {
+        openwrt_mcp_host_platform::verify_openwrt_local()
+            .map_err(|_| RuntimeError::UnsupportedTarget)?;
+        Ok(Self { _verified: () })
+    }
+}
+
+/// Default target: no host process, router connection, or key access.
+pub struct UnconfiguredBackend;
+
+#[async_trait]
+impl Backend for UnconfiguredBackend {
+    async fn execute(&self, _: &PreparedAction, _: &Limits) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::TargetNotConfigured)
+    }
+}
 
 #[async_trait]
 impl Backend for LocalBackend {

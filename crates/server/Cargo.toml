@@ -15,18 +15,18 @@ openwrt-mcp-adapters = { path = "../adapters" }
 openwrt-mcp-transport = { path = "../mcp" }
 openwrt-mcp-key-sources = { path = "../key-sources" }
 openwrt-mcp-crypto-age = { path = "../crypto-age" }
+openwrt-mcp-host-platform = { path = "../host-platform" }
+openwrt-mcp-backend-ssh = { path = "../backend-ssh" }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 tokio.workspace = true
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
-
 [dev-dependencies]
 async-trait.workspace = true
 age.workspace = true
 zip.workspace = true
+russh.workspace = true
 
 [lints]
 workspace = true
