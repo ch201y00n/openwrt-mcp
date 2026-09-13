@@ -118,6 +118,9 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
             .contains("opkg status expansion")
     );
     old.as_table_mut().unwrap().remove("opkg_status_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("management_effect_contract");
     validate(&old).unwrap();
     old["version"] = 14.into();
     assert!(validate(&old).unwrap_err().contains("v14 requires"));

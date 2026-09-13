@@ -2,6 +2,7 @@
 
 mod capability;
 mod change;
+mod management_effects;
 mod metadata;
 mod opkg_status;
 mod packages;
@@ -17,6 +18,7 @@ pub use capability::{
     check_compatibility_evidence,
 };
 pub use change::validate_evolution;
+pub use management_effects::check_management_source;
 pub use metadata::check_metadata;
 pub use portability::{check_native_ci, check_portable_source, check_portable_suite};
 pub use projection::{ActionResponseContract, McpResultContract, ProjectionContract};
@@ -123,6 +125,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         }
         let aliases = dependency_aliases(&metadata, &rule.name)?;
         check_owned_source(&contract, file, &source, &aliases)
+            .map_err(|error| format!("{file}: {error}"))?;
+        check_management_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         if !development {
             // A consumer's private-namespace ban must survive producer-side

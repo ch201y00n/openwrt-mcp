@@ -13,6 +13,8 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct Contract {
     #[serde(default)]
+    pub management_effect_contract: Option<crate::management_effects::ManagementEffectContract>,
+    #[serde(default)]
     pub opkg_status_contract: Option<crate::opkg_status::OpkgStatusContract>,
     #[serde(default)]
     pub uci_read_contract: Option<crate::uci_reads::UciReadContract>,
@@ -124,6 +126,7 @@ impl Contract {
         }
         self.validate_uci_reads()?;
         self.validate_opkg_status()?;
+        self.validate_management_effects()?;
         Ok(())
     }
 

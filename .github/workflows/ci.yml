@@ -110,6 +110,10 @@
           "run": "cargo test --locked -p openwrt-mcp-core --test packages"
         },
         {
+          "name": "Required portable core security and management effects", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-core --test security"
+        },
+        {
           "name": "Required portable package definitions", "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp-features --test packages"
         },

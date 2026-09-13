@@ -179,8 +179,27 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14));
+        assert!(matches!(
+            version,
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
+        ));
         spec["version"] = (version as i64).into();
+        if version < 15 {
+            spec.as_table_mut()
+                .unwrap()
+                .remove("management_effect_contract");
+            spec["decision"] = "docs/adr/0014-opkg-status-observations.md".into();
+            spec["required_portable_tests"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|suite| suite.as_str() != Some("crates/core/tests/security.rs"));
+            for rule in spec["crates"].as_array_mut().unwrap() {
+                rule["forbidden_paths"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|path| path.as_str() != Some("openwrt_mcp_core::management"));
+            }
+        }
         if version < 14 {
             spec.as_table_mut().unwrap().remove("opkg_status_contract");
             spec["decision"] = "docs/adr/0013-base-uci-families.md".into();
@@ -1057,4 +1076,67 @@ fn assembled_v11_gate_requires_closed_uci_admission_and_exact_text_enums() {
     registry["probes"].as_array_mut().unwrap().push(toml::from_str("id='ubus.uci'\nobject='uci'\nprogram='/bin/ubus'\narguments=['call','uci','get','{}']\neffect='read'\n").unwrap());
     fixture.write(path, &toml::to_string(&registry).unwrap());
     fixture.denied("exact reviewed read-only");
+}
+
+#[test]
+fn assembled_v15_gate_keeps_effect_analysis_private_bounded_and_non_authorizing() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(15);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("version = 15", "version = 14", "requires architecture v15"),
+        (
+            "max_nodes = 4096",
+            "max_nodes = 4097",
+            "non-authorizing bounded model",
+        ),
+        (
+            "reachable_unknown_denies",
+            "unknown_is_empty",
+            "non-authorizing bounded model",
+        ),
+        (
+            "conservative_before_after_union",
+            "proposed_only",
+            "non-authorizing bounded model",
+        ),
+        (
+            "count_only_no_known_protected_impact",
+            "mutation_allowed",
+            "non-authorizing bounded model",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied(expected);
+    }
+    fixture.write(path, &original);
+    fixture.write("crates/core/src/lib.rs", "pub mod management;\n");
+    fixture.write(
+        "crates/core/src/management/mod.rs",
+        "pub struct EffectGraph;\n",
+    );
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/core/src/management/mod.rs",
+        "use serde::Serialize;\n",
+    );
+    fixture.denied("serde");
+    fixture.write(
+        "crates/core/src/management/mod.rs",
+        "pub struct EffectGraph;\n",
+    );
+    fixture.write(
+        "crates/mcp/src/lib.rs",
+        "use openwrt_mcp_core::management::EffectGraph;\n",
+    );
+    fixture.denied("management");
+    fixture.write("crates/mcp/src/lib.rs", "//! inert\n");
+    fixture.write(
+        "crates/core/src/lib.rs",
+        "pub mod management; pub use management::EffectGraph;\n",
+    );
+    fixture.denied("public surface flattens protected namespace");
 }

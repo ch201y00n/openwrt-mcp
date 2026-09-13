@@ -31,6 +31,8 @@ Add the acceptance requirement and classify the feature's category/effects. Reus
 
 ## Gates
 
+Architecture v15 admits only a pure, non-authorizing effect-graph model under core/src/management. Commit the validated declaration and negative harness before production behavior. Existing core security tests become a required native suite; graph behavior is added afterward in their own module and is never claimed from declaration tests. Keep all production consumers and serde/JSON/action/policy access blocked, retain exact finite budgets and preserve earlier checkpoint restrictions. This is not deployed protected-resource enforcement or mutation authority. See ADR 0015.
+
 Architecture v14 adds a closed opkg root-status contract before extending production actions/ports/parsing. Commit the validated architecture-only checkpoint first. Require the existing package suites and native loopback SSH suite, exact fixed commands/version, bounded stanza/field parsing and cross-manager profile/slot isolation. Preserve the earlier APK contract, shared limits and twelve owners; no generic file read or opkg initialization under read permission. Older checkpoint fixtures must remove the v14-only contract explicitly. See ADR 0014.
 
 Architecture v13 expands the exact UCI recipe set only after a validated declaration/harness checkpoint. Preserve the v11/v12 six-profile contract when testing older versions; newly admitted sections require v13, not a wildcard. Keep category definitions grouped by domain, independent expected-field fixtures and actual MCP category-isolation tests for every added tool. Do not change owners, probes, projection budgets or mutation safety requirements. See ADR 0013.

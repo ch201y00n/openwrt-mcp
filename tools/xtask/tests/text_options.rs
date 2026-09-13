@@ -150,6 +150,9 @@ fn previous_version_rejects_new_options_even_with_current_valid_probe_registry()
     );
     old["version"] = 11.into();
     old.as_table_mut().unwrap().remove("opkg_status_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("management_effect_contract");
     let error = Contract::parse(&toml::to_string(&old).unwrap())
         .unwrap()
         .validate(&root())

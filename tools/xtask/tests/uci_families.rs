@@ -94,6 +94,9 @@ fn old_versions_keep_six_profiles_and_reject_base_expansion() {
     let original = declaration();
     let mut old = original.clone();
     old.as_table_mut().unwrap().remove("opkg_status_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("management_effect_contract");
     old["version"] = 12.into();
     assert!(
         validate(&old)
