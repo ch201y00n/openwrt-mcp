@@ -135,6 +135,19 @@ fn uci_option_admission_keeps_current_closed_recipes_and_rejects_arbitrary_colle
 #[test]
 fn previous_version_rejects_new_options_even_with_current_valid_probe_registry() {
     let mut old = declaration();
+    old["uci_read_contract"]["profiles"] = toml::Value::Array(
+        [
+            "system:system",
+            "network:interface",
+            "wireless:wifi-device",
+            "firewall:defaults",
+            "dhcp:dnsmasq",
+            "fstab:mount",
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect(),
+    );
     old["version"] = 11.into();
     let error = Contract::parse(&toml::to_string(&old).unwrap())
         .unwrap()

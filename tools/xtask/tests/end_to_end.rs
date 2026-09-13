@@ -179,8 +179,24 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12));
+        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13));
         spec["version"] = (version as i64).into();
+        if version < 13 {
+            spec["uci_read_contract"]["profiles"] = toml::Value::Array(
+                [
+                    "system:system",
+                    "network:interface",
+                    "wireless:wifi-device",
+                    "firewall:defaults",
+                    "dhcp:dnsmasq",
+                    "fstab:mount",
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            );
+            spec["decision"] = "docs/adr/0012-bounded-text-options.md".into();
+        }
         if version < 12 {
             spec["uci_read_contract"]
                 .as_table_mut()
@@ -887,6 +903,43 @@ fn assembled_v12_gate_requires_finite_nested_option_admission_and_shared_limits(
             "text_option_only",
             "any_collection",
             "v12 UCI nested collections",
+        ),
+        (
+            "max_total_items = 256",
+            "max_total_items = 4096",
+            "projection hard ceilings",
+        ),
+    ] {
+        assert!(source.contains(from));
+        fixture.write(path, &source.replace(from, to));
+        fixture.denied(expected);
+    }
+}
+
+#[test]
+fn assembled_v13_gate_requires_closed_base_profiles_without_new_authority_or_budgets() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(13);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let source = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("network:bridge-vlan", "network:*", "closed UCI profiles"),
+        ("dhcp:host", "wireless:wifi-iface", "closed UCI profiles"),
+        (
+            "version = 13",
+            "version = 12",
+            "base family expansion requires architecture v13",
+        ),
+        (
+            "custom_uci = \"deny\"",
+            "custom_uci = \"allow\"",
+            "closed UCI reads",
+        ),
+        (
+            "profile_category_read",
+            "extensions_execute",
+            "closed UCI reads",
         ),
         (
             "max_total_items = 256",

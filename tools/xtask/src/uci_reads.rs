@@ -3,13 +3,39 @@ use crate::{CheckResult, Contract};
 use serde::Deserialize;
 use std::collections::BTreeSet;
 
-const PROFILES: [&str; 6] = [
+const INITIAL_PROFILES: [&str; 6] = [
     "system:system",
     "network:interface",
     "wireless:wifi-device",
     "firewall:defaults",
     "dhcp:dnsmasq",
     "fstab:mount",
+];
+const BASE_PROFILES: [&str; 24] = [
+    "system:system",
+    "network:interface",
+    "wireless:wifi-device",
+    "firewall:defaults",
+    "dhcp:dnsmasq",
+    "fstab:mount",
+    "system:timeserver",
+    "network:device",
+    "network:bridge-vlan",
+    "network:route",
+    "network:route6",
+    "network:rule",
+    "network:rule6",
+    "firewall:zone",
+    "firewall:forwarding",
+    "firewall:rule",
+    "firewall:redirect",
+    "firewall:nat",
+    "dhcp:dhcp",
+    "dhcp:host",
+    "dhcp:domain",
+    "dhcp:cname",
+    "fstab:global",
+    "fstab:swap",
 ];
 const SUITES: [&str; 5] = [
     "crates/core/tests/capabilities.rs",
@@ -62,10 +88,17 @@ impl Contract {
         } else if uci.option_collections.is_some() {
             return Err("nested UCI options require architecture v12".into());
         }
+        let profiles: &[&str] = if self.version >= 13 {
+            &BASE_PROFILES
+        } else {
+            &INITIAL_PROFILES
+        };
+        if !exact(&uci.profiles, profiles) {
+            return Err("closed UCI profiles require the exact versioned recipe set; base family expansion requires architecture v13".into());
+        }
         if uci.domain_owner != "openwrt-mcp-core"
             || uci.definitions_owner != "openwrt-mcp-features"
             || uci.invocation != "existing_authorized_audited_dispatcher"
-            || !exact(&uci.profiles, &PROFILES)
             || uci.actions != "fixed_uci_get_config_type_no_parameters"
             || uci.custom_uci != "deny"
             || uci.requirement != "profile_category_read"
