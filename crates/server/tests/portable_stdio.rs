@@ -50,6 +50,11 @@ impl Server {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        // Windows needs SystemRoot to initialize its Winsock providers. Retain
+        // only this OS prerequisite, not ambient PATH, configuration or keys.
+        if let Some(system_root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", system_root);
+        }
         for (name, value) in environment {
             command.env(name, value);
         }

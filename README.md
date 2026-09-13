@@ -23,7 +23,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-The v6 Linux-on-WSL gate passes 347 distinct tests. A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including five typed contracts, and two explicit unavailable/error cases. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware and native Windows/macOS acceptance remain pending.
+Full gates pass 347 distinct tests on Linux-on-WSL and 315 on [native Windows GNU](docs/windows-validation.md). A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including five typed contracts, and two explicit unavailable/error cases. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
 
 ## Build and check
 
@@ -45,7 +45,7 @@ Run the binary on a Windows/Linux/macOS workstation with an explicit SSH target,
 openwrt-mcp serve --config-env OPENWRT_MCP_CONFIG
 ```
 
-The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Native Windows/macOS acceptance and OpenWrt device acceptance remain pending, despite the common implementation and required three-host CI.
+The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Windows GNU common-path fixtures pass; MSVC/macOS acceptance, Windows/macOS protected files and OpenWrt hardware acceptance remain pending. The required three-host CI has not been run remotely.
 
 Only JSON-RPC goes to stdout. Audit and operational messages use their configured destination (stderr by default). One process/config represents one principal; client metadata never selects privileges. On-device builds require the correct OpenWrt SDK/musl target and linker. The host verification binary is not an OpenWrt release artifact.
 
