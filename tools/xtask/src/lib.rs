@@ -3,6 +3,7 @@
 mod backup_archives;
 mod capability;
 mod change;
+mod gzip_archives;
 mod management_effects;
 mod metadata;
 mod opkg_status;
@@ -20,6 +21,7 @@ pub use capability::{
     check_compatibility_evidence,
 };
 pub use change::validate_evolution;
+pub use gzip_archives::{check_gzip_dependency, check_gzip_source};
 pub use management_effects::check_management_source;
 pub use metadata::check_metadata;
 pub use portability::{check_native_ci, check_portable_source, check_portable_suite};
@@ -132,6 +134,10 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
             .map_err(|error| format!("{file}: {error}"))?;
         check_archive_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
+        if contract.version >= 17 || file.starts_with("crates/device-codec/src/gzip") {
+            check_gzip_source(&contract, file, &source, &aliases)
+                .map_err(|error| format!("{file}: {error}"))?;
+        }
         if !development {
             // A consumer's private-namespace ban must survive producer-side
             // root aliases; otherwise `runtime::protection::T` becomes `runtime::T`.

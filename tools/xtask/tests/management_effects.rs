@@ -30,12 +30,13 @@ fn every_effect_field_and_budget_requires_exact_versioned_non_authorizing_contra
     old.as_table_mut()
         .unwrap()
         .remove("backup_archive_contract");
+    old.as_table_mut().unwrap().remove("gzip_archive_contract");
     for rule in old["crates"].as_array_mut().unwrap() {
         if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
             rule["dependencies"]
                 .as_array_mut()
                 .unwrap()
-                .retain(|d| d.as_str() != Some("zeroize"));
+                .retain(|d| !matches!(d.as_str(), Some("zeroize" | "flate2")));
         }
     }
     denied(&old);

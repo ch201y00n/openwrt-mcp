@@ -44,6 +44,9 @@ pub fn check_metadata(contract: &Contract, metadata: &Value) -> CheckResult {
                 .as_str()
                 .ok_or("missing dependency package name")?;
             let kind = dependency["kind"].as_str().unwrap_or("normal");
+            if contract.version >= 17 && original == "flate2" {
+                crate::check_gzip_dependency(name, dependency)?;
+            }
             if contract.version >= 8 && original == "windows-sys" {
                 crate::windows_reads::check_windows_dependency(name, dependency)?;
             }

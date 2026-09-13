@@ -100,12 +100,13 @@ fn old_versions_keep_six_profiles_and_reject_base_expansion() {
     old.as_table_mut()
         .unwrap()
         .remove("backup_archive_contract");
+    old.as_table_mut().unwrap().remove("gzip_archive_contract");
     for rule in old["crates"].as_array_mut().unwrap() {
         if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
             rule["dependencies"]
                 .as_array_mut()
                 .unwrap()
-                .retain(|d| d.as_str() != Some("zeroize"));
+                .retain(|d| !matches!(d.as_str(), Some("zeroize" | "flate2")));
         }
     }
     old["version"] = 12.into();

@@ -74,8 +74,11 @@ impl Contract {
             .backup_archive_contract
             .as_ref()
             .ok_or("v16 requires bounded backup archive contract")?;
-        let expected: BackupArchiveContract =
+        let mut expected: BackupArchiveContract =
             toml::from_str(EXPECTED).map_err(|_| "invalid harness archive contract")?;
+        if self.version >= 17 {
+            expected.consumers = "gzip_wrapper_only_no_external_consumers".into();
+        }
         if actual != &expected {
             return Err(
                 "archive codec must retain its exact bounded non-authorizing profile".into(),
@@ -93,10 +96,21 @@ impl Contract {
             .ok_or("missing archive codec owner")?;
         let mut dependencies = codec.dependencies.clone();
         dependencies.sort();
+        let expected_dependencies: &[&str] = if self.version >= 17 {
+            &[
+                "flate2",
+                "openwrt-mcp-core",
+                "serde",
+                "serde_json",
+                "zeroize",
+            ]
+        } else {
+            &["openwrt-mcp-core", "serde", "serde_json", "zeroize"]
+        };
         if codec.path != "crates/device-codec"
             || codec.layer != "infrastructure"
             || !self.portable_crates.contains(&codec.name)
-            || dependencies != ["openwrt-mcp-core", "serde", "serde_json", "zeroize"]
+            || dependencies != expected_dependencies
             || !codec.dev_dependencies.is_empty()
             || !codec.build_dependencies.is_empty()
         {

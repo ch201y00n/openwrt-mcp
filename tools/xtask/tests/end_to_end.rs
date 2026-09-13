@@ -181,9 +181,27 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17
         ));
         spec["version"] = (version as i64).into();
+        if version < 17 {
+            spec.as_table_mut().unwrap().remove("gzip_archive_contract");
+            spec["backup_archive_contract"]["consumers"] =
+                "none_until_separate_integration_checkpoint".into();
+            spec["decision"] = "docs/adr/0016-bounded-backup-archive-validation.md".into();
+            for rule in spec["crates"].as_array_mut().unwrap() {
+                rule["forbidden_paths"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|p| p.as_str() != Some("openwrt_mcp_device_codec::gzip"));
+                if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
+                    rule["dependencies"]
+                        .as_array_mut()
+                        .unwrap()
+                        .retain(|d| d.as_str() != Some("flate2"));
+                }
+            }
+        }
         if version < 16 {
             spec.as_table_mut()
                 .unwrap()
@@ -1215,4 +1233,55 @@ fn assembled_v16_gate_rejects_archive_contract_source_and_consumer_escapes() {
         "pub mod archive; pub use archive::Validator;\n",
     );
     fixture.denied("public surface flattens protected namespace");
+}
+
+#[test]
+fn assembled_v17_gate_keeps_gzip_inside_its_reviewed_boundary() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(17);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to) in [
+        ("max_header_bytes = 4096", "max_header_bytes = 4097"),
+        (
+            "one_member_exact_end_no_suffix_or_concatenation",
+            "accept_suffix",
+        ),
+        (
+            "final_complete_deflate_bytes_excluding_header_trailer",
+            "ignore_expansion",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied("exact bounded single-member profile");
+    }
+    fixture.write(path, &original);
+    fixture.write("crates/device-codec/src/lib.rs", "pub mod gzip;\n");
+    fixture.write(
+        "crates/device-codec/src/gzip/mod.rs",
+        "pub struct Validator;\n",
+    );
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/device-codec/src/gzip/mod.rs",
+        "use std::io::Read;\n",
+    );
+    fixture.denied("std::io");
+    fixture.write(
+        "crates/device-codec/src/gzip/mod.rs",
+        "pub struct Validator;\n",
+    );
+    fixture.write(
+        "crates/device-codec/src/lib.rs",
+        "pub mod gzip; use super::gzip::Validator;\n",
+    );
+    fixture.denied("sibling archive consumer");
+    fixture.write("crates/device-codec/src/lib.rs", "pub mod gzip;\n");
+    fixture.write(
+        "crates/backend-ssh/src/lib.rs",
+        "use openwrt_mcp_device_codec::gzip::Validator;\n",
+    );
+    fixture.denied("gzip");
 }

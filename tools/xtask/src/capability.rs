@@ -73,7 +73,15 @@ impl Contract {
             .iter()
             .find(|rule| rule.name == CODEC)
             .ok_or("capability codec boundary is missing")?;
-        let codec_dependencies: &[&str] = if self.version >= 16 {
+        let codec_dependencies: &[&str] = if self.version >= 17 {
+            &[
+                "openwrt-mcp-core",
+                "serde",
+                "serde_json",
+                "zeroize",
+                "flate2",
+            ]
+        } else if self.version >= 16 {
             &["openwrt-mcp-core", "serde", "serde_json", "zeroize"]
         } else {
             &["openwrt-mcp-core", "serde", "serde_json"]
