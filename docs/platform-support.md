@@ -14,10 +14,10 @@ The remote connection authenticates with an unencrypted OpenSSH Ed25519 private 
 
 | Capability | Windows host | Linux host | macOS host |
 | --- | --- | --- | --- |
-| Common stdio, policy, native SSH, age, environment sources, in-memory ZIP | Native GNU host/fixtures passed; MSVC/CI pending | Host fixtures on WSL; native CI pending | Portable implementation; native acceptance pending |
+| Common stdio, policy, native SSH, age, environment sources, in-memory ZIP | Native GNU host/fixtures and MSVC CI passed | WSL host fixtures and native Linux CI passed | Native ARM64 CI passed for the common path, not optional file protection |
 | Explicit environment configuration and stderr logs | Common path | Common path | Common path |
-| Protected config/secret files | Local NTFS handle/DACL profile; native GNU synthetic acceptance | Owner/mode/opened-handle profile with synthetic tests | Explicitly unsupported pending native ACL/volume profile |
-| Private rotating audit files | Local NTFS private-DACL/handle-relative v19 profile; native GNU files and MCP binary fixtures | Owner/mode/handle-relative rotation with synthetic tests | Explicitly unsupported |
+| Protected config/secret files | Local NTFS handle/DACL profile; native GNU and MSVC synthetic acceptance | Owner/mode/opened-handle profile with synthetic tests | Explicitly unsupported pending native ACL/volume profile |
+| Private rotating audit files | Local NTFS private-DACL/handle-relative v19 profile; native GNU/MSVC files and MCP binary fixtures | Owner/mode/handle-relative rotation with synthetic tests | Explicitly unsupported |
 | Native system-log delivery | Explicitly unsupported | Local `/dev/log` adapter; actual daemon acceptance pending | Explicitly unsupported, no Linux-socket assumption |
 | Personal Vault | Abstract profile only; native access unimplemented | Unsupported | Unsupported |
 | Execute target programs locally | Rejected | Explicit, verified OpenWrt only | Rejected |
@@ -31,7 +31,7 @@ system-log or durable ciphertext storage capability.
 
 ## Validation and deployment
 
-The CI workflow requires Windows, Linux and macOS full gates plus explicit portable binary/SSH/crypto/runtime/MCP/package suites and a Windows-only protected-read suite. The harness rejects missing hosts and disabled/ignored required cases. Adding the workflow does **not** mean these jobs have run. The v8 increment follows architecture checkpoint `9c0117f`; see [native Windows evidence](windows-validation.md) and [validation](validation.md) for executed gates. Windows uses the native branch without WSL; Linux explicitly selects `tools/Test-Repository.ps1 -UseWsl`. MSVC, macOS and configured CI jobs remain unverified. Do not claim all-host acceptance.
+The CI workflow requires Windows, Linux and macOS full gates plus explicit portable binary/SSH/crypto/runtime/MCP/package suites and a Windows-only protected-read suite. The harness rejects missing hosts and disabled/ignored required cases. Adding the workflow does **not** mean these jobs have passed. The v8 increment follows architecture checkpoint `9c0117f`; its [native Windows evidence](windows-validation.md) retains that historical scope. The later [P1 verification record](p1-validation.md) identifies exact local and successful remote runs for Windows MSVC, Linux and ARM64 macOS on code commit `07c3f51`. CI invokes the native gate on every runner; only the explicit local `-UseWsl` run counts as Linux-on-WSL. MSVC results are recorded separately rather than inferred from GNU. Host/fixture execution never implies all optional OS facilities, OpenWrt hardware or production acceptance.
 
 Windows paths must meet the [protected-read profile](windows-protected-files.md): absolute DOS paths, a local native NTFS volume, trusted owner/ancestor ACLs, no reparse/short aliases or extra links. A private leaf below a shared writable ancestor is insufficient. No existing ACL is repaired, and no failed file read falls back to environment or Vault. Personal Vault remains unsupported.
 

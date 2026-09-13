@@ -75,6 +75,23 @@ CI is separate: inspect the exact pushed commit in the
 Local GNU/WSL passes do not assert that a later remote run passed. The existing
 Linux `proc-macro-error2` future-compatibility warning remains visible.
 
+### Post-push native CI evidence
+
+The later [native-host run for `07c3f51`](https://github.com/ch201y00n/openwrt-mcp/actions/runs/34772648554)
+executes Rust 1.98.1 on fresh GitHub-hosted runners. The run completed successfully:
+full gates and all subsequent required suites passed on Windows MSVC
+(`x86_64-pc-windows-msvc`, 581 workspace tests), Linux
+(`x86_64-unknown-linux-gnu`, 585 workspace tests) and macOS
+(`aarch64-apple-darwin`, 553 workspace tests), with zero failed/ignored workspace
+cases. Counts include the 110 harness regressions once, not the repeated explicit
+suite runs. The Windows GNU full gate was also rerun successfully before the
+documentation-only evidence follow-up; final result text and links were checked
+after the remote jobs completed. No functional code changed in that follow-up.
+
+This is synthetic host execution of the pushed source, not new router/emulator
+acceptance or implementation of macOS protected files. It supersedes earlier
+unexecuted/failed-CI statements only for this exact commit and these tested paths.
+
 ## Limits
 
 Evidence is synthetic host execution and existing separately scoped historical
