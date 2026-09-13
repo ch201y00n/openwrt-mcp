@@ -1,7 +1,7 @@
 //! One ephemeral observation per Dispatcher. No native I/O or protocol handling.
 use crate::{Backend, Limits, RuntimeError};
 use async_trait::async_trait;
-use openwrt_mcp_core::packages::{PackageCursor, PackageObservation};
+use openwrt_mcp_core::packages::{PackageCursor, PackageObservation, PackageProfile};
 use serde_json::Value;
 use std::{sync::Arc, time::Duration};
 use tokio::{
@@ -66,16 +66,18 @@ impl Packages {
         &self,
         lease: &mut PageLease<'_>,
         operation: &str,
-        cursor: Option<&str>,
+        request: (PackageProfile, Option<&str>),
         backend: &dyn Backend,
         limits: &Limits,
         deadline: Instant,
     ) -> Result<Value, RuntimeError> {
+        let (profile, cursor) = request;
         let offset;
         if let Some(cursor) = cursor {
             let cursor = PackageCursor::parse(cursor)?;
             let snapshot = lease.slot.as_ref().ok_or(RuntimeError::InvalidCursor)?;
             if cursor.nonce() != &snapshot.nonce
+                || profile != snapshot.records.profile()
                 || operation != snapshot.operation
                 || snapshot.started.elapsed() >= TTL
                 || backend.capability_epoch() != Some(snapshot.epoch)
@@ -99,7 +101,15 @@ impl Packages {
                 return Err(RuntimeError::EntropyUnavailable);
             }
             let previous = backend.capability_epoch();
-            let records = backend.capture_apk_installed(limits).await?;
+            let records = match profile {
+                PackageProfile::Apk3_0_5 => backend.capture_apk_installed(limits).await?,
+                PackageProfile::Opkg38eccbb1RootStatus => {
+                    backend.capture_opkg_status(limits).await?
+                }
+            };
+            if records.profile() != profile {
+                return Err(RuntimeError::InvalidOutput);
+            }
             let epoch = backend
                 .capability_epoch()
                 .ok_or(RuntimeError::CapabilityUnknown)?;
@@ -167,7 +177,7 @@ mod tests {
                 .page(
                     &mut lease,
                     if expired { "original" } else { "alias" },
-                    Some(&cursor),
+                    (PackageProfile::Apk3_0_5, Some(&cursor)),
                     &NoCapture,
                     &Limits::default(),
                     Instant::now() + Duration::from_secs(1),

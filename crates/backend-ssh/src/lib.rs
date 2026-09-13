@@ -73,6 +73,40 @@ impl Drop for SshBackend {
 
 #[async_trait]
 impl Backend for SshBackend {
+    async fn capture_opkg_status(
+        &self,
+        limits: &Limits,
+    ) -> Result<openwrt_mcp_core::packages::PackageObservation, RuntimeError> {
+        use openwrt_mcp_device_codec::packages::{
+            MAX_OPKG_VERSION_BYTES, opkg_status_command, opkg_version_command, parse_opkg_status,
+            validate_opkg_version,
+        };
+        limits.validate()?;
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(limits.timeout_ms);
+        let maximum = limits
+            .max_output_bytes
+            .min(openwrt_mcp_core::packages::MAX_PACKAGE_SOURCE_BYTES);
+        let version = self
+            .run(
+                &opkg_version_command(),
+                maximum.min(MAX_OPKG_VERSION_BYTES),
+                deadline,
+            )
+            .await?;
+        validate_opkg_version(&version).map_err(|_| RuntimeError::CapabilityUnsupported)?;
+        if tokio::time::Instant::now() >= deadline {
+            return Err(RuntimeError::Timeout);
+        }
+        let bytes = self.run(&opkg_status_command(), maximum, deadline).await?;
+        let result = parse_opkg_status(&bytes, maximum).map_err(|error| match error {
+            CodecError::OutputLimit => RuntimeError::OutputLimit,
+            _ => RuntimeError::InvalidOutput,
+        });
+        if tokio::time::Instant::now() >= deadline {
+            return Err(RuntimeError::Timeout);
+        }
+        result
+    }
     async fn capture_apk_installed(
         &self,
         limits: &Limits,

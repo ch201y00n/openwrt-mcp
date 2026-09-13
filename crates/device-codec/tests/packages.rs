@@ -1,6 +1,7 @@
 use openwrt_mcp_core::{PreparedAction, packages::MAX_PACKAGE_SOURCE_BYTES};
 use openwrt_mcp_device_codec::{compile_action, encode_remote, packages::*};
 use serde_json::json;
+mod opkg;
 #[test]
 fn recipe_clears_configuration_and_never_expands_pattern() {
     let command = apk_installed_command();

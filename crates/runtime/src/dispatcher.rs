@@ -114,7 +114,7 @@ impl Dispatcher {
         let _permit = self.admit(operation, request_sequence, kind).await?;
         let started = Instant::now();
         let deadline = tokio::time::Instant::now() + Duration::from_millis(self.limits.timeout_ms);
-        if let openwrt_mcp_core::PreparedAction::ApkInstalledPage { cursor } = invocation.action() {
+        if let Some(package_request) = invocation.action().package_page() {
             let mut lease = match self.packages.lease() {
                 Ok(lease) => lease,
                 Err(error) => {
@@ -128,7 +128,7 @@ impl Dispatcher {
                 self.packages.page(
                     &mut lease,
                     &operation.name,
-                    cursor.as_deref(),
+                    package_request,
                     self.backend.as_ref(),
                     &self.limits,
                     deadline,
@@ -242,6 +242,7 @@ impl Dispatcher {
         if matches!(
             operation.capability,
             openwrt_mcp_core::CapabilityRequirement::ApkInstalledQuery {}
+                | openwrt_mcp_core::CapabilityRequirement::OpkgRootStatusFile {}
         ) {
             return self
                 .finish(
@@ -252,7 +253,14 @@ impl Dispatcher {
                     Ok(CapabilityStatus {
                         compatibility: "unknown",
                         reason: "capture_required",
-                        scope: "closed_query_response",
+                        scope: if matches!(
+                            operation.capability,
+                            openwrt_mcp_core::CapabilityRequirement::OpkgRootStatusFile {}
+                        ) {
+                            "closed_file_response"
+                        } else {
+                            "closed_query_response"
+                        },
                         response_contract: operation
                             .capability
                             .response_contract()

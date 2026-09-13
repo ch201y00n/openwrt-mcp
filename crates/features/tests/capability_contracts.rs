@@ -254,12 +254,36 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
             )
         }),
     );
-    assert_eq!(catalog.operations().len(), expectations.len() + 1);
-    assert!(matches!(
-        catalog.get("packages_apk_installed").unwrap().capability,
-        CapabilityRequirement::ApkInstalledQuery {}
-    ));
+    assert_eq!(catalog.operations().len(), expectations.len() + 2);
     let mut response_ids = BTreeSet::new();
+    for (name, action, capability, response) in [
+        (
+            "packages_apk_installed",
+            Action::ApkInstalledPage {},
+            CapabilityRequirement::ApkInstalledQuery {},
+            "packages_apk_installed.v1",
+        ),
+        (
+            "packages_opkg_status",
+            Action::OpkgStatusPage {},
+            CapabilityRequirement::OpkgRootStatusFile {},
+            "packages_opkg_status.v1",
+        ),
+    ] {
+        let operation = catalog.get(name).unwrap();
+        assert_eq!(
+            serde_json::to_value(&operation.action).unwrap(),
+            serde_json::to_value(action).unwrap()
+        );
+        assert_eq!(operation.capability, capability);
+        assert_eq!(operation.capability.probe_object(), None);
+        assert_eq!(operation.capability.response_contract(), Some(response));
+        assert!(response_ids.insert(response));
+        assert_eq!(
+            Policy::default().authorize(operation),
+            Err(CoreError::PermissionDenied)
+        );
+    }
     for (name, object, method, arguments) in expectations {
         let operation = catalog.get(name).unwrap();
         assert_eq!(
@@ -312,9 +336,16 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 50);
+    assert_eq!(operations.len(), 51);
     let mut objects = BTreeSet::new();
     for operation in &operations {
+        if matches!(operation.action, Action::OpkgStatusPage {}) {
+            assert!(matches!(
+                operation.capability,
+                CapabilityRequirement::OpkgRootStatusFile {}
+            ));
+            continue;
+        }
         if matches!(operation.action, Action::ApkInstalledPage {}) {
             assert!(matches!(
                 operation.capability,

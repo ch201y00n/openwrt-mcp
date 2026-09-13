@@ -37,6 +37,14 @@ impl Limits {
 
 #[async_trait]
 pub trait Backend: Send + Sync {
+    /// Closed opkg root-status read. Never falls back to a query or generic execute.
+    async fn capture_opkg_status(
+        &self,
+        _: &Limits,
+    ) -> Result<openwrt_mcp_core::packages::PackageObservation, RuntimeError> {
+        Err(RuntimeError::CapabilityUnsupported)
+    }
+
     /// Closed APK-visible query. Default implementation never falls back to execute.
     async fn capture_apk_installed(
         &self,

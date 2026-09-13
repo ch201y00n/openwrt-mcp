@@ -45,11 +45,7 @@ impl McpServer {
             .all(|r| r.permission == Permission::Read);
         // A fresh package capture invalidates old continuation state even though
         // it does not mutate the router. Do not advertise automatic replay safety.
-        let idempotent = read_only
-            && !matches!(
-                operation.action,
-                openwrt_mcp_core::Action::ApkInstalledPage {}
-            );
+        let idempotent = read_only && operation.action.package_profile().is_none();
         let mut tool = Tool::new(operation.name, operation.description, schema);
         tool.annotations = Some(ToolAnnotations::from_raw(
             None,

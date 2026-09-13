@@ -1,4 +1,4 @@
-//! Bounded APK-visible observations, not whole-device inventories or baselines.
+//! Bounded source-specific observations, not whole-device inventories or baselines.
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -9,6 +9,14 @@ pub const MAX_PACKAGE_RECORDS: usize = 4096;
 pub const MAX_PACKAGE_RETAINED_BYTES: usize = 2 * 1024 * 1024;
 pub const PACKAGE_PAGE_RECORDS: usize = 16;
 pub const PACKAGE_RESPONSE_CONTRACT: &str = "packages_apk_installed.v1";
+pub const OPKG_RESPONSE_CONTRACT: &str = "packages_opkg_status.v1";
+pub const MAX_OPKG_STATUS_BYTES: usize = 128;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PackageProfile {
+    Apk3_0_5,
+    Opkg38eccbb1RootStatus,
+}
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -20,10 +28,23 @@ pub struct PackageRecord {
     pub layer: u8,
 }
 
+#[derive(Clone, Serialize)]
+pub struct OpkgStatusRecord {
+    pub name: String,
+    pub version: String,
+    pub arch: String,
+    pub status: String,
+}
+
+enum Records {
+    Apk(Vec<PackageRecord>),
+    Opkg(Vec<OpkgStatusRecord>),
+}
+
 /// Private fields prevent bypassing complete validation and deterministic ordering.
 /// No raw Debug or serialization of the entire retained observation.
 pub struct PackageObservation {
-    records: Vec<PackageRecord>,
+    records: Records,
 }
 
 impl PackageObservation {
@@ -55,28 +76,83 @@ impl PackageObservation {
         {
             return Err(CoreError::InvalidOutput);
         }
-        Ok(Self { records })
+        Ok(Self {
+            records: Records::Apk(records),
+        })
+    }
+
+    pub fn new_opkg_status(mut records: Vec<OpkgStatusRecord>) -> Result<Self, CoreError> {
+        if records.len() > MAX_PACKAGE_RECORDS {
+            return Err(CoreError::OutputLimit);
+        }
+        let mut retained = 0_usize;
+        for row in &records {
+            for (text, maximum) in [
+                (&row.name, 256),
+                (&row.version, 256),
+                (&row.arch, 64),
+                (&row.status, MAX_OPKG_STATUS_BYTES),
+            ] {
+                if text.is_empty() || text.len() > maximum || text.chars().any(char::is_control) {
+                    return Err(CoreError::InvalidOutput);
+                }
+                retained = retained
+                    .checked_add(text.len())
+                    .ok_or(CoreError::OutputLimit)?;
+                if retained > MAX_PACKAGE_RETAINED_BYTES {
+                    return Err(CoreError::OutputLimit);
+                }
+            }
+        }
+        records.sort_by(|left, right| left.name.cmp(&right.name));
+        if records.windows(2).any(|pair| pair[0].name == pair[1].name) {
+            return Err(CoreError::InvalidOutput);
+        }
+        Ok(Self {
+            records: Records::Opkg(records),
+        })
+    }
+
+    pub fn profile(&self) -> PackageProfile {
+        match &self.records {
+            Records::Apk(_) => PackageProfile::Apk3_0_5,
+            Records::Opkg(_) => PackageProfile::Opkg38eccbb1RootStatus,
+        }
     }
 
     pub fn page(&self, nonce: &[u8; 16], offset: usize) -> Result<Value, CoreError> {
+        let count = match &self.records {
+            Records::Apk(rows) => rows.len(),
+            Records::Opkg(rows) => rows.len(),
+        };
         if *nonce == [0; 16]
             || !offset.is_multiple_of(PACKAGE_PAGE_RECORDS)
-            || (offset != 0 && offset >= self.records.len())
+            || (offset != 0 && offset >= count)
         {
             return Err(CoreError::InvalidArguments);
         }
-        let end = offset
-            .saturating_add(PACKAGE_PAGE_RECORDS)
-            .min(self.records.len());
-        // At most 16 validated records with <=576 bytes each. Even worst-case
+        let end = offset.saturating_add(PACKAGE_PAGE_RECORDS).min(count);
+        // At most 16 validated records with <=704 bytes each. Even worst-case
         // escaping fits the normalized ceiling before these bounded copies.
+        let (source, scope, items) = match &self.records {
+            Records::Apk(rows) => (
+                "apk_3_0_5",
+                "apk_query_installed_visible",
+                json!(&rows[offset..end]),
+            ),
+            Records::Opkg(rows) => (
+                "opkg_38eccbb1",
+                "opkg_root_status_file",
+                json!(&rows[offset..end]),
+            ),
+        };
         let mut result = json!({
-            "source":"apk_3_0_5", "scope":"apk_query_installed_visible",
+            "source":source, "scope":scope,
             "consistency":"non_atomic_observation", "whole_device_complete":false,
-            "captured_count":self.records.len(), "offset":offset,
-            "items":&self.records[offset..end]
+            "captured_count":count, "offset":offset
         });
-        if end < self.records.len() {
+        result["items"] = items;
+        if end < count {
             result["next_cursor"] = json!(PackageCursor::encode(nonce, end));
         }
         check_normalized_result(&result)?;

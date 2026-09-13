@@ -1,7 +1,12 @@
-//! Closed APK 3.0.5 query profile. No paths/options are supplied by a client.
+//! Closed package profiles. No paths/options are supplied by a client.
+mod opkg;
 use crate::{CodecError, CommandSpec, parse_action_response};
 use openwrt_mcp_core::packages::{
     MAX_PACKAGE_RECORDS, MAX_PACKAGE_SOURCE_BYTES, PackageObservation,
+};
+pub use opkg::{
+    MAX_OPKG_VERSION_BYTES, opkg_status_command, opkg_version_command, parse_opkg_status,
+    validate_opkg_version,
 };
 
 pub const MAX_APK_VERSION_BYTES: usize = 256;

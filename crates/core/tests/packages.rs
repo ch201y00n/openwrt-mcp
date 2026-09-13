@@ -1,5 +1,6 @@
 use openwrt_mcp_core::{CoreError, packages::*};
 use serde_json::json;
+mod opkg;
 fn row(i: usize) -> PackageRecord {
     PackageRecord {
         name: format!("libfixture{i:04}-20260913"),

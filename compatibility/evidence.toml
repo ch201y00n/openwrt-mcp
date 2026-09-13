@@ -180,3 +180,45 @@ artifacts = ["docs/emulator-validation-v13.md"]
 observed_at = "2026-09-13T11:16:49Z"
 host = "linux"
 environment = "wsl"
+
+[[targets]]
+id = "qemu-arm64-openwrt-24.10.4"
+kind = "emulated"
+release = "24.10.4"
+revision = "r28959-29397011cc"
+kernel = "6.6.110"
+target = "armsr/armv8"
+# Emulator machine configuration, not a freshly recorded system.board field.
+board = "qemu-virt-cortex-a53"
+observed_at = "2026-09-13T12:07:30Z"
+inventory_observed_at = "2026-09-13T12:07:30Z"
+inventory_only = false
+sources = ["docs/emulator-environment-v14.md"]
+
+[targets.packages]
+ubus = "2025.10.17~60e04048-r1"
+rpcd = "2025.09.01~bba95191-r1"
+netifd = "2025.05.23~7901e66c-r1"
+procd = "2024.12.22~42d39376-r1"
+opkg = "2024.10.16~38eccbb1-r1"
+
+[[records]]
+id = "v14-qemu-opkg-root-status"
+level = "emulated"
+target = "qemu-arm64-openwrt-24.10.4"
+operations = ["packages_opkg_status"]
+artifacts = ["docs/emulator-validation-v14.md"]
+observed_at = "2026-09-13T12:07:30Z"
+host = "linux"
+environment = "wsl"
+
+# Safe missing-executable failure only; NOT successful APK acceptance.
+[[records]]
+id = "v14-qemu-apk-unavailable"
+level = "emulated"
+target = "qemu-arm64-openwrt-24.10.4"
+operations = ["packages_apk_installed"]
+artifacts = ["docs/emulator-validation-v14.md"]
+observed_at = "2026-09-13T12:07:30Z"
+host = "linux"
+environment = "wsl"

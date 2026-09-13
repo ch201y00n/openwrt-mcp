@@ -37,6 +37,7 @@ pub struct Parameter {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     ApkInstalledPage {},
+    OpkgStatusPage {},
     Ubus {
         object: String,
         method: String,
@@ -78,6 +79,9 @@ pub struct Operation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreparedAction {
+    OpkgStatusPage {
+        cursor: Option<String>,
+    },
     ApkInstalledPage {
         cursor: Option<String>,
     },
@@ -90,6 +94,32 @@ pub enum PreparedAction {
         program: String,
         args: Vec<String>,
     },
+}
+
+impl Action {
+    pub fn package_profile(&self) -> Option<crate::packages::PackageProfile> {
+        use crate::packages::PackageProfile;
+        match self {
+            Self::ApkInstalledPage {} => Some(PackageProfile::Apk3_0_5),
+            Self::OpkgStatusPage {} => Some(PackageProfile::Opkg38eccbb1RootStatus),
+            _ => None,
+        }
+    }
+}
+
+impl PreparedAction {
+    pub fn package_page(&self) -> Option<(crate::packages::PackageProfile, Option<&str>)> {
+        use crate::packages::PackageProfile;
+        match self {
+            Self::ApkInstalledPage { cursor } => {
+                Some((PackageProfile::Apk3_0_5, cursor.as_deref()))
+            }
+            Self::OpkgStatusPage { cursor } => {
+                Some((PackageProfile::Opkg38eccbb1RootStatus, cursor.as_deref()))
+            }
+            _ => None,
+        }
+    }
 }
 
 pub(crate) fn identifier(value: &str) -> bool {
@@ -278,7 +308,7 @@ impl Operation {
             Ok(())
         };
         match &self.action {
-            Action::ApkInstalledPage {} => {
+            Action::ApkInstalledPage {} | Action::OpkgStatusPage {} => {
                 let cursor = self.parameters.get("cursor").ok_or(invalid)?;
                 if self.parameters.len() != 1
                     || cursor.required
@@ -405,13 +435,16 @@ impl Operation {
             }
         }
         match &self.action {
-            Action::ApkInstalledPage {} => {
+            Action::ApkInstalledPage {} | Action::OpkgStatusPage {} => {
                 let cursor = values.get("cursor").and_then(Value::as_str);
                 if let Some(cursor) = cursor {
                     crate::packages::PackageCursor::parse(cursor)?;
                 }
-                Ok(PreparedAction::ApkInstalledPage {
-                    cursor: cursor.map(str::to_owned),
+                let cursor = cursor.map(str::to_owned);
+                Ok(if matches!(self.action, Action::ApkInstalledPage {}) {
+                    PreparedAction::ApkInstalledPage { cursor }
+                } else {
+                    PreparedAction::OpkgStatusPage { cursor }
                 })
             }
             Action::Ubus {
@@ -475,7 +508,7 @@ impl Operation {
                             .map(|(_, max)| max),
                         _ => None,
                     };
-                    let max = if matches!(self.action, Action::ApkInstalledPage {}) {
+                    let max = if self.action.package_profile().is_some() {
                         37
                     } else {
                         selector_limit.unwrap_or(MAX_VALUE_BYTES)
@@ -484,7 +517,7 @@ impl Operation {
                     if selector_limit.is_some() {
                         schema.insert("minLength".into(), json!(1));
                     }
-                    if matches!(self.action, Action::ApkInstalledPage {}) {
+                    if self.action.package_profile().is_some() {
                         schema.insert("minLength".into(), json!(34));
                         schema.insert("pattern".into(), json!("^[0-9a-f]{32}\\.[1-9][0-9]{0,3}$"));
                     }

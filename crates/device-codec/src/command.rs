@@ -105,7 +105,9 @@ fn program_path(value: &str) -> bool {
 /// Validate even public PreparedActions constructed without the domain catalog.
 pub fn compile_action(action: &PreparedAction) -> Result<CommandSpec, CodecError> {
     let command = match action {
-        PreparedAction::ApkInstalledPage { .. } => return Err(CodecError::InvalidAction),
+        PreparedAction::ApkInstalledPage { .. } | PreparedAction::OpkgStatusPage { .. } => {
+            return Err(CodecError::InvalidAction);
+        }
         PreparedAction::Ubus {
             object,
             method,

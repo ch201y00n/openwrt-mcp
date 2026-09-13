@@ -1,4 +1,5 @@
 //! Synthetic keys and in-process loopback SSH only; no real router or key files.
+mod opkg;
 use openwrt_mcp_backend_ssh::{SshBackend, SshOptions};
 use openwrt_mcp_core::{
     CapabilityObservation, PreparedAction, ProbeRequest, ReviewedObject, UnknownReason,

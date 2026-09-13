@@ -3,6 +3,7 @@ use openwrt_mcp_core::{
     PreparedAction,
 };
 use serde_json::json;
+mod opkg;
 #[test]
 fn package_read_is_closed_and_denied_by_default() {
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();

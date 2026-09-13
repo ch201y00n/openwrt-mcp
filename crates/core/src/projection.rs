@@ -206,7 +206,7 @@ impl<'a> PreparedInvocation<'a> {
     }
 
     pub fn project(&self, output: &Value) -> Result<Value, CoreError> {
-        if matches!(self.action, PreparedAction::ApkInstalledPage { .. }) {
+        if self.action.package_page().is_some() {
             return Err(CoreError::InvalidDefinition);
         }
         match &self.projection {

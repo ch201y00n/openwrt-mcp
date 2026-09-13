@@ -76,6 +76,7 @@ pub enum ProbeRequest {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CapabilityRequirement {
     ApkInstalledQuery {},
+    OpkgRootStatusFile {},
     UbusMethod {
         object: String,
         method: String,
@@ -220,7 +221,7 @@ impl CapabilityRequirement {
         match self {
             Self::UbusMethod { object, .. } => ReviewedObject::from_name(object),
             Self::Unverified {} => None,
-            Self::ApkInstalledQuery {} => None,
+            Self::ApkInstalledQuery {} | Self::OpkgRootStatusFile {} => None,
         }
     }
 
@@ -231,13 +232,14 @@ impl CapabilityRequirement {
             } => Some(response_contract),
             Self::Unverified {} => None,
             Self::ApkInstalledQuery {} => Some(crate::packages::PACKAGE_RESPONSE_CONTRACT),
+            Self::OpkgRootStatusFile {} => Some(crate::packages::OPKG_RESPONSE_CONTRACT),
         }
     }
 
     fn valid_shape(&self) -> bool {
         match self {
             Self::Unverified {} => true,
-            Self::ApkInstalledQuery {} => true,
+            Self::ApkInstalledQuery {} | Self::OpkgRootStatusFile {} => true,
             Self::UbusMethod {
                 object,
                 method,
@@ -264,6 +266,7 @@ impl CapabilityRequirement {
         }
         match (self, action) {
             (Self::ApkInstalledQuery {}, Action::ApkInstalledPage {}) => Ok(()),
+            (Self::OpkgRootStatusFile {}, Action::OpkgStatusPage {}) => Ok(()),
             (Self::Unverified {}, Action::Process { .. }) => Ok(()),
             (
                 Self::UbusMethod {
