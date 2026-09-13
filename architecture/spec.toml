@@ -1,5 +1,5 @@
-version = 13
-decision = "docs/adr/0013-base-uci-families.md"
+version = 14
+decision = "docs/adr/0014-opkg-status-observations.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
@@ -26,6 +26,20 @@ max_components = 128
 max_descriptor_bytes = 65536
 max_token_bytes = 4096
 required_test = "crates/host-platform/tests/windows.rs"
+
+[opkg_status_contract]
+profile = "opkg_38eccbb1_root_status_v1"
+admission = "same_backend_exact_version_then_fixed_root_status_read"
+commands = "env_i_fixed_opkg_version_and_cat_root_status"
+parser = "bounded_utf8_lf_stanzas_unique_case_insensitive_fields"
+projection = "name_version_arch_status_no_layer_no_filter"
+read_effects = "no_opkg_init_no_config_no_scripts"
+snapshot = "shared_with_apk_profile_operation_epoch_nonce_absolute_ttl"
+max_line_bytes = 8192
+max_fields_per_stanza = 64
+max_field_name_bytes = 64
+max_status_bytes = 128
+required_tests = ["crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs", "crates/backend-ssh/tests/remote.rs"]
 
 [package_contract]
 domain_owner = "openwrt-mcp-core"

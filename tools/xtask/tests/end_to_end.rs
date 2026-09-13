@@ -179,8 +179,12 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13));
+        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14));
         spec["version"] = (version as i64).into();
+        if version < 14 {
+            spec.as_table_mut().unwrap().remove("opkg_status_contract");
+            spec["decision"] = "docs/adr/0013-base-uci-families.md".into();
+        }
         if version < 13 {
             spec["uci_read_contract"]["profiles"] = toml::Value::Array(
                 [
@@ -945,6 +949,42 @@ fn assembled_v13_gate_requires_closed_base_profiles_without_new_authority_or_bud
             "max_total_items = 256",
             "max_total_items = 4096",
             "projection hard ceilings",
+        ),
+    ] {
+        assert!(source.contains(from));
+        fixture.write(path, &source.replace(from, to));
+        fixture.denied(expected);
+    }
+}
+
+#[test]
+fn assembled_v14_gate_requires_closed_opkg_recipe_and_shared_bounds() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(14);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let source = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("version = 14", "version = 13", "opkg status expansion"),
+        (
+            "opkg_38eccbb1_root_status_v1",
+            "opkg_any",
+            "opkg status must retain",
+        ),
+        (
+            "env_i_fixed_opkg_version_and_cat_root_status",
+            "opkg_list_installed",
+            "opkg status must retain",
+        ),
+        (
+            "max_line_bytes = 8192",
+            "max_line_bytes = 8193",
+            "opkg status must retain",
+        ),
+        (
+            "max_records = 4096",
+            "max_records = 8192",
+            "package contract must retain",
         ),
     ] {
         assert!(source.contains(from));

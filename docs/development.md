@@ -31,6 +31,8 @@ Add the acceptance requirement and classify the feature's category/effects. Reus
 
 ## Gates
 
+Architecture v14 adds a closed opkg root-status contract before extending production actions/ports/parsing. Commit the validated architecture-only checkpoint first. Require the existing package suites and native loopback SSH suite, exact fixed commands/version, bounded stanza/field parsing and cross-manager profile/slot isolation. Preserve the earlier APK contract, shared limits and twelve owners; no generic file read or opkg initialization under read permission. Older checkpoint fixtures must remove the v14-only contract explicitly. See ADR 0014.
+
 Architecture v13 expands the exact UCI recipe set only after a validated declaration/harness checkpoint. Preserve the v11/v12 six-profile contract when testing older versions; newly admitted sections require v13, not a wildcard. Keep category definitions grouped by domain, independent expected-field fixtures and actual MCP category-isolation tests for every added tool. Do not change owners, probes, projection budgets or mutation safety requirements. See ADR 0013.
 
 Architecture v11 adds a closed UCI-read recipe contract and exact finite TextEnum without new I/O owners or dependencies. Validate and commit the declaration/harness before production UCI probing. Custom UCI definitions must be rejected before the new object becomes available; parameterless built-ins must validate config/type/category, guarded typed section maps and exact expected type. Native core capability and MCP read-contract suites are mandatory. Configuration lists, mutations and false committed/effective-state claims are not shortcuts around this boundary; see ADR 0011.

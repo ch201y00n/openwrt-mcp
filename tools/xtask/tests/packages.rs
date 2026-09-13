@@ -100,3 +100,85 @@ fn native_entropy_dependency_cannot_move_into_the_runtime_or_core() {
         denied(&changed);
     }
 }
+
+#[test]
+fn opkg_status_requires_its_complete_exact_v14_contract() {
+    let original = declaration();
+    let validate = |value: &toml::Value| {
+        Contract::parse(&toml::to_string(value).unwrap())
+            .unwrap()
+            .validate(&root())
+    };
+    validate(&original).unwrap();
+    let mut old = original.clone();
+    old["version"] = 13.into();
+    assert!(
+        validate(&old)
+            .unwrap_err()
+            .contains("opkg status expansion")
+    );
+    old.as_table_mut().unwrap().remove("opkg_status_contract");
+    validate(&old).unwrap();
+    old["version"] = 14.into();
+    assert!(validate(&old).unwrap_err().contains("v14 requires"));
+    for (field, value) in original["opkg_status_contract"].as_table().unwrap() {
+        let mut removed = original.clone();
+        removed["opkg_status_contract"]
+            .as_table_mut()
+            .unwrap()
+            .remove(field);
+        denied(&removed);
+        let mut changed = original.clone();
+        changed["opkg_status_contract"][field] = match value {
+            toml::Value::String(_) => "unreviewed".into(),
+            toml::Value::Integer(number) => (number + 1).into(),
+            toml::Value::Array(_) => toml::Value::Array(vec![]),
+            _ => unreachable!(),
+        };
+        denied(&changed);
+    }
+    let mut extra = original;
+    extra["opkg_status_contract"]
+        .as_table_mut()
+        .unwrap()
+        .insert("fallback".into(), true.into());
+    denied(&extra);
+}
+
+#[test]
+fn opkg_status_keeps_all_native_suites_and_shared_package_bounds() {
+    let original = declaration();
+    for suite in original["opkg_status_contract"]["required_tests"]
+        .as_array()
+        .unwrap()
+    {
+        let mut changed = original.clone();
+        changed["required_portable_tests"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|s| s != suite);
+        denied(&changed);
+    }
+    for (field, replacement) in [
+        ("commands", "opkg_list_installed"),
+        ("admission", "version_only"),
+        ("snapshot", "per_manager"),
+        ("projection", "arbitrary_status_fields"),
+        ("read_effects", "noaction_initialization"),
+    ] {
+        let mut changed = original.clone();
+        changed["opkg_status_contract"][field] = replacement.into();
+        denied(&changed);
+    }
+    for field in [
+        "max_records",
+        "max_source_bytes",
+        "max_retained_bytes",
+        "ttl_seconds",
+    ] {
+        let mut changed = original.clone();
+        let value = changed["package_contract"][field].as_integer().unwrap();
+        changed["package_contract"][field] = (value + 1).into();
+        denied(&changed);
+    }
+}

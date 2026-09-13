@@ -1,0 +1,37 @@
+# ADR 0014: Closed opkg root-status observations
+
+Status: accepted architecture declaration. Validate and commit this architecture-only checkpoint before production behavior.
+
+## Source review and decision
+
+OpenWrt 24.10.4 pins opkg-lede to `38eccbb1fd694d4798ac1baf88f9ba83d1eac616` (2024-10-16). Its ordinary list/status initialization creates and unlinks a lock file, creates a temporary directory and initializes destination directories. The noaction flag does not prevent this initialization. Do not label that lifecycle a harmless read or use it under Packages.Read.
+
+Instead add one explicit `packages_opkg_status` read. On the same configured backend, first run `/usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C /bin/opkg --version`. Require exactly `opkg version 38eccbb1fd694d4798ac1baf88f9ba83d1eac616 (2024-10-16)` followed by one LF. This option exits during argument parsing before opkg configuration or database initialization. Then run the same env prefix with `/bin/cat /usr/lib/opkg/status`. Both commands are fixed argv, encoded by device-codec and executed by the existing bounded local/SSH runners; no client path, environment, manager, executable, glob, shell program or fallback.
+
+This captures only the root status file at that fixed path, not configured destinations, effective package health, all installed packages or an atomic transaction baseline. An empty file is a valid empty observation, not proof of no installed packages. Missing/unreadable files and unknown banners fail closed. No lock, retry, directory search, status-file creation or repair. Concurrent writers can change even a syntactically valid capture. Normal filesystem reads are not a guarantee of zero kernel activity. SSH authenticates the endpoint, not its software/file integrity; a forged banner is not attestation.
+
+Primary sources: [OpenWrt pin and executable](https://github.com/openwrt/openwrt/blob/v24.10.4/package/system/opkg/Makefile), [argument lifecycle](https://github.com/openwrt/opkg-lede/blob/38eccbb1fd694d4798ac1baf88f9ba83d1eac616/src/opkg-cl.c), [configuration initialization](https://github.com/openwrt/opkg-lede/blob/38eccbb1fd694d4798ac1baf88f9ba83d1eac616/libopkg/opkg_conf.c), [destination paths](https://github.com/openwrt/opkg-lede/blob/38eccbb1fd694d4798ac1baf88f9ba83d1eac616/libopkg/pkg_dest.c), [status writer](https://github.com/openwrt/opkg-lede/blob/38eccbb1fd694d4798ac1baf88f9ba83d1eac616/libopkg/pkg.c), [field parser](https://github.com/openwrt/opkg-lede/blob/38eccbb1fd694d4798ac1baf88f9ba83d1eac616/libopkg/pkg_parse.c). This is a reviewed profile, not fresh BPI-R4 evidence or a claim about all opkg versions.
+
+## Owners and shared state
+
+Keep the same twelve crates and dependency graph. Core::packages gains a finite non-serializable profile and a distinct opkg record containing name/version/arch/status. APK retains layer and its exact response. Privately constructed PackageObservation stores one validated variant, never an invented layer, arbitrary record map or unchecked source string. New response contract: packages_opkg_status.v1; source: opkg_38eccbb1; scope: opkg_root_status_file; consistency: non_atomic_observation; whole_device_complete: false. Status is bounded opaque recorded text, not parsed, filtered into installed-only records or interpreted as health.
+
+Features defines OpkgStatusPage with matching OpkgRootStatusFile capability, Packages.Read and one optional canonical cursor. Core binds action/capability/profile, category, parameter shape and mutually exclusive projection. Generic Process, ordinary action compilation and ordinary projection cannot execute this workflow. No ubus probe or tool-list I/O. Capability status returns unknown/capture_required with closed_file_response scope, without reading the file or querying the manager.
+
+Runtime::packages remains the sole paging use case. Add Backend::capture_opkg_status, default unsupported; existing adapters implement it through pure codec commands/parser. Dispatcher policy, audit, concurrency and common deadline surround every page; no backend receives a cursor. Check the returned observation's profile before retention/serialization, including a trusted-adapter mismatch.
+
+Both workflows share **one** private snapshot slot. Bind profile as well as operation/nonce/epoch/absolute TTL. A new capture of either kind invalidates the previous observation before entropy or device I/O; failure never resurrects it. No automatic manager selection/fallback, merged inventory, separate unbounded caches or continuation recapture. Keep 120-second absolute lifetime, 128-bit nonce, 16-record pages, completion-audit/cancellation invalidation and epoch checks.
+
+## Bounded source grammar and output
+
+Parse only complete successful bounded stdout; never disclose stderr. Keep min(operator limit, 4 MiB) source and 256-byte version ceilings. Accept UTF-8 LF stanzas separated by empty lines; nonempty input must end with an empty-line separator. Reject CR, NUL and controls except LF and horizontal tab in ignored values/continuations. Limit each physical line to 8,192 bytes, each stanza to 64 headers and each header name to 64 bytes. Names are ASCII letters/digits/hyphen starting with a letter. Compare case-insensitively to reject duplicate aliases, including ignored fields.
+
+Each stanza requires one single-line Package, Version, Architecture and Status. A header has a colon followed by one separating space when nonempty; preserve remaining selected text exactly. Require nonempty, control-free name/version (256 UTF-8 bytes), arch (64), status (128). No trimming, concatenation, normalization, filtering or skipped incomplete records. A continuation without a preceding header or on a selected field rejects the capture. Validate framing of other bounded fields/continuations, then discard them without parsing dependencies, paths/hashes, descriptions or script-like text.
+
+Reuse 4,096-record/2-MiB retained-field ceilings, charging opkg status bytes. Reject duplicate names for this single-file profile and sort once by exact name before any page; APK keeps (layer,name) identity. Keep 64-KiB normalized and 256-KiB whole MCP ceilings. Parsing/index overhead is separate from retained fields. Raw source/excluded fields never reach MCP or audit.
+
+## Harness and acceptance
+
+V14 adds an exact opkg_status_contract while retaining v7's APK contract, owners, entropy and shared bounds. Older versions reject any opkg declaration. Negative tests reject missing/changed/extra fields, alternate profiles/paths/parsers, per-manager snapshot weakening, raised bounds and missing native suites. Add assembled downgrade/recipe/budget regressions before behavior. Older fixtures must explicitly retain their earlier contracts.
+
+Behavior must cover 281+ rows/pages, status preservation, framing/duplicate/field/row/retained/output bounds, ignored/continued private fields without leakage, malformed late rows, exact commands/banner, failure before file read, no ordinary action escape, cross-manager refresh/cursor/profile isolation, existing cancellation/entropy/audit/TTL/epoch controls, metadata/denial and actual loopback SSH/MCP. Required native Windows/Linux/macOS tests remain; record available host/emulator evidence separately. Use only synthetic fixtures or isolated official images. No actual router, keys, package scripts/mutations, firmware, backup or rollback is authorized by this checkpoint.

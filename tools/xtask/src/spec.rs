@@ -13,6 +13,8 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct Contract {
     #[serde(default)]
+    pub opkg_status_contract: Option<crate::opkg_status::OpkgStatusContract>,
+    #[serde(default)]
     pub uci_read_contract: Option<crate::uci_reads::UciReadContract>,
     #[serde(default)]
     pub windows_read_contract: Option<crate::windows_reads::WindowsReadContract>,
@@ -121,6 +123,7 @@ impl Contract {
             self.validate_windows_reads(root)?;
         }
         self.validate_uci_reads()?;
+        self.validate_opkg_status()?;
         Ok(())
     }
 

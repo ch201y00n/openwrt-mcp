@@ -27,6 +27,7 @@ fn rule() -> CrateRule {
 
 fn contract() -> Contract {
     Contract {
+        opkg_status_contract: None,
         uci_read_contract: None,
         windows_read_contract: None,
         package_contract: None,

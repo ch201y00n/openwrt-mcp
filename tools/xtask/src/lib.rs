@@ -3,6 +3,7 @@
 mod capability;
 mod change;
 mod metadata;
+mod opkg_status;
 mod packages;
 mod portability;
 mod projection;
