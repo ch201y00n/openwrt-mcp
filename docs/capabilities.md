@@ -42,7 +42,7 @@ Metadata requests pass through the dispatcher and audit with `kind: "capability"
 
 ## Bounded, same-target observations
 
-The v9 closed set is system, network.device, network.interface, network.interface.lan, network.interface.wan, iwinfo, service, luci and luci-rpc. Probe commands only describe one exact object with `ubus -v list`; they never call a method as a presence test. Local and SSH modes share the parser and command contract. Discovery and execution use the same immutable backend and authentication context. LuCI is optional; discovering luci-rpc does not implement DHCP lease tools, and neither object grants access to its other methods.
+The v9 closed set is system, network.device, network.interface, network.interface.lan, network.interface.wan, iwinfo, service, luci and luci-rpc. Probe commands only describe one exact object with `ubus -v list`; they never call a method as a presence test. Local and SSH modes share the parser and command contract. Discovery and execution use the same immutable backend and authentication context. LuCI is optional; v10's separate DHCP lease contracts require matching getDHCPLeases metadata and the DhcpDns.Read grant. Discovery alone never implements or authorizes a method, and neither object grants access to its other methods.
 
 Observations last at most 30 seconds, measured by the host's monotonic clock. A private cache has at most nine entries, bounded by the closed object enum. Connection/authentication epoch changes or invalidation prevent reuse. Probe, cache waiting and command execution share one device-work deadline; byte limits cap each response and introspection has an additional 64-KiB ceiling. The start audit must succeed before probe/key/connection I/O. There is no automatic operation replay.
 

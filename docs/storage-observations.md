@@ -4,12 +4,14 @@ Implemented after architecture-only checkpoint `acf6532` (full Windows GNU and L
 
 | Tool / response contract | Fixed target action | Returned fields |
 | --- | --- | --- |
-| storage_mounts / storage_mounts.v1 | luci.getMountPoints {} | mount, device, size_bytes, available_bytes, free_bytes |
-| storage_block_devices / storage_block_devices.v1 | luci.getBlockDevices {} | source_key, device, size_bytes, filesystem; optional uuid, label, version, mount |
+| storage_mounts / storage_mounts.v2 | luci.getMountPoints {} | mount, device, size_bytes, available_bytes, free_bytes |
+| storage_block_devices / storage_block_devices.v2 | luci.getBlockDevices {} | source_key, device, size_bytes, filesystem; optional uuid, label, version, mount |
 
 Both have no arguments, require Storage.Read without execute, and return `{items:[...]}`. Configured descriptions remain offline; actual calls require fresh matching same-target LuCI method metadata. Missing/hidden modules, failed probes or invalid output fail closed. No package installation, alternate command or local-host fallback. Use `policy.deny_operations` to withhold either tool even when storage read is enabled. Default policy still denies both.
 
 Paths, UUIDs and labels are intentionally visible under this grant and may reveal topology or user-chosen names. Nothing in those strings is an instruction or a trusted host path. Only the named fields are projected; no options, credentials, configuration, file contents, SMART details or raw error text. Audit records contain only safe operation/lifecycle metadata, never these values.
+
+After architecture-only checkpoint `4040ce3`, v10 strengthens both response contracts to v2: any present root `error` rejects before projection, even null/false or alongside plausible success data. Successful field shapes are unchanged. Prior v9 evidence remains historical v1 evidence, not silently relabeled v2 acceptance.
 
 ## Meaning and limits
 

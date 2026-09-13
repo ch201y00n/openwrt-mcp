@@ -36,10 +36,11 @@ fn mounts() -> Operation {
         Category::Storage,
         "luci",
         "getMountPoints",
-        "storage_mounts.v1",
+        "storage_mounts.v2",
         &[],
     );
     operation.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec!["/error".into()],
         collection: Collection::ObjectArray {
             source: "/result".into(),
             max_items: 128,
@@ -67,10 +68,11 @@ fn block_devices() -> Operation {
         Category::Storage,
         "luci",
         "getBlockDevices",
-        "storage_block_devices.v1",
+        "storage_block_devices.v2",
         &[],
     );
     operation.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec!["/error".into()],
         collection: Collection::ObjectEntries {
             source: String::new(),
             max_items: 128,

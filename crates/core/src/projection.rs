@@ -25,6 +25,7 @@ pub const MAX_TEXT_BYTES: usize = 1024;
 const MAX_SCHEMA_DEPTH: usize = 8;
 const MAX_POINTER_DEPTH: usize = 8;
 const MAX_POINTER_BYTES: usize = 512;
+const MAX_ROOT_GUARDS: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -46,6 +47,7 @@ pub enum ScalarKind {
     Boolean {},
     Text { max_bytes: usize },
     SafeInteger { min: i64, max: i64 },
+    FalseOrSafeInteger { min: i64, max: i64 },
     DecimalCounter { source: CounterSource },
 }
 
@@ -89,6 +91,11 @@ pub struct CollectionField<C> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Collection<R> {
+    RowArray {
+        source: String,
+        max_items: usize,
+        record: R,
+    },
     ObjectArray {
         source: String,
         max_items: usize,
@@ -124,9 +131,13 @@ pub enum Selection {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TypedProjection {
     Record {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        reject_if_present: Vec<String>,
         record: RootRecord,
     },
     Collection {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        reject_if_present: Vec<String>,
         collection: Collection<InnerRecord>,
         selection: Selection,
     },
@@ -192,7 +203,7 @@ impl ScalarKind {
         let valid = match self {
             Self::Boolean {} | Self::DecimalCounter { .. } => true,
             Self::Text { max_bytes } => (1..=MAX_TEXT_BYTES).contains(max_bytes),
-            Self::SafeInteger { min, max } => {
+            Self::SafeInteger { min, max } | Self::FalseOrSafeInteger { min, max } => {
                 min <= max && *min >= -SAFE_INTEGER_MAX && *max <= SAFE_INTEGER_MAX
             }
         };
@@ -286,6 +297,7 @@ impl<R> Collection<R> {
     fn source(&self) -> &str {
         match self {
             Self::ObjectArray { source, .. }
+            | Self::RowArray { source, .. }
             | Self::ObjectEntries { source, .. }
             | Self::ScalarArray { source, .. } => source,
         }
@@ -308,7 +320,7 @@ impl<R> Collection<R> {
                 None
             }),
             Self::ObjectEntries { key, .. } => Some(key.max_bytes),
-            Self::ScalarArray { .. } => None,
+            Self::ScalarArray { .. } | Self::RowArray { .. } => None,
         }
     }
 
@@ -322,6 +334,12 @@ impl<R> Collection<R> {
         }
         pointer_segments(self.source(), true)?;
         let max_items = match self {
+            Self::RowArray {
+                max_items, record, ..
+            } => {
+                record.validate_record(depth + 1, nodes, None)?;
+                *max_items
+            }
             Self::ObjectArray {
                 max_items, record, ..
             } => {
@@ -365,12 +383,25 @@ impl TypedProjection {
         &self,
         parameters: &BTreeMap<String, Parameter>,
     ) -> Result<(), CoreError> {
+        let guards = self.reject_if_present();
+        if guards.len() > MAX_ROOT_GUARDS {
+            return Err(CoreError::InvalidDefinition);
+        }
+        let mut paths = guards
+            .iter()
+            .map(|path| pointer_segments(path, false))
+            .collect::<Result<Vec<_>, _>>()?;
+        paths.sort();
+        if paths.windows(2).any(|pair| pair[1].starts_with(&pair[0])) {
+            return Err(CoreError::InvalidDefinition);
+        }
         let mut nodes = 0;
         match self {
-            Self::Record { record } => record.validate_record(1, &mut nodes, None)?,
+            Self::Record { record, .. } => record.validate_record(1, &mut nodes, None)?,
             Self::Collection {
                 collection,
                 selection,
+                ..
             } => {
                 collection.validate_collection(1, &mut nodes)?;
                 if let Selection::ExactOne { parameter } = selection {
@@ -400,10 +431,22 @@ impl TypedProjection {
             Self::Collection {
                 collection,
                 selection: Selection::ExactOne { parameter },
+                ..
             } => collection
                 .identity_limit()
                 .map(|max| (parameter.as_str(), max)),
             _ => None,
+        }
+    }
+
+    fn reject_if_present(&self) -> &[String] {
+        match self {
+            Self::Record {
+                reject_if_present, ..
+            }
+            | Self::Collection {
+                reject_if_present, ..
+            } => reject_if_present,
         }
     }
 }

@@ -65,8 +65,30 @@ fn fixtures() -> Vec<Fixture> {
     let service = json!({"name":"fixture","instances":[{"name":"one","running":true,"pid":42,"exit_code":0},{"name":"two","running":false}]});
     vec![
         Fixture {
+            name: "dhcp_v4_leases",
+            response: "dhcp_v4_leases.v1",
+            category: Category::DhcpDns,
+            input: json!({}),
+            object: "luci-rpc",
+            method: "getDHCPLeases",
+            arguments: json!({"family":4}),
+            source: json!({"dhcp_leases":[{"ipaddr":"192.0.2.2","expires":false,"hostname":"fixture","interface":"guest","macaddr":"02:00:00:00:00:01","duid":"00040000","iaid":"00000001","secret":"synthetic-secret"},{"ipaddr":"192.0.2.2","expires":0}]}),
+            expected: json!({"items":[{"ipaddr":"192.0.2.2","expires_seconds":false,"hostname":"fixture","interface":"guest","macaddr":"02:00:00:00:00:01","duid":"00040000","iaid":"00000001"},{"ipaddr":"192.0.2.2","expires_seconds":0}]}),
+        },
+        Fixture {
+            name: "dhcp_v6_leases",
+            response: "dhcp_v6_leases.v1",
+            category: Category::DhcpDns,
+            input: json!({}),
+            object: "luci-rpc",
+            method: "getDHCPLeases",
+            arguments: json!({"family":6}),
+            source: json!({"dhcp6_leases":[{"ip6addr":"2001:db8::2","expires":123,"duid":"00040000","ip6addrs":["2001:db8::2/128","2001:db8::2/128"],"password":"synthetic-secret"}]}),
+            expected: json!({"items":[{"ip6addr":"2001:db8::2","expires_seconds":123,"duid":"00040000","ip6addrs":[{"address_prefix":"2001:db8::2/128"},{"address_prefix":"2001:db8::2/128"}]}]}),
+        },
+        Fixture {
             name: "storage_mounts",
-            response: "storage_mounts.v1",
+            response: "storage_mounts.v2",
             category: Category::Storage,
             input: json!({}),
             object: "luci",
@@ -77,7 +99,7 @@ fn fixtures() -> Vec<Fixture> {
         },
         Fixture {
             name: "storage_block_devices",
-            response: "storage_block_devices.v1",
+            response: "storage_block_devices.v2",
             category: Category::Storage,
             input: json!({}),
             object: "luci",
@@ -207,6 +229,172 @@ fn actual_typed_catalog_and_response_ids_have_exactly_matching_exercised_fixture
             fixture.name
         );
         assert!(projected.is_object());
+    }
+}
+
+#[test]
+fn dhcp_expiry_rows_and_optional_metadata_are_preserved_not_coerced_or_deduplicated() {
+    for (name, key, row) in [
+        (
+            "dhcp_v4_leases",
+            "dhcp_leases",
+            json!({"ipaddr":"192.0.2.1","expires":false}),
+        ),
+        (
+            "dhcp_v6_leases",
+            "dhcp6_leases",
+            json!({"ip6addr":"2001:db8::1","expires":false,"ip6addrs":[]}),
+        ),
+    ] {
+        assert_eq!(
+            project(name, &json!({}), &json!({key:[]})).unwrap(),
+            json!({"items":[]})
+        );
+        let result = project(name, &json!({}), &json!({key:[row.clone(),row.clone()]})).unwrap();
+        assert_eq!(result["items"].as_array().unwrap().len(), 2);
+        assert_eq!(result["items"][0], result["items"][1]);
+        assert!(result["items"][0].get("hostname").is_none());
+        for expiry in [json!(false), json!(0), json!(u32::MAX)] {
+            let mut source = row.clone();
+            source["expires"] = expiry.clone();
+            assert_eq!(
+                project(name, &json!({}), &json!({key:[source]})).unwrap()["items"][0]["expires_seconds"],
+                expiry
+            );
+        }
+        for expiry in [
+            json!(true),
+            json!(null),
+            json!(-1),
+            json!(0.0),
+            json!("0"),
+            json!(u64::from(u32::MAX) + 1),
+            json!({}),
+        ] {
+            let mut source = row.clone();
+            source["expires"] = expiry;
+            assert_eq!(
+                project(name, &json!({}), &json!({key:[source]})),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        for field in row.as_object().unwrap().keys() {
+            let mut source = row.clone();
+            source.as_object_mut().unwrap().remove(field);
+            assert_eq!(
+                project(name, &json!({}), &json!({key:[source]})),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        for (field, max) in [
+            ("hostname", 512),
+            ("interface", 256),
+            ("macaddr", 17),
+            ("duid", 512),
+            ("iaid", 64),
+        ] {
+            for size in [max, max + 1] {
+                let mut source = row.clone();
+                source[field] = json!("x".repeat(size));
+                assert_eq!(
+                    project(name, &json!({}), &json!({key:[source]})).is_ok(),
+                    size == max
+                );
+            }
+            for invalid in [
+                json!(null),
+                json!(42),
+                json!({}),
+                json!([]),
+                json!("bad\u{0}"),
+            ] {
+                let mut source = row.clone();
+                source[field] = invalid;
+                assert_eq!(
+                    project(name, &json!({}), &json!({key:[source]})),
+                    Err(CoreError::InvalidOutput)
+                );
+            }
+        }
+        for input in [
+            json!({"family":0}),
+            json!({"path":"synthetic-secret"}),
+            json!({"ipaddr":"192.0.2.1"}),
+        ] {
+            assert!(operation(name).prepare_invocation(&input).is_err());
+        }
+    }
+}
+
+#[test]
+fn dhcp_outer_nested_and_byte_limits_are_separate_and_never_silently_truncate() {
+    for count in [128, 129] {
+        let result = project(
+            "dhcp_v4_leases",
+            &json!({}),
+            &json!({"dhcp_leases":vec![json!({"ipaddr":"192.0.2.1","expires":false});count]}),
+        );
+        if count == 128 {
+            assert_eq!(result.unwrap()["items"].as_array().unwrap().len(), count);
+        } else {
+            assert_eq!(result, Err(CoreError::OutputLimit));
+        }
+    }
+    for count in [10, 11] {
+        let result = project(
+            "dhcp_v6_leases",
+            &json!({}),
+            &json!({"dhcp6_leases":[{"ip6addr":"2001:db8::1","expires":false,"ip6addrs":vec!["2001:db8::1/128";count]}]}),
+        );
+        assert_eq!(result.is_ok(), count == 10);
+    }
+    for count in [128, 129] {
+        // 128 lease rows + 128 address rows exactly exhaust the shared budget.
+        let result = project(
+            "dhcp_v6_leases",
+            &json!({}),
+            &json!({"dhcp6_leases":vec![json!({"ip6addr":"2001:db8::1","expires":false,"ip6addrs":["2001:db8::1/128"]});count]}),
+        );
+        assert_eq!(result.is_ok(), count == 128);
+    }
+    let mut rows =
+        vec![json!({"ip6addr":"2001:db8::1","expires":false,"ip6addrs":["2001:db8::1/128"]}); 128];
+    rows[127]["ip6addrs"] = json!(["2001:db8::1/128", "2001:db8::2/128"]);
+    assert_eq!(
+        project("dhcp_v6_leases", &json!({}), &json!({"dhcp6_leases":rows})),
+        Err(CoreError::OutputLimit)
+    );
+    let rows = vec![
+        json!({"ipaddr":"192.0.2.1","expires":0,"hostname":"x".repeat(512),"duid":"y".repeat(512)});
+        128
+    ];
+    assert_eq!(
+        project("dhcp_v4_leases", &json!({}), &json!({"dhcp_leases":rows})),
+        Err(CoreError::OutputLimit)
+    );
+}
+
+#[test]
+fn reviewed_luci_consumers_reject_mixed_error_success_values_without_error_disclosure() {
+    for (name, source) in [
+        ("dhcp_v4_leases", json!({"dhcp_leases":[]})),
+        ("dhcp_v6_leases", json!({"dhcp6_leases":[]})),
+        ("storage_mounts", json!({"result":[]})),
+        ("storage_block_devices", json!({})),
+    ] {
+        for value in [
+            json!(null),
+            json!(false),
+            json!("synthetic-secret"),
+            json!({"secret":"synthetic-secret"}),
+        ] {
+            let mut mixed = source.clone();
+            mixed["error"] = value;
+            assert_eq!(
+                project(name, &json!({}), &mixed),
+                Err(CoreError::InvalidOutput)
+            );
+        }
     }
 }
 

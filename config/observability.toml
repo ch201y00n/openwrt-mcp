@@ -37,6 +37,11 @@ execute = false
 access = "read"
 execute = false
 
+# Non-atomic leases disclose client addresses/MAC/DUID/hostnames, not connectivity.
+[policy.categories.dhcp_dns]
+access = "read"
+execute = false
+
 [audit]
 enabled = true
 format = "json"

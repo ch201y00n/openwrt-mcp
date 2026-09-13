@@ -65,6 +65,7 @@ fn collection(
     selection: Selection,
 ) -> OutputMode {
     OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec![],
         collection: Collection::ObjectArray {
             source: "/results".into(),
             max_items,

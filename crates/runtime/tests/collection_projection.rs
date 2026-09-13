@@ -147,6 +147,44 @@ fn fixture(
     .unwrap();
     (dispatcher, target, audit)
 }
+#[tokio::test]
+async fn observation_sentinel_and_root_guard_use_the_existing_audited_dispatch_path() {
+    let mut value = serde_json::to_value(operation(false)).unwrap();
+    value["output_mode"]["typed"] = json!({"kind":"collection","reject_if_present":["/error"],"selection":{"kind":"all"},"collection":{"kind":"row_array","source":"/items","max_items":128,"record":{"fields":[{"name":"expires","source":"/expires","presence":"required","value":{"kind":"false_or_safe_integer","min":0,"max":10}}],"collections":[]}}});
+    let op: Operation = serde_json::from_value(value.clone()).unwrap();
+    let (dispatcher, target, audit) = fixture(
+        op,
+        vec![
+            json!({"items":[{"expires":false,"secret":PRIVATE},{"expires":false}]}),
+            json!({"items":[],"error":PRIVATE}),
+        ],
+        true,
+        false,
+    );
+    assert_eq!(
+        dispatcher
+            .invoke("fixture_collection", json!({}))
+            .await
+            .unwrap(),
+        json!({"items":[{"expires":false},{"expires":false}]})
+    );
+    last_outcome(&audit, AuditOutcome::Success);
+    assert_eq!(
+        dispatcher
+            .invoke("fixture_collection", json!({}))
+            .await
+            .unwrap_err()
+            .code(),
+        "invalid_output"
+    );
+    last_outcome(&audit, AuditOutcome::Failed);
+    assert_eq!(target.probes.load(Ordering::SeqCst), 1);
+    assert_eq!(target.calls.lock().unwrap().len(), 2);
+    value["output_mode"]["typed"]["reject_if_present"] = json!(["/error", "/error/secret"]);
+    let invalid: Operation = serde_json::from_value(value).unwrap();
+    assert!(Catalog::with_builtins(vec![invalid], vec![]).is_err());
+}
+
 fn row(name: &str) -> Value {
     json!({"name":name,"up":true,"password":PRIVATE,"data":{"key":PRIVATE},"undeclared":[PRIVATE]})
 }

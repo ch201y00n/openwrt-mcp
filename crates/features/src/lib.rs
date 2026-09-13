@@ -12,6 +12,7 @@ pub fn builtins() -> Vec<Operation> {
     operations.extend(categories::diagnostics::operations());
     operations.extend(categories::packages::operations());
     operations.extend(categories::storage::operations());
+    operations.extend(categories::dhcp_dns::operations());
     operations
 }
 

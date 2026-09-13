@@ -94,6 +94,198 @@ fn object_array_returns_only_fixed_fields_inside_items_envelope() {
     );
 }
 
+fn observation_rows(max: usize) -> Value {
+    json!({"kind":"collection","selection":all(),"collection":{
+        "kind":"row_array","source":"/rows","max_items":max,
+        "record":record(vec![field("expires","/expires",json!({"kind":"false_or_safe_integer","min":0,"max":10}),true)])
+    }})
+}
+
+#[test]
+fn finite_false_integer_union_preserves_sentinel_and_checks_every_numeric_boundary() {
+    let kind =
+        json!({"kind":"false_or_safe_integer","min":-SAFE_INTEGER_MAX,"max":SAFE_INTEGER_MAX});
+    for value in [
+        json!(false),
+        json!(0),
+        json!(-SAFE_INTEGER_MAX),
+        json!(SAFE_INTEGER_MAX),
+    ] {
+        assert_eq!(
+            project(scalar_record(kind.clone(), true), json!({"value":value})).unwrap(),
+            json!({"value":value})
+        );
+    }
+    for value in [
+        json!(true),
+        json!(null),
+        json!("0"),
+        json!("false"),
+        json!(1.0),
+        json!(0.0),
+        json!(SAFE_INTEGER_MAX + 1),
+        json!(-SAFE_INTEGER_MAX - 1),
+        json!([]),
+        json!({"secret":"private"}),
+    ] {
+        assert_eq!(
+            project(scalar_record(kind.clone(), true), json!({"value":value})),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+    for (min, max) in [
+        (1, 0),
+        (-SAFE_INTEGER_MAX - 1, 10),
+        (0, SAFE_INTEGER_MAX + 1),
+    ] {
+        rejects_definition(definition(
+            scalar_record(
+                json!({"kind":"false_or_safe_integer","min":min,"max":max}),
+                true,
+            ),
+            false,
+        ));
+    }
+}
+
+#[test]
+fn observation_rows_preserve_order_and_duplicates_without_invented_identity_or_selection() {
+    let rows =
+        json!([{"expires":10,"secret":"private"},{"expires":false},{"expires":10},{"expires":0}]);
+    assert_eq!(
+        project(observation_rows(4), json!({"rows":rows})).unwrap(),
+        json!({"items":[{"expires":10},{"expires":false},{"expires":10},{"expires":0}]})
+    );
+    assert_eq!(
+        project(observation_rows(4), json!({"rows":[]})).unwrap(),
+        json!({"items":[]})
+    );
+    let mut selected = observation_rows(4);
+    selected["selection"] = exact();
+    rejects_definition(definition(selected, true));
+    for bad in [
+        json!({}),
+        json!({"rows":null}),
+        json!({"rows":{}}),
+        json!({"rows":[{"expires":false},null]}),
+        json!({"rows":[{"expires":true}]}),
+    ] {
+        assert_eq!(
+            project(observation_rows(4), bad),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+    for count in [256, 257] {
+        let result = project(
+            observation_rows(256),
+            json!({"rows":vec![json!({"expires":false});count]}),
+        );
+        if count == 256 {
+            assert_eq!(result.unwrap()["items"].as_array().unwrap().len(), count);
+        } else {
+            assert_eq!(result, Err(CoreError::OutputLimit));
+        }
+    }
+}
+
+#[test]
+fn root_absence_guards_reject_any_present_value_before_projection_without_exporting_it() {
+    for mut projection in [scalar_record(text(), true), observation_rows(4)] {
+        projection["reject_if_present"] =
+            json!(["/error", "/status/failure", "/escaped~1name/~0problem"]);
+        let valid =
+            json!({"value":"okay","rows":[{"expires":false}],"status":{},"escaped/name":{}});
+        assert!(project(projection.clone(), valid.clone()).is_ok());
+        for error in [
+            json!(null),
+            json!(false),
+            json!(0),
+            json!(""),
+            json!({}),
+            json!([]),
+            json!("private-upstream-error"),
+        ] {
+            let mut source = valid.clone();
+            source["error"] = error;
+            assert_eq!(
+                project(projection.clone(), source),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        for source in [
+            json!({"value":"okay","rows":[],"status":false}),
+            json!({"value":"okay","rows":[],"status":{"failure":null}}),
+            json!({"value":"okay","rows":[],"escaped/name":{"~problem":false}}),
+        ] {
+            assert_eq!(
+                project(projection.clone(), source),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        let mut source = valid;
+        source["error"] = json!("private");
+        source["rows"] = json!(vec![json!({"expires":0}); 257]);
+        assert_eq!(project(projection, source), Err(CoreError::InvalidOutput));
+    }
+}
+
+#[test]
+fn root_guards_have_strict_decoded_nonoverlap_path_and_count_bounds() {
+    for guards in [
+        json!([""]),
+        json!(["error"]),
+        json!(["/bad~2"]),
+        json!(["/bad\u{0}"]),
+        json!(["/e", "/e"]),
+        json!(["/e", "/e/child"]),
+        json!(["/a~1b", "/a~1b/c"]),
+        json!(["/0", "/1", "/2", "/3", "/4"]),
+        json!([format!("/{}", "x".repeat(512))]),
+        json!(["/a/b/c/d/e/f/g/h/i"]),
+    ] {
+        let mut shape = observation_rows(4);
+        shape["reject_if_present"] = guards;
+        rejects_definition(definition(shape, false));
+    }
+    let mut shape = observation_rows(4);
+    shape["reject_if_present"] = json!(["/a", "/b", "/c", format!("/{}", "x".repeat(511))]);
+    assert!(project(shape, json!({"rows":[]})).is_ok());
+    let mut shape = observation_rows(4);
+    shape["reject_if_present"] = json!(["/a/b/c/d/e/f/g/h", "/a~1b", "/a~01b"]);
+    assert!(project(shape, json!({"rows":[]})).is_ok());
+}
+
+#[test]
+fn nested_observation_rows_charge_unselected_rows_and_cannot_create_a_third_level() {
+    let mut shape = nested_entries();
+    shape["collection"]["record"]["collections"][0]["collection"] = json!({"kind":"row_array","source":"/instances","max_items":256,"record":{"fields":[field("running","/running",boolean(),true)]}});
+    let two = vec![json!({"running":true}), json!({"running":true})];
+    assert_eq!(
+        project(shape.clone(), json!({"services":{"a":{"instances":two}}})).unwrap(),
+        json!({"items":[{"name":"a","instances":[{"running":true},{"running":true}]}]})
+    );
+    for count in [255, 256] {
+        let result = project(
+            shape.clone(),
+            json!({"services":{"a":{"instances":vec![json!({"running":true});count]}}}),
+        );
+        assert_eq!(result.is_ok(), count == 255);
+    }
+    shape["selection"] = exact();
+    let op = operation(shape.clone(), true);
+    assert_eq!(
+        op.prepare_invocation(&json!({"selected":"a"}))
+            .unwrap()
+            .project(
+                &json!({"services":{"a":{"instances":[]},"z":{"instances":[{"running":false},{}]}}})
+            ),
+        Err(CoreError::InvalidOutput)
+    );
+    shape["collection"]["record"]["collections"][0]["collection"]["record"]["collections"] =
+        json!([]);
+    rejects_definition(definition(shape, true));
+}
+
 #[test]
 fn exact_selection_is_bound_and_excluded_from_transmitted_arguments() {
     let operation = operation(array_projection(exact(), 256), true);

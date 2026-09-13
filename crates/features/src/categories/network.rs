@@ -157,6 +157,7 @@ fn interface_projection(selection: Selection) -> TypedProjection {
             }),
     );
     TypedProjection::Collection {
+        reject_if_present: vec![],
         collection: Collection::ObjectArray {
             source: "/interface".into(),
             max_items: 128,

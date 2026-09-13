@@ -56,7 +56,10 @@ impl<'a> Scalar<'a> {
                 }
                 Ok(Self::Text(text))
             }
-            ScalarKind::SafeInteger { min, max } => {
+            ScalarKind::FalseOrSafeInteger { .. } if value == &Value::Bool(false) => {
+                Ok(Self::Boolean(false))
+            }
+            ScalarKind::SafeInteger { min, max } | ScalarKind::FalseOrSafeInteger { min, max } => {
                 let integer = value.as_i64().ok_or(invalid)?;
                 if integer < *min || integer > *max {
                     return Err(invalid);
@@ -256,6 +259,24 @@ impl<R> Collection<R> {
             budget.bytes(2)?;
         }
         match self {
+            Self::RowArray {
+                max_items, record, ..
+            } => {
+                if selector.is_some() {
+                    return Err(CoreError::InvalidDefinition);
+                }
+                let values = source.as_array().ok_or(CoreError::InvalidOutput)?;
+                budget.scan(values.len(), *max_items)?;
+                for value in values {
+                    if emit {
+                        budget.emit()?;
+                        budget.bytes(usize::from(!rows.is_empty()))?;
+                    }
+                    if let Some(result) = record.project_record(value, None, emit, budget)? {
+                        rows.push(result);
+                    }
+                }
+            }
             Self::ObjectArray {
                 max_items,
                 identity,
@@ -381,14 +402,20 @@ pub(super) fn project(
     selector: Option<&str>,
     source: &Value,
 ) -> Result<Value, CoreError> {
+    for pointer in definition.reject_if_present() {
+        if lookup(source, pointer)?.is_some() {
+            return Err(CoreError::InvalidOutput);
+        }
+    }
     let mut budget = Budget::default();
     let result = match definition {
-        TypedProjection::Record { record } => {
+        TypedProjection::Record { record, .. } => {
             record.project_record(source, None, true, &mut budget)?
         }
         TypedProjection::Collection {
             collection,
             selection,
+            ..
         } => {
             if matches!(selection, Selection::ExactOne { .. }) != selector.is_some() {
                 return Err(CoreError::InvalidDefinition);

@@ -17,6 +17,18 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
     let expectations = [
         (
+            "dhcp_v4_leases",
+            ReviewedObject::LuciRpc,
+            "getDHCPLeases",
+            vec![("family", ParameterKind::Integer)],
+        ),
+        (
+            "dhcp_v6_leases",
+            ReviewedObject::LuciRpc,
+            "getDHCPLeases",
+            vec![("family", ParameterKind::Integer)],
+        ),
+        (
             "storage_mounts",
             ReviewedObject::Luci,
             "getMountPoints",
@@ -149,7 +161,10 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
                     .collect(),
                 response_contract: format!(
                     "{name}.v{}",
-                    if name == "network_interface_status" {
+                    if matches!(
+                        name,
+                        "network_interface_status" | "storage_mounts" | "storage_block_devices"
+                    ) {
                         2
                     } else {
                         1
@@ -181,7 +196,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 20);
+    assert_eq!(operations.len(), 22);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::ApkInstalledPage {}) {
@@ -207,15 +222,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
         .map(ReviewedObject::as_str)
         .collect();
     assert_eq!(recorded, reviewed);
-    // v9 reserves luci-rpc introspection; DHCP response unions still need review.
-    assert_eq!(
-        recorded
-            .difference(&objects)
-            .copied()
-            .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["luci-rpc"])
-    );
-    assert!(objects.is_subset(&recorded));
+    assert_eq!(objects, recorded);
     assert_eq!(
         registry["runtime"]["operation_metadata"].as_str(),
         Some("required_ubus_method_signature_response_contract")

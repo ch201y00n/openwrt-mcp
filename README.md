@@ -11,9 +11,9 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Nineteen conservative ubus read operations across system, network, wireless, services, storage and diagnostics; fixed-action operator extensions.
+- Twenty-one conservative ubus read operations across system, network, wireless, DHCP, services, storage and diagnostics; fixed-action operator extensions.
 - One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
-- Ten typed response contracts for bounded interface, wireless, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [passive wireless contracts](docs/wireless-observation-contracts.md) and [scoped storage observations](docs/storage-observations.md).
+- Twelve typed response contracts for bounded interface, wireless, DHCP, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [passive wireless contracts](docs/wireless-observation-contracts.md), [DHCP lease observations](docs/dhcp-observations.md) and [scoped storage observations](docs/storage-observations.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
@@ -71,11 +71,13 @@ Generic Services.Read exposes service/instance names and running/PID/exit metada
 
 Wireless.Read includes station MAC identities and passive link metrics. Deny `wireless_stations` and `wireless_station_status` to withhold client identities. No wireless read scans, disconnects clients or changes a country; an empty driver-reported list is not proof of absence or health.
 
+DhcpDns.Read includes LuCI-reported client IP/MAC/DUID/hostname data. Deny `dhcp_v4_leases` and `dhcp_v6_leases` to withhold these observations. Duplicate lease rows and false expiry sentinels are preserved; this is not complete lease/DNS inventory or proof of client connectivity. Storage response contracts are now v2: any present root error rejects even a mixed success/error payload; successful field shapes are unchanged.
+
 `network_interface_status` now always uses `network.interface.dump {}` and exact local selection. Its development-stage response contract is v2: ordinary field names, including `interface`, replace the former slash-prefixed keys. It does not retry or bypass an incomplete `status` signature.
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v7](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, paged package observations and mandatory native host tests. Capability, collection and package workflow designs were separately checkpointed before functional work; their required suites contain behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v10](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, paged package observations, protected Windows reads and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

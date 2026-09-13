@@ -108,6 +108,7 @@ fn service_status_list() -> Operation {
 
 fn service_projection(selection: Selection) -> TypedProjection {
     TypedProjection::Collection {
+        reject_if_present: vec![],
         collection: Collection::ObjectEntries {
             source: String::new(),
             max_items: 128,

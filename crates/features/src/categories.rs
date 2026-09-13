@@ -1,3 +1,4 @@
+pub(crate) mod dhcp_dns;
 pub(crate) mod diagnostics;
 pub(crate) mod network;
 pub(crate) mod packages;

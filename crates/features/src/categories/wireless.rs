@@ -54,6 +54,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         &[],
     );
     devices.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec![],
         collection: Collection::ScalarArray {
             source: "/devices".into(),
             max_items: 128,

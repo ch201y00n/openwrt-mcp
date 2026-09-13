@@ -38,6 +38,9 @@ impl Backend for RecordingBackend {
             ReviewedObject::Iwinfo => ("info", vec![("device", UbusArgumentType::String)]),
             ReviewedObject::NetworkInterface => ("dump", vec![]),
             ReviewedObject::Luci => ("getMountPoints", vec![]),
+            ReviewedObject::LuciRpc => {
+                ("getDHCPLeases", vec![("family", UbusArgumentType::Integer)])
+            }
             ReviewedObject::System => (
                 "watchdog",
                 vec![
@@ -785,6 +788,58 @@ async fn storage_mcp_reads_keep_fixed_calls_typed_capacity_and_payload_free_audi
             invalid_outputs: vec![
                 (invalid, "invalid_output"),
                 (json!({"error":PRIVATE}), "invalid_output"),
+            ],
+        })
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn dhcp_mcp_preserves_duplicate_rows_and_false_expiry_without_leaking_private_siblings() {
+    for (name, key, family, row, clean) in [
+        (
+            "dhcp_v4_leases",
+            "dhcp_leases",
+            4,
+            json!({"ipaddr":"192.0.2.1","expires":false,"hostname":"fixture","password":PRIVATE}),
+            json!({"ipaddr":"192.0.2.1","expires_seconds":false,"hostname":"fixture"}),
+        ),
+        (
+            "dhcp_v6_leases",
+            "dhcp6_leases",
+            6,
+            json!({"ip6addr":"2001:db8::1","expires":0,"ip6addrs":["2001:db8::1/128"],"secret":PRIVATE}),
+            json!({"ip6addr":"2001:db8::1","expires_seconds":0,"ip6addrs":[{"address_prefix":"2001:db8::1/128"}]}),
+        ),
+    ] {
+        let mut bad = row.clone();
+        bad["expires"] = json!(true);
+        check_read_contract(ReadContract {
+            name,
+            category: Category::DhcpDns,
+            visible: vec!["dhcp_v4_leases", "dhcp_v6_leases"],
+            arguments: json!({}),
+            action: PreparedAction::Ubus {
+                object: "luci-rpc".into(),
+                method: "getDHCPLeases".into(),
+                arguments: json!({"family":family}),
+            },
+            invalid_arguments: vec![
+                json!({"family":0}),
+                json!({"path":PRIVATE}),
+                json!({"execute":true}),
+            ],
+            responses: vec![
+                (
+                    json!({key:[row.clone(),row.clone()]}),
+                    json!({"items":[clean.clone(),clean]}),
+                ),
+                (json!({key:[]}), json!({"items":[]})),
+            ],
+            invalid_outputs: vec![
+                (json!({key:[bad]}), "invalid_output"),
+                (json!({key:[row],"error":PRIVATE}), "invalid_output"),
+                (json!({}), "invalid_output"),
             ],
         })
         .await;
