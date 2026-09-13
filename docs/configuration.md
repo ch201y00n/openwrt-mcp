@@ -1,6 +1,6 @@
 # Configuration
 
-Config is TOML with strict keys. Unknown names/values fail startup rather than silently broadening access. The CLI accepts exactly one explicit `--config <path>` or `--config-env <variable>` source; it never reads credentials from chat or discovers a project `.env`. Configuration is bounded to 1 MiB. Environment names use ASCII letters/underscore with digits after the first character, up to 128 bytes; the original OS environment copy cannot be erased. `--config` requires the native integrity-protection profile, currently Linux only, with trusted owner/parents and a regular single-linked, non-symlink file. A failed file read never falls back to the environment.
+Config is TOML with strict keys. Unknown names/values fail startup rather than silently broadening access. The CLI accepts exactly one explicit `--config <path>` or `--config-env <variable>` source; it never reads credentials from chat or discovers a project `.env`. Configuration is bounded to 1 MiB. Environment names use ASCII letters/underscore with digits after the first character, up to 128 bytes; the original OS environment copy cannot be erased. `--config` requires the native integrity-protection profile, currently Linux or the closed Windows local-NTFS profile, with trusted owner/parents and a regular single-linked, non-symlink file. Windows requires an exact absolute DOS path; macOS protected-file access remains unsupported. A failed file read never falls back to the environment.
 
 ## OpenWrt target
 
@@ -43,6 +43,12 @@ format = "json"          # json | text
 ```
 
 `logging` controls safe application lifecycle messages on stderr. It does not turn off audit events. Raw SDK debug logging is deliberately not enabled. `audit.enabled = false` explicitly disables usage recording. Stderr is the common host path. File logging uses the host's private-file protection profile. Syslog currently means the Linux local `/dev/log` datagram socket, not a user-provided endpoint or a universal Unix facility. Unsupported profiles fail; no unprotected fallback occurs. Create a trusted log directory on a suitable RAM/persistent volume; avoid excessive flash writes. Rotation is size-based, not time-based. Time rotation, remote delivery and compression can be managed outside the application.
+
+Windows file logging uses an exact absolute local-NTFS path and the separate
+[private log profile](windows-private-logs.md). JSON/text, size-based retention and
+the audit-worker lifecycle are shared, but native ACL/handle checks are not Unix
+mode checks. Existing insecure files fail without repair, and Windows system logs
+and Vault remain unsupported.
 
 ## Limits
 

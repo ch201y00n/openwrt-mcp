@@ -1,11 +1,11 @@
-//! ADR 0008 audited SDK bridge. No handles or native types leave this module.
+//! ADR 0008/0019 SDK bridge. No handles or native types leave this module.
 #![allow(unsafe_code)]
 
 use super::policy;
 use crate::HostError;
 use std::{
     fs::File,
-    io::Read,
+    io::{Read, Write},
     mem::size_of,
     os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle},
     path::Path,
@@ -15,27 +15,30 @@ use windows_sys::{
     Wdk::{
         Foundation::OBJECT_ATTRIBUTES,
         Storage::FileSystem::{
-            FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT,
-            FILE_SYNCHRONOUS_IO_NONALERT, NtCreateFile,
+            FILE_CREATE, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_IF,
+            FILE_OPEN_REPARSE_POINT, FILE_RENAME_INFORMATION, FILE_SYNCHRONOUS_IO_NONALERT,
+            FileRenameInformation, NtCreateFile, NtSetInformationFile,
         },
     },
     Win32::{
         Foundation::{
             ERROR_NO_TOKEN, GetLastError, HANDLE, INVALID_HANDLE_VALUE, OBJ_CASE_INSENSITIVE,
-            UNICODE_STRING,
+            STATUS_OBJECT_NAME_NOT_FOUND, UNICODE_STRING,
         },
         Security::{
             DACL_SECURITY_INFORMATION, GetKernelObjectSecurity, GetTokenInformation,
             OWNER_SECURITY_INFORMATION, TOKEN_QUERY, TOKEN_USER, TokenUser,
         },
         Storage::FileSystem::{
-            FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS,
-            FILE_ATTRIBUTE_RECALL_ON_OPEN, FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_TAG_INFO,
+            DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_OFFLINE,
+            FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN,
+            FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_TAG_INFO, FILE_DISPOSITION_INFO,
             FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE,
-            FILE_STANDARD_INFO, FILE_TYPE_DISK, FileAttributeTagInfo, FileStandardInfo,
-            GetFileInformationByHandleEx, GetFileType, GetFinalPathNameByHandleW,
-            GetVolumeInformationByHandleW, QueryDosDeviceW, READ_CONTROL, SYNCHRONIZE,
-            VOLUME_NAME_GUID, VOLUME_NAME_NT,
+            FILE_STANDARD_INFO, FILE_TRAVERSE, FILE_TYPE_DISK, FileAttributeTagInfo,
+            FileDispositionInfo, FileStandardInfo, GetFileInformationByHandleEx, GetFileType,
+            GetFinalPathNameByHandleW, GetVolumeInformationByHandleW, QueryDosDeviceW,
+            READ_CONTROL, SYNCHRONIZE, SetFileInformationByHandle, VOLUME_NAME_GUID,
+            VOLUME_NAME_NT,
         },
         System::{
             IO::IO_STATUS_BLOCK,
@@ -78,13 +81,20 @@ fn open(
     // SAFETY: names/attributes/status are initialized and live for this synchronous call.
     // FILE_OPEN cannot create/overwrite; relative names were validated one component at a time.
     // No backup intent, write authority, delete sharing, or caller-controlled options.
+    // Directory traversal participates in sharing checks: a metadata-only directory
+    // handle did not exclude DELETE opens in native fixtures. Do not remove this
+    // right merely because traversal can be bypassed by a process privilege.
     let result = unsafe {
         NtCreateFile(
             &mut raw,
             READ_CONTROL
                 | FILE_READ_ATTRIBUTES
                 | SYNCHRONIZE
-                | if directory { 0 } else { FILE_READ_DATA },
+                | if directory {
+                    FILE_TRAVERSE
+                } else {
+                    FILE_READ_DATA
+                },
             &attributes,
             &mut status,
             null(),
@@ -362,4 +372,340 @@ pub(super) fn read(
         return Ok(bytes);
     }
     Err(HostError::InvalidPath)
+}
+
+const LOG_HARD_BYTES: usize = 1_073_741_824;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LogOpen {
+    ExistingGeneration,
+    InitialActive,
+    NewActive,
+}
+
+fn log_child(
+    parent: &OwnedHandle,
+    name: &str,
+    user: &[u8],
+    mode: LogOpen,
+) -> Result<Option<OwnedHandle>, HostError> {
+    let mut wide: Vec<_> = name.encode_utf16().collect();
+    if wide.is_empty() || wide.len() > 255 {
+        return Err(HostError::InvalidPath);
+    }
+    let length = (wide.len() * 2) as u16;
+    let mut unicode = UNICODE_STRING {
+        Length: length,
+        MaximumLength: length,
+        Buffer: wide.as_mut_ptr(),
+    };
+    let active = mode != LogOpen::ExistingGeneration;
+    let mut descriptor = if active {
+        Some(policy::log_descriptor(user)?)
+    } else {
+        None
+    };
+    let attributes = OBJECT_ATTRIBUTES {
+        Length: size_of::<OBJECT_ATTRIBUTES>() as u32,
+        RootDirectory: parent.as_raw_handle(),
+        ObjectName: &mut unicode,
+        Attributes: OBJ_CASE_INSENSITIVE,
+        SecurityDescriptor: descriptor
+            .as_mut()
+            .map_or(null_mut(), |v| v.as_mut_ptr().cast()),
+        SecurityQualityOfService: null_mut(),
+    };
+    let mut status = IO_STATUS_BLOCK::default();
+    let mut raw = null_mut();
+    // SAFETY: synchronous call with initialized live name/descriptor/output storage.
+    // A fixed single component, no overwrite, write-data, delete sharing or traversal.
+    // Creation uses a validated protected DACL; an existing object's ACL is untouched.
+    let result = unsafe {
+        NtCreateFile(
+            &mut raw,
+            READ_CONTROL
+                | FILE_READ_ATTRIBUTES
+                | SYNCHRONIZE
+                | DELETE
+                | if active { FILE_APPEND_DATA } else { 0 },
+            &attributes,
+            &mut status,
+            null(),
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ,
+            match mode {
+                LogOpen::ExistingGeneration => FILE_OPEN,
+                LogOpen::InitialActive => FILE_OPEN_IF,
+                LogOpen::NewActive => FILE_CREATE,
+            },
+            FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
+            null(),
+            0,
+        )
+    };
+    if result == STATUS_OBJECT_NAME_NOT_FOUND && mode == LogOpen::ExistingGeneration {
+        return Ok(None);
+    }
+    if result < 0 {
+        return Err(HostError::Unavailable);
+    }
+    Ok(Some(owned(raw)?))
+}
+
+fn rename_log(handle: HANDLE, parent: &OwnedHandle, name: &str) -> Result<(), HostError> {
+    let wide: Vec<_> = name.encode_utf16().collect();
+    if wide.is_empty() || wide.len() > 255 {
+        return Err(HostError::InvalidPath);
+    }
+    // Pointer-aligned initialized storage includes the SDK header, complete name
+    // and a zero terminator. Names are generated single components, never paths.
+    let size = size_of::<FILE_RENAME_INFORMATION>() + (wide.len() + 1) * 2;
+    let mut words = vec![0usize; size.div_ceil(size_of::<usize>())];
+    let info = words.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+    // SAFETY: the raw pointer retains provenance of the entire aligned allocation,
+    // including its variable tail. Fixed SDK fields and the disjoint name fit in it.
+    unsafe {
+        (*info).Anonymous.ReplaceIfExists = false;
+        (*info).RootDirectory = parent.as_raw_handle();
+        (*info).FileNameLength = (wide.len() * 2) as u32;
+        let destination = (&raw mut (*info).FileName).cast::<u16>();
+        std::ptr::copy_nonoverlapping(wide.as_ptr(), destination, wide.len());
+    }
+    let mut status = IO_STATUS_BLOCK::default();
+    // SAFETY: valid synchronous owned handles and live initialized SDK buffers.
+    // Use the native relative-name contract directly; no Win32 path translation,
+    // replacement, bypass-access-check class, or caller-controlled flags.
+    if unsafe {
+        NtSetInformationFile(
+            handle,
+            &mut status,
+            words.as_ptr().cast(),
+            size as u32,
+            FileRenameInformation,
+        )
+    } < 0
+    {
+        return Err(HostError::Unavailable);
+    }
+    Ok(())
+}
+
+fn delete_log(handle: HANDLE) -> Result<(), HostError> {
+    let mut info = FILE_DISPOSITION_INFO { DeleteFile: true };
+    // SAFETY: the caller holds the exact validated oldest file with DELETE access.
+    // No name lookup, replace, readonly override or POSIX deletion option is used.
+    if unsafe {
+        SetFileInformationByHandle(
+            handle,
+            FileDispositionInfo,
+            (&mut info as *mut FILE_DISPOSITION_INFO).cast(),
+            size_of::<FILE_DISPOSITION_INFO>() as u32,
+        )
+    } == 0
+    {
+        return Err(HostError::Unavailable);
+    }
+    Ok(())
+}
+
+struct NativeLog {
+    parents: Vec<OwnedHandle>,
+    components: Vec<String>,
+    user: Vec<u8>,
+    drive: char,
+    volume_root: String,
+    prefix: String,
+    name: String,
+    file: File,
+    size: u64,
+    max_bytes: u64,
+    retained: usize,
+}
+
+impl NativeLog {
+    fn parent(&self) -> Result<&OwnedHandle, HostError> {
+        self.parents.last().ok_or(HostError::Insecure)
+    }
+
+    fn check_file(&self, handle: HANDLE, name: &str) -> Result<u64, HostError> {
+        let length = inspect(handle, &self.user, false, false, true, LOG_HARD_BYTES)?;
+        policy::same_path(&format!("{}{name}", self.prefix), &final_path(handle)?)?;
+        Ok(length as u64)
+    }
+
+    fn validate(&self) -> Result<(), HostError> {
+        if token_user()? != self.user {
+            return Err(HostError::Insecure);
+        }
+        let root = self.parents.first().ok_or(HostError::Insecure)?;
+        policy::same_path(
+            &self.volume_root,
+            &volume(root.as_raw_handle(), self.drive)?,
+        )?;
+        let mut expected = self.volume_root.clone();
+        for (index, handle) in self.parents.iter().enumerate() {
+            inspect(
+                handle.as_raw_handle(),
+                &self.user,
+                true,
+                index == 0,
+                false,
+                0,
+            )?;
+            if index != 0 {
+                expected.push_str(&self.components[index - 1]);
+                policy::same_path(&expected, &final_path(handle.as_raw_handle())?)?;
+                expected.push('\\');
+            }
+        }
+        if self.check_file(self.file.as_raw_handle(), &self.name)? != self.size {
+            return Err(HostError::Insecure);
+        }
+        Ok(())
+    }
+
+    fn generation(&self, index: usize) -> String {
+        format!("{}.{index}", self.name)
+    }
+
+    fn rotate(&mut self) -> Result<(), HostError> {
+        let mut generations = Vec::with_capacity(self.retained);
+        // Hold every existing object before any deletion/rename. Unknown is not absent.
+        for index in 1..=self.retained {
+            let name = self.generation(index);
+            let handle = log_child(
+                self.parent()?,
+                &name,
+                &self.user,
+                LogOpen::ExistingGeneration,
+            )?;
+            if let Some(handle) = &handle {
+                self.check_file(handle.as_raw_handle(), &name)?;
+            }
+            generations.push(handle);
+        }
+        self.validate()?;
+        if let Some(oldest) = generations.last_mut().and_then(Option::take) {
+            delete_log(oldest.as_raw_handle())?;
+            drop(oldest);
+        }
+        for index in (1..self.retained).rev() {
+            if let Some(handle) = &generations[index - 1] {
+                self.check_file(handle.as_raw_handle(), &self.generation(index))?;
+                let destination = self.generation(index + 1);
+                rename_log(handle.as_raw_handle(), self.parent()?, &destination)?;
+                self.check_file(handle.as_raw_handle(), &destination)?;
+            }
+        }
+        let destination = self.generation(1);
+        rename_log(self.file.as_raw_handle(), self.parent()?, &destination)?;
+        self.check_file(self.file.as_raw_handle(), &destination)?;
+        let handle = log_child(self.parent()?, &self.name, &self.user, LogOpen::NewActive)?
+            .ok_or(HostError::Unavailable)?;
+        if self.check_file(handle.as_raw_handle(), &self.name)? != 0 {
+            return Err(HostError::Insecure);
+        }
+        self.file = File::from(handle);
+        self.size = 0;
+        Ok(())
+    }
+}
+
+impl super::log::LogWriter for NativeLog {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), HostError> {
+        if bytes.len() as u64 > self.max_bytes {
+            return Err(HostError::Limit);
+        }
+        self.validate()?;
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        if self
+            .size
+            .checked_add(bytes.len() as u64)
+            .ok_or(HostError::Limit)?
+            > self.max_bytes
+        {
+            self.rotate()?;
+        }
+        for part in bytes.chunks(65_536) {
+            self.file
+                .write_all(part)
+                .map_err(|_| HostError::Unavailable)?;
+        }
+        self.size = self
+            .size
+            .checked_add(bytes.len() as u64)
+            .ok_or(HostError::Limit)?;
+        self.validate()
+    }
+}
+
+pub(super) fn open_log(
+    path: &Path,
+    max_bytes: u64,
+    retained: usize,
+) -> Result<Box<dyn super::log::LogWriter>, HostError> {
+    if max_bytes == 0 || max_bytes > LOG_HARD_BYTES as u64 || !(1..=100).contains(&retained) {
+        return Err(HostError::Limit);
+    }
+    let text = path.to_str().ok_or(HostError::InvalidPath)?;
+    let parsed = policy::path(text)?;
+    // Validate all derived names before even a new empty active log can be created.
+    for index in 1..=retained {
+        policy::path(&format!("{text}.{index}"))?;
+    }
+    let name = parsed
+        .components
+        .last()
+        .ok_or(HostError::InvalidPath)?
+        .to_string();
+    let user = token_user()?;
+    let root = open(None, &format!("\\??\\{}:\\", parsed.drive), true)?;
+    let volume_root = volume(root.as_raw_handle(), parsed.drive)?;
+    inspect(root.as_raw_handle(), &user, true, true, false, 0)?;
+    let mut prefix = volume_root.clone();
+    let mut parents = vec![root];
+    let mut components = Vec::new();
+    for part in parsed.components.iter().take(parsed.components.len() - 1) {
+        let handle = open(parents.last(), part, true)?;
+        inspect(handle.as_raw_handle(), &user, true, false, false, 0)?;
+        prefix.push_str(part);
+        policy::same_path(&prefix, &final_path(handle.as_raw_handle())?)?;
+        prefix.push('\\');
+        parents.push(handle);
+        components.push((*part).to_owned());
+    }
+    let handle = log_child(
+        parents.last().ok_or(HostError::Insecure)?,
+        &name,
+        &user,
+        LogOpen::InitialActive,
+    )?
+    .ok_or(HostError::Unavailable)?;
+    let size = inspect(
+        handle.as_raw_handle(),
+        &user,
+        false,
+        false,
+        true,
+        LOG_HARD_BYTES,
+    )? as u64;
+    policy::same_path(
+        &format!("{prefix}{name}"),
+        &final_path(handle.as_raw_handle())?,
+    )?;
+    Ok(Box::new(NativeLog {
+        parents,
+        components,
+        user,
+        drive: parsed.drive,
+        volume_root,
+        prefix,
+        name,
+        file: File::from(handle),
+        size,
+        max_bytes,
+        retained,
+    }))
 }

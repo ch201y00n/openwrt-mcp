@@ -85,6 +85,35 @@ pub(super) fn sid(bytes: &[u8]) -> Result<&[u8], HostError> {
         .ok_or(HostError::Insecure)
 }
 
+/// A small DWORD-aligned self-relative descriptor, private at file creation.
+/// It grants only the exact validated process user, without inherited ACEs.
+pub(super) fn log_descriptor(user: &[u8]) -> Result<Vec<u32>, HostError> {
+    if sid(user)? != user {
+        return Err(HostError::Insecure);
+    }
+    let mut bytes = vec![0_u8; 20];
+    bytes[0] = 1;
+    // SELF_RELATIVE | DACL_PROTECTED | DACL_PRESENT.
+    bytes[2..4].copy_from_slice(&0x9004_u16.to_le_bytes());
+    bytes[4..8].copy_from_slice(&20_u32.to_le_bytes());
+    bytes.extend_from_slice(user);
+    let acl = bytes.len();
+    bytes[16..20].copy_from_slice(&(acl as u32).to_le_bytes());
+    let acl_size = 16 + user.len();
+    bytes.extend_from_slice(&[2, 0]);
+    bytes.extend_from_slice(&(acl_size as u16).to_le_bytes());
+    bytes.extend_from_slice(&[1, 0, 0, 0]);
+    bytes.extend_from_slice(&[0, 0]); // One non-inheritable ACCESS_ALLOWED_ACE.
+    bytes.extend_from_slice(&((8 + user.len()) as u16).to_le_bytes());
+    bytes.extend_from_slice(&0x001f01ff_u32.to_le_bytes());
+    bytes.extend_from_slice(user);
+    descriptor(&bytes, user, false, false, true)?;
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|part| u32::from_le_bytes([part[0], part[1], part[2], part[3]]))
+        .collect())
+}
+
 fn is_sid(bytes: &[u8], subauthorities: &[u32]) -> bool {
     bytes.len() == 8 + subauthorities.len() * 4
         && bytes[..8] == [1, subauthorities.len() as u8, 0, 0, 0, 0, 0, 5]
@@ -227,6 +256,39 @@ mod tests {
     use super::*;
     const USER: [u8; 12] = [1, 1, 0, 0, 0, 0, 0, 5, 42, 0, 0, 0];
     const WORLD: [u8; 12] = [1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0];
+    #[test]
+    fn created_log_descriptor_has_one_exact_owner_ace_and_no_inheritance() {
+        for count in 1..=15 {
+            let mut user = vec![0_u8; 8 + count * 4];
+            user[..8].copy_from_slice(&[1, count as u8, 0, 0, 0, 0, 0, 5]);
+            user[8] = 42;
+            let words = log_descriptor(&user).unwrap();
+            let bytes: Vec<_> = words.iter().flat_map(|word| word.to_le_bytes()).collect();
+            assert_eq!(bytes.len(), 36 + user.len() * 2);
+            assert_eq!(u16_at(&bytes, 2).unwrap(), 0x9004);
+            assert_eq!(u32_at(&bytes, 4).unwrap(), 20);
+            assert_eq!(u32_at(&bytes, 8).unwrap(), 0);
+            assert_eq!(u32_at(&bytes, 12).unwrap(), 0);
+            assert_eq!(&bytes[20..20 + user.len()], user);
+            let acl = 20 + user.len();
+            assert_eq!(u32_at(&bytes, 16).unwrap() as usize, acl);
+            assert_eq!(u16_at(&bytes, acl + 4).unwrap(), 1);
+            assert_eq!(&bytes[acl + 8..acl + 10], [0, 0]);
+            assert_eq!(u32_at(&bytes, acl + 12).unwrap(), 0x001f01ff);
+            assert_eq!(&bytes[acl + 16..], user);
+            assert!(descriptor(&bytes, &user, false, false, true).is_ok());
+            for length in 0..user.len() {
+                assert!(log_descriptor(&user[..length]).is_err());
+            }
+            user.push(0);
+            assert!(log_descriptor(&user).is_err());
+        }
+        for (offset, value) in [(0, 0), (0, 2), (1, 0), (1, 16), (1, 255)] {
+            let mut invalid = USER;
+            invalid[offset] = value;
+            assert!(log_descriptor(&invalid).is_err());
+        }
+    }
     fn fixture(mask: u32, kind: u8, flags: u8) -> Vec<u8> {
         let mut bytes = vec![0; 60];
         bytes[0] = 1;

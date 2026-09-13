@@ -1,6 +1,6 @@
 # Validation record
 
-Date: 2026-09-13. This records host/fixture validation and separately scoped emulated acceptance, not a production or full physical-router acceptance report.
+Updated: 2026-09-14 (Asia/Seoul). This records host/fixture validation and separately scoped emulated acceptance, not a production or full physical-router acceptance report. Earlier entries retain their original scope and artifact identities; [message-only history normalization](history-normalization.md) maps their original source commits.
 
 ## Environment
 
@@ -11,6 +11,27 @@ Date: 2026-09-13. This records host/fixture validation and separately scoped emu
 - Release profile: opt-level s, thin LTO, one codegen unit, stripped symbols.
 
 ## Verification
+
+The **v19 Windows private-log increment** follows architecture-only
+`f3059d3d308309153d793e6235a98f029d900adc` (formerly `15dae37`), validated before
+behavior with 551 native Windows GNU / 572 Linux-on-WSL tests. Full implementation
+gates pass **568 / 572 distinct tests**, zero ignored and **107 harness regressions**
+counted once. Seventeen native cases were added: thirteen host file cases, one pure
+creation-descriptor case and three server/audit composition cases, including the
+actual MCP executable. Existing protected reads, key custody, SSH, age and portable
+protocol tests remain valid. See [profile and reproduced defects](windows-private-logs.md).
+
+Windows release: **4,413,952 bytes**, SHA-256
+`ef35618f6ffcc2a5a8723c6df96415dfdc515771f8ae6de0ea8fbe25fd7f8b73`.
+Linux release: **4,889,712 bytes**, SHA-256
+`9f0eb3fbf5d710fb112699ebee4a72ccebfa5e5ed7a5b363febf0468ca6be734`.
+Both full gates include architecture/evolution, formatting, all-target Clippy,
+workspace tests and release builds. No new dependency, download, router tool or
+portable-layer behavior. The selected native rename API and traversal sharing
+fix preserve the accepted security profile; no retry/fallback/test suppression.
+All data was synthetic and all private fixture folders were exclusively created.
+No real log, key, Vault or router was touched. macOS/MSVC/other Windows releases,
+remote CI, durability and new CPU/RSS/latency measurements remain unverified.
 
 The **v18 supplied-stream sealing increment** follows architecture-only `47cf2e40e8f82bd28eabe9ffa16018369f0c1443` (515 native Windows GNU / 536 Linux-on-WSL tests before behavior). Full implementation gates pass **546 / 567 distinct tests**, zero ignored, with **102 harness regressions** counted once. Twenty-six runtime cases and five actual age/gzip composition cases cover full input, producer completion, bounded counters, errors/deadlines, cleanup, publication uncertainty and final ciphertext-write failure. The required protection/composition suites contain 38/six tests. [Scope and limitations](validated-archive-sealing.md) distinguish trusted memory models from real backup capture/storage or mutation authority.
 

@@ -21,12 +21,12 @@ The internal [sealing flow](docs/validated-archive-sealing.md) now sequences val
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Network/dnsmasq configuration v2 preserves selected string/list options with fixed kind/values output, including empty forms and duplicate values. No splitting/coercion or increased global limits; [exact fields](docs/uci-observations.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
-- JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
+- JSON/text audit output to stderr or protected Linux/Windows rotating files; Linux syslog is separate. See [Windows file logging](docs/windows-private-logs.md).
 - Explicit OpenWrt targets: unconfigured by default, verified on-device execution, or native persistent SSH independent of the workstation OS.
 - Bounded process output, deadlines, input frames and backend concurrency; strict action JSON decoding and bounded normalized/MCP tool results.
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
 - Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
-- Native Windows protected config/key files and exact ZIP member selection under a [closed local NTFS profile](docs/windows-protected-files.md). Personal Vault and Windows file logging remain separate, unsupported facilities.
+- Native Windows protected config/key files and exact ZIP member selection under a [closed local NTFS profile](docs/windows-protected-files.md). Private rotating logs have a separate implemented v19 profile; Personal Vault and Windows system logs remain unsupported.
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
@@ -92,7 +92,7 @@ Network.Read includes scoped address, route and netifd-managed neighbor observat
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v16](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded scalar/list projections, closed UCI reads, paged APK/opkg observations, protected Windows reads, isolated pure effect analysis and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v19](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded projections and package observations, Windows protected reads/private logs, isolated effect analysis, bounded archive/sealing prerequisites and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only. New commits use Conventional Commits.
 
 ```powershell
 ./tools/Test-Repository.ps1

@@ -35,6 +35,16 @@ The workspace default member is the server: ordinary release builds produce the 
 
 ## Feature workflow
 
+Use Conventional Commits: `type(optional-scope): concise description`. Prefer
+`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+or `revert`; architecture-only checkpoints use `docs(architecture)`. Describe
+breaking changes with `!` and/or a `BREAKING CHANGE:` footer. Keep architecture
+checkpoints separate from implementation. History rewriting requires explicit
+user authorization and must preserve source trees and working changes.
+
+The authorized pre-publication [history normalization](history-normalization.md)
+records equivalent old/new IDs for historical validation references.
+
 Add the acceptance requirement and classify the feature's category/effects. Reuse the owning module and existing ports. If an interface cannot express the feature, stop feature implementation and evolve the architecture under ADR 0002 first. Add deny/allow/cross-category/secret-output tests, then implement inside the approved boundary. Update coverage with one of fixture-validated, device-validated, unavailable or planned; do not equate a generic command with tested support.
 
 ## Gates

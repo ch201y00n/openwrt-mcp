@@ -1,6 +1,6 @@
 # Windows protected files (v8)
 
-Windows protected **reading** is implemented for local NTFS. This includes operator config, restricted key files and a restricted ZIP from which the existing container adapter selects one exact member without extraction. It does not implement Personal Vault recognition/locking, private audit-file writes, general filesystem MCP access or a backup/restore workflow. Native acceptance currently uses Windows 11 x64 with the GNU Rust toolchain and synthetic files; MSVC/other Windows versions remain unverified.
+Windows protected **reading** is implemented for local NTFS. This includes operator config, restricted key files and a restricted ZIP from which the existing container adapter selects one exact member without extraction. It does not implement Personal Vault recognition/locking, general filesystem MCP access or a backup/restore workflow. Private audit-file writes are a separate [v19 profile](windows-private-logs.md), not authority implied by reading. Native acceptance currently uses Windows 11 x64 with the GNU Rust toolchain and synthetic files; MSVC/other Windows versions remain unverified.
 
 ## Use
 

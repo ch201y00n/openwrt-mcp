@@ -1,6 +1,7 @@
 #![cfg(target_os = "windows")]
 #![allow(unsafe_code)]
 //! Native Windows synthetic files only; never real identities or Vault data.
+mod windows_logs;
 use openwrt_mcp_host_platform::{
     HostError, native_file_protection_supported, private_log_supported, read_config, read_secret,
 };
@@ -161,7 +162,7 @@ impl Drop for Fixture {
 #[test]
 fn private_native_file_reads_and_bounds_are_enforced() {
     assert!(native_file_protection_supported());
-    assert!(!private_log_supported());
+    assert!(private_log_supported());
     let f = Fixture::new();
     let path = f.file("synthetic.key");
     assert_eq!(
@@ -334,6 +335,14 @@ fn null_dacl_and_reparse_junctions_are_not_protected_files() {
     assert!(read_config(&junction, 1024).is_err());
     assert!(read_config(&junction.join("child.key"), 1024).is_err());
     assert!(read_secret(&junction.join("child.key"), 1024).is_err());
+    assert!(openwrt_mcp_host_platform::PrivateLog::open(&junction, 1024, 2).is_err());
+    assert!(
+        openwrt_mcp_host_platform::PrivateLog::open(&junction.join("child.key"), 1024, 2).is_err()
+    );
+    assert!(
+        openwrt_mcp_host_platform::PrivateLog::open(&junction.join("new.log"), 1024, 2).is_err()
+    );
+    assert!(!destination.join("new.log").exists());
     fs::remove_dir(&junction).unwrap();
     assert!(read_secret(&destination.join("child.key"), 1024).is_ok());
 }
@@ -362,6 +371,10 @@ fn normalized_names_preserve_unicode_and_reject_existing_short_aliases() {
     if !short.eq_ignore_ascii_case(path.to_str().unwrap()) {
         assert_eq!(
             read_secret(Path::new(&short), 1024).err(),
+            Some(HostError::Insecure)
+        );
+        assert_eq!(
+            openwrt_mcp_host_platform::PrivateLog::open(Path::new(&short), 1024, 2).err(),
             Some(HostError::Insecure)
         );
     } else {

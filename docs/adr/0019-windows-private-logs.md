@@ -116,3 +116,14 @@ acceptance. Record artifacts and explicitly outstanding macOS/MSVC evidence.
 
 These source contracts motivate the design; native fixtures must demonstrate this
 implementation's selected NTFS behavior before support is claimed.
+
+## Implementation record
+
+The architecture-only checkpoint was committed before behavior (`f3059d3`, formerly
+`15dae37`; see history-normalization.md). The subsequent implementation uses the
+reviewed relative `NtSetInformationFile` rename contract directly. Native fixtures
+also exposed ineffective metadata-only ancestor sharing: the existing read-only
+walk now requests directory traversal rights to enforce its no-delete-sharing
+requirement. No owner, public interface, dependency, limit, mutation authority or
+SDK/unsafe scope changes. See [profile and regressions](../windows-private-logs.md)
+and [executed validation](../windows-validation.md); no new architecture exception.

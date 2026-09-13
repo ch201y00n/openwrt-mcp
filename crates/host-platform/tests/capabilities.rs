@@ -15,13 +15,18 @@ fn native_capability_never_claims_unimplemented_protection() {
         assert_eq!(read_config(&path, 1024).err(), Some(HostError::Unsupported));
         assert_eq!(read_secret(&path, 1024).err(), Some(HostError::Unsupported));
     }
-    assert_eq!(private_log_supported(), cfg!(target_os = "linux"));
+    assert_eq!(
+        private_log_supported(),
+        cfg!(any(target_os = "linux", target_os = "windows"))
+    );
     if !private_log_supported() {
         let path = std::env::temp_dir().join("synthetic-never-opened-platform-file");
         assert_eq!(
             PrivateLog::open(&path, 1024, 2).err(),
             Some(HostError::Unsupported)
         );
+    }
+    if !system_log_supported() {
         assert_eq!(SystemLog::open().err(), Some(HostError::Unsupported));
     }
 }

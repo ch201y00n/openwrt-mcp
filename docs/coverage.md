@@ -1,5 +1,10 @@
 # Capability coverage
 
+The v19 [Windows private log profile](windows-private-logs.md) implements protected
+append/rotation through the existing audit configuration. Native synthetic files
+and actual MCP binary composition have scoped evidence. This adds no router tool,
+Vault/system-log support, durable backup store or macOS acceptance.
+
 The v18 [provided-stream sealing flow](validated-archive-sealing.md) adds internal orchestration and synthetic age/gzip composition, not a callable backup tool. It requires complete input, validated counts, producer completion and acknowledged one-shot publication with explicit uncertainty. Real capture/storage, production consumers and mutation/recovery authority remain absent.
 
 The v17 [gzip wrapper](gzip-archive-validation.md) extends supplied archive validation only. It is the sole internal consumer of v16, without application/device integration. Complete single-member corruption/size checks and independent host fixtures pass; no new MCP operation, actual OpenWrt backup, encryption/publication or restore workflow is covered.

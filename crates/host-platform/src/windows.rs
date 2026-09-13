@@ -1,13 +1,16 @@
-//! Closed local-NTFS protected read profile. Logs/Vault are separate capabilities.
+//! Closed local-NTFS protected read and private audit-log profiles.
+mod log;
 mod native;
 mod policy;
-pub(crate) use super::unsupported::{
-    PrivateLog, SystemLog, private_log_supported, system_log_supported, verify_openwrt_local,
-};
+pub(crate) use super::unsupported::{SystemLog, system_log_supported, verify_openwrt_local};
 use crate::HostError;
+pub(crate) use log::PrivateLog;
 use std::path::Path;
 use zeroize::Zeroizing;
 pub(crate) fn native_file_protection_supported() -> bool {
+    true
+}
+pub(crate) fn private_log_supported() -> bool {
     true
 }
 pub(crate) fn read_config(path: &Path, max_bytes: usize) -> Result<Vec<u8>, HostError> {

@@ -17,12 +17,17 @@ The remote connection authenticates with an unencrypted OpenSSH Ed25519 private 
 | Common stdio, policy, native SSH, age, environment sources, in-memory ZIP | Native GNU host/fixtures passed; MSVC/CI pending | Host fixtures on WSL; native CI pending | Portable implementation; native acceptance pending |
 | Explicit environment configuration and stderr logs | Common path | Common path | Common path |
 | Protected config/secret files | Local NTFS handle/DACL profile; native GNU synthetic acceptance | Owner/mode/opened-handle profile with synthetic tests | Explicitly unsupported pending native ACL/volume profile |
-| Private rotating audit files | Explicitly unsupported; read support does not imply log writes | Owner/mode/handle-relative rotation with synthetic tests | Explicitly unsupported |
+| Private rotating audit files | Local NTFS private-DACL/handle-relative v19 profile; native GNU files and MCP binary fixtures | Owner/mode/handle-relative rotation with synthetic tests | Explicitly unsupported |
 | Native system-log delivery | Explicitly unsupported | Local `/dev/log` adapter; actual daemon acceptance pending | Explicitly unsupported, no Linux-socket assumption |
 | Personal Vault | Abstract profile only; native access unimplemented | Unsupported | Unsupported |
 | Execute target programs locally | Rejected | Explicit, verified OpenWrt only | Rejected |
 
 Unsupported optional host facilities do not block the explicitly selected common path, and never silently downgrade their security. Windows read-only attributes and macOS POSIX modes alone are not sufficient native protection. Add native profiles through the architecture-first workflow, including dependency review and platform-specific adversarial tests.
+
+The [Windows log profile](windows-private-logs.md) is independently admitted from
+protected reads. It rejects insecure existing files, creates private files without
+inherited grants, and latches any append/rotation failure. It is not a Vault,
+system-log or durable ciphertext storage capability.
 
 ## Validation and deployment
 

@@ -12,5 +12,6 @@
 - Repository work does not authorize changes to a live router or public pushes. Use fake backends for tests.
 - Keep unimplemented coverage and unmeasured performance explicit. Never describe fixture tests as device validation.
 - Run tools/Test-Repository.ps1 before committing, and resolve all failures. No bypasses.
+- Use Conventional Commits for every new commit: type(optional-scope): concise description. Use feat, fix, docs, style, refactor, perf, test, build, ci, chore or revert; architecture-only checkpoints use docs(architecture). Do not rewrite existing history again without explicit user authorization.
 - Change files with apply_patch. Do not weaken boundaries to make a feature easier to implement.
 - Windows/Linux/macOS are required host targets across all shared features. Never confuse host-native paths/commands with router POSIX actions, use remote-to-local fallback, treat Unix modes as macOS ACL proof, or report WSL as native Windows validation. Platform protection and persistent remote execution have separate infrastructure owners under ADR 0004.

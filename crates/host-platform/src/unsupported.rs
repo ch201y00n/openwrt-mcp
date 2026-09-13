@@ -1,4 +1,5 @@
 use crate::HostError;
+#[cfg(not(target_os = "windows"))]
 use std::path::Path;
 #[cfg(not(target_os = "windows"))]
 use zeroize::Zeroizing;
@@ -7,6 +8,7 @@ use zeroize::Zeroizing;
 pub(crate) fn native_file_protection_supported() -> bool {
     false
 }
+#[cfg(not(target_os = "windows"))]
 pub(crate) fn private_log_supported() -> bool {
     false
 }
@@ -25,7 +27,9 @@ pub(crate) fn verify_openwrt_local() -> Result<(), HostError> {
     Err(HostError::Unsupported)
 }
 
+#[cfg(not(target_os = "windows"))]
 pub(crate) struct PrivateLog;
+#[cfg(not(target_os = "windows"))]
 impl PrivateLog {
     pub(crate) fn open(_: &Path, _: u64, _: usize) -> Result<Self, HostError> {
         Err(HostError::Unsupported)

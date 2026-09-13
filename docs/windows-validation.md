@@ -1,8 +1,24 @@
 # Native Windows validation
 
-Date: 2026-09-13. This is local Windows GNU host/fixture acceptance, not WSL, MSVC, macOS, OpenWrt deployment or physical-router acceptance.
+Updated: 2026-09-14 (Asia/Seoul). This is local Windows GNU host/fixture acceptance, not WSL, MSVC, macOS, OpenWrt deployment or physical-router acceptance. Original commit IDs in historical entries map to equivalent source trees in [history normalization](history-normalization.md).
 
 ## Executed gate and scope
+
+The **v19 private-log gate** passed with **568 distinct native tests**, zero ignored
+and **107 harness regressions** counted once. The architecture-only checkpoint
+`f3059d3` (formerly `15dae37`) passed 551 native tests before implementation;
+Linux-on-WSL separately passes 572. Native host-platform now runs twenty file cases
+and four pure policy cases; three new server cases include actual executable MCP
+file rotation, safe JSON/text rendering, disabled logging and terminal failure.
+Native release: **4,413,952 bytes**, SHA-256
+`ef35618f6ffcc2a5a8723c6df96415dfdc515771f8ae6de0ea8fbe25fd7f8b73`.
+Architecture/evolution, formatting, strict all-target Clippy, workspace tests and
+release compilation pass. No SDK feature/dependency/download change. Exact native
+rename and ancestor-sharing defects were reproduced and fixed; [profile evidence](windows-private-logs.md)
+records the scope without raw production diagnostics or fallback. These are private
+synthetic NTFS fixtures, not real audit storage, Vault, durable logs or new
+macOS/MSVC/other-Windows/physical-router acceptance. The unchanged Linux artifact
+and remaining gaps are recorded in [validation](validation.md).
 
 The **v18 supplied-stream sealing gate** passed with **546 distinct native tests**, zero ignored and **102 harness regressions** counted once. Architecture-only `47cf2e40e8f82bd28eabe9ffa16018369f0c1443` passed 515 native tests before behavior. Linux-on-WSL separately passes 567 implementation tests. Native server: **4,400,128 bytes**, SHA-256 `1cec67125538c3c458759de78afd079d4114d26f465cfaeb2527aeee29c3ac5e`. Full structure/evolution, formatting, all-target Clippy, tests and release compilation pass. [Actual age/gzip composition](validated-archive-sealing.md) uses only synthetic memory fixtures; private/atomic/durable stage declarations are not OS proof. No real capture/store, mutation or macOS/MSVC acceptance follows. During the prior architecture gate, missing files in the disposable Cargo source cache were restored offline from 267 checksum-verified cached archives by invalidating only completion markers, not deleting repositories or user data.
 
