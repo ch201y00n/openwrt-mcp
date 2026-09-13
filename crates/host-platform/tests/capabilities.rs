@@ -1,19 +1,23 @@
 use openwrt_mcp_host_platform::{
-    HostError, PrivateLog, SystemLog, native_file_protection_supported, read_config, read_secret,
-    system_log_supported,
+    HostError, PrivateLog, SystemLog, native_file_protection_supported, private_log_supported,
+    read_config, read_secret, system_log_supported,
 };
 
 #[test]
 fn native_capability_never_claims_unimplemented_protection() {
     assert_eq!(
         native_file_protection_supported(),
-        cfg!(target_os = "linux")
+        cfg!(any(target_os = "linux", target_os = "windows"))
     );
     assert_eq!(system_log_supported(), cfg!(target_os = "linux"));
     if !native_file_protection_supported() {
         let path = std::env::temp_dir().join("synthetic-never-opened-platform-file");
         assert_eq!(read_config(&path, 1024).err(), Some(HostError::Unsupported));
         assert_eq!(read_secret(&path, 1024).err(), Some(HostError::Unsupported));
+    }
+    assert_eq!(private_log_supported(), cfg!(target_os = "linux"));
+    if !private_log_supported() {
+        let path = std::env::temp_dir().join("synthetic-never-opened-platform-file");
         assert_eq!(
             PrivateLog::open(&path, 1024, 2).err(),
             Some(HostError::Unsupported)

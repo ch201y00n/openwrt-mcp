@@ -29,6 +29,9 @@ pub fn native_file_protection_supported() -> bool {
 pub fn system_log_supported() -> bool {
     platform::system_log_supported()
 }
+pub fn private_log_supported() -> bool {
+    platform::private_log_supported()
+}
 
 pub fn read_config(path: &Path, max_bytes: usize) -> Result<Vec<u8>, HostError> {
     if max_bytes == 0 || max_bytes > 1024 * 1024 {

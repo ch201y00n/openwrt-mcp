@@ -1,5 +1,5 @@
 use openwrt_mcp_host_platform::{
-    PrivateLog, SystemLog, native_file_protection_supported, system_log_supported,
+    PrivateLog, SystemLog, private_log_supported, system_log_supported,
 };
 use openwrt_mcp_runtime::{AuditEvent, AuditSink, RuntimeError, safe_operation_name};
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ impl AuditConfig {
                 if !path.is_absolute() || path.file_name().is_none() {
                     return Err(RuntimeError::InvalidConfig);
                 }
-                if self.enabled && !native_file_protection_supported() {
+                if self.enabled && !private_log_supported() {
                     return Err(RuntimeError::UnsupportedAuditDestination);
                 }
             }

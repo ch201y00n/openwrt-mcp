@@ -16,7 +16,8 @@ The remote connection authenticates with an unencrypted OpenSSH Ed25519 private 
 | --- | --- | --- | --- |
 | Common stdio, policy, native SSH, age, environment sources, in-memory ZIP | Native GNU host/fixtures passed; MSVC/CI pending | Host fixtures on WSL; native CI pending | Portable implementation; native acceptance pending |
 | Explicit environment configuration and stderr logs | Common path | Common path | Common path |
-| Protected config/secret files, private rotating audit files | Explicitly unsupported pending native DACL/handle/volume profile | Owner/mode/opened-handle profile with synthetic tests | Explicitly unsupported pending native ACL/volume profile |
+| Protected config/secret files | Local NTFS handle/DACL profile; native GNU synthetic acceptance | Owner/mode/opened-handle profile with synthetic tests | Explicitly unsupported pending native ACL/volume profile |
+| Private rotating audit files | Explicitly unsupported; read support does not imply log writes | Owner/mode/handle-relative rotation with synthetic tests | Explicitly unsupported |
 | Native system-log delivery | Explicitly unsupported | Local `/dev/log` adapter; actual daemon acceptance pending | Explicitly unsupported, no Linux-socket assumption |
 | Personal Vault | Abstract profile only; native access unimplemented | Unsupported | Unsupported |
 | Execute target programs locally | Rejected | Explicit, verified OpenWrt only | Rejected |
@@ -25,6 +26,8 @@ Unsupported optional host facilities do not block the explicitly selected common
 
 ## Validation and deployment
 
-The CI workflow requires Windows, Linux and macOS full gates plus explicit portable binary/SSH/crypto/runtime/MCP/package suites. The harness rejects missing hosts and OS-disabled/ignored required suites. Adding the workflow does **not** mean these jobs have run. Local full gates passed on native Windows GNU (355 distinct tests) and Linux under WSL (387 distinct tests), including v7 package observations and native entropy. Windows used the native gate branch without WSL; Linux explicitly selected `tools/Test-Repository.ps1 -UseWsl`. MSVC, macOS and configured CI jobs remain unverified. Do not claim all-host acceptance. See [native Windows evidence](windows-validation.md) and [validation](validation.md).
+The CI workflow requires Windows, Linux and macOS full gates plus explicit portable binary/SSH/crypto/runtime/MCP/package suites and a Windows-only protected-read suite. The harness rejects missing hosts and disabled/ignored required cases. Adding the workflow does **not** mean these jobs have run. The v8 increment follows architecture checkpoint `9c0117f`; see [native Windows evidence](windows-validation.md) and [validation](validation.md) for executed gates. Windows uses the native branch without WSL; Linux explicitly selects `tools/Test-Repository.ps1 -UseWsl`. MSVC, macOS and configured CI jobs remain unverified. Do not claim all-host acceptance.
+
+Windows paths must meet the [protected-read profile](windows-protected-files.md): absolute DOS paths, a local native NTFS volume, trusted owner/ancestor ACLs, no reparse/short aliases or extra links. A private leaf below a shared writable ancestor is insufficient. No existing ACL is repaired, and no failed file read falls back to environment or Vault. Personal Vault remains unsupported.
 
 The Linux `/proc` footprint example reports Linux-only measurements and fails explicitly elsewhere. OpenWrt CPU/ABI cross-compilation, SDK/musl linking, packages and actual router acceptance are separate from workstation support. No router deployment or public push is authorized by these tests.

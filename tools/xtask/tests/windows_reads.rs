@@ -100,6 +100,7 @@ fn unsafe_and_sdk_are_confined_to_exact_owned_native_file() {
         check_owned_source(&c, native, "pub(super) fn read() -> *mut u8 {}", &aliases).is_err()
     );
     assert!(check_owned_source(&c, native, "pub(super) struct Handle;", &aliases).is_err());
+    check_owned_source(&c, native, "pub(super) fn read(path: &Path, max_bytes: usize, secret: bool,) -> Result<Zeroizing<Vec<u8>>, HostError> {}", &aliases).unwrap();
     check_owned_source(&c, native, "pub(super) fn read(path: &Path, max_bytes: usize, secret: bool) -> Result<Zeroizing<Vec<u8>>, HostError> {}", &aliases).unwrap();
 }
 

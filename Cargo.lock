@@ -1442,6 +1442,7 @@ name = "openwrt-mcp-host-platform"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "windows-sys 0.61.2",
  "zeroize",
 ]
 

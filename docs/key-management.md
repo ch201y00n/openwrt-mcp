@@ -13,15 +13,15 @@ Sources/containers do not know age. The age adapter does not know paths, environ
 
 ## Current scope
 
-These are internal library primitives and offline configuration validation, not backup/restore MCP tools. The ten device read tools remain unchanged. Backup publication, secure plaintext staging, durable recovery and authorized restore remain separate future workflows.
+These are internal library primitives and offline configuration validation, not backup/restore MCP tools. The current device catalog is tracked separately in coverage.md. Backup publication, secure plaintext staging, durable recovery and authorized restore remain separate future workflows.
 
 | Component | Scope |
 | --- | --- |
 | age | Native X25519, streaming encrypt/authenticated decrypt, bounded I/O, cooperative deadline |
-| Restricted file | Linux owner/mode/parent/opened-handle profile through host-platform; Windows/macOS protection explicitly unsupported until native profiles exist |
+| Restricted file | Linux owner/mode/handle profile and Windows local-NTFS owner/DACL/handle profile through host-platform; macOS protection unsupported |
 | Environment | Only the exact configured variable; explicit opt-in, no fallback/enumeration |
 | ZIP member | Plain Stored/Deflate, one exact entry, bounded metadata/decompression, no extraction |
-| Personal Vault | Protected-file abstraction; no automatic unlock/account access. Native Windows ACL/Vault access is not yet implemented and fails closed |
+| Personal Vault | Protected-file abstraction; no automatic unlock/account access. Vault trust/lock integration remains unsupported, independently of Windows restricted files |
 | Encrypted ZIP / 7z / other cipher | Not implemented; needs an explicit reviewed adapter |
 
 The age provider accepts native X25519 text documents, optionally with blank/comment lines, and writes binary age format. Passphrases, SSH/plugin/PQ identity schemes and other algorithms are not silently accepted. The established Rust age library performs cryptography; this project does not implement raw primitives. The reviewed combination uses age 0.11.5's maintained X25519-compatible line alongside the current SSH backend; see the dependency rationale in [ADR 0004](adr/0004-cross-platform-hosts.md). Upstream classifies its pre-1.0 releases as beta: this is not a production-readiness or external-audit claim. [Rust age documentation](https://docs.rs/age/0.11.5/age/)
@@ -61,7 +61,7 @@ entry = "router/identity.txt"
 
 Use absolute operator-selected paths, trusted parent directories and private regular files, typically mode 0600 or 0400. Unsafe ownership/permissions, links and unsupported protection are rejected. Never put private keys or keyring archives in this repository, generic synced folders or uncontrolled temporary storage. ZIP alone provides no confidentiality.
 
-An archive in a Vault changes only the base source to `personal_vault_file`; `archive_entry` remains identical. A direct key uses the Vault source without a container. There is no hard-coded Vault path or universal file-count assumption. **This configuration shape is defined, but native Windows protected-file access is unavailable.** Until owner/DACL/reparse/opened-handle validation is implemented and tested, it returns `key_source_protection_unsupported`. Windows read-only attributes or WSL permission emulation are not equivalent protection.
+An archive in a Vault changes only the base source to `personal_vault_file`; `archive_entry` remains identical. A direct key uses the Vault source without a container. There is no hard-coded Vault path or universal file-count assumption. **The Vault configuration shape is defined, but Vault trust/lock integration is unavailable** and returns `key_source_protection_unsupported`. Windows ordinary protected-file reads and exact ZIP selection are now fixture-tested under [the local NTFS profile](windows-protected-files.md); this does not turn a normal file or hydrated cloud file into a verified Vault source. Read-only attributes or WSL permission emulation are not equivalent protection.
 
 The user unlocks Vault through Microsoft's supported authentication flow. This tool does not unlock it, bypass MFA, keep it open, export its archive or search for substitutes. See Microsoft's [Personal Vault authentication and automatic locking documentation](https://support.microsoft.com/en-us/onedrive/protect-your-onedrive-files-in-personal-vault).
 

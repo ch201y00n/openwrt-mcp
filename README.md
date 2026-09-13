@@ -21,10 +21,11 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Bounded process output, deadlines, input frames and backend concurrency; strict action JSON decoding and bounded normalized/MCP tool results.
 - Separate core, features, runtime, adapters, MCP and composition crates, plus a development-only architecture harness.
 - Internal age primitives with independent key-source/container adapters and public/private key separation. See [key custody and platform limits](docs/key-management.md).
+- Native Windows protected config/key files and exact ZIP member selection under a [closed local NTFS profile](docs/windows-protected-files.md). Personal Vault and Windows file logging remain separate, unsupported facilities.
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-Full gates pass 387 distinct tests on Linux-on-WSL and 355 on [native Windows GNU](docs/windows-validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. See [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
+Full gates cover Linux-on-WSL and [native Windows GNU](docs/windows-validation.md); current counts and scope are in [verification and measurements](docs/validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. BPI-R4 hardware, MSVC and macOS acceptance remain pending.
 
 ## Build and check
 
@@ -36,7 +37,7 @@ cargo run --locked -p openwrt-mcp -- check --config config/read-only.toml
 cargo run --locked -p openwrt-mcp -- catalog --config config/read-only.toml
 ```
 
-`check` and `catalog` are offline and never read SSH or age key sources. The file examples above require the implemented Linux protected-file profile and trusted parent directories. They are not native Windows/macOS instructions. For the common host path, explicitly provision the TOML configuration in an operator-managed environment variable and use `--config-env OPENWRT_MCP_CONFIG`. Do not put private keys in that TOML or command history. No `.env` discovery or fallback occurs. See the [platform support and evidence matrix](docs/platform-support.md).
+`check` and `catalog` are offline and never read SSH or age key sources. The relative file examples above require the Linux protected-file profile and trusted parent directories. Windows instead requires an absolute path in its [protected-file profile](docs/windows-protected-files.md); macOS protected files remain unsupported. For the common host path, explicitly provision TOML in an operator-managed environment variable and use `--config-env OPENWRT_MCP_CONFIG`. Do not put private keys in that TOML or command history. No `.env` discovery or fallback occurs. See the [platform support matrix](docs/platform-support.md).
 
 ## Deployment model
 
@@ -46,7 +47,7 @@ Run the binary on a Windows/Linux/macOS workstation with an explicit SSH target,
 openwrt-mcp serve --config-env OPENWRT_MCP_CONFIG
 ```
 
-The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Windows GNU common-path fixtures pass; MSVC/macOS acceptance, Windows/macOS protected files and OpenWrt hardware acceptance remain pending. The required three-host CI has not been run remotely.
+The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Windows GNU common-path/protected-read fixtures pass; MSVC/macOS acceptance, macOS protection, Vault and OpenWrt hardware acceptance remain pending. The required three-host CI has not been run remotely.
 
 Only JSON-RPC goes to stdout. Audit and operational messages use their configured destination (stderr by default). One process/config represents one principal; client metadata never selects privileges. On-device builds require the correct OpenWrt SDK/musl target and linker. The host verification binary is not an OpenWrt release artifact.
 

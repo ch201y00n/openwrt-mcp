@@ -188,7 +188,10 @@ pub fn check_owned_source(
                 }
                 syn::Item::Fn(item) if !matches!(item.vis, syn::Visibility::Inherited) => {
                     let visibility = &item.vis;
-                    let signature = &item.sig;
+                    let mut signature = item.sig.clone();
+                    if signature.inputs.trailing_punct() {
+                        signature.inputs.pop_punct();
+                    }
                     let approved: syn::Signature = syn::parse_str("fn read(path: &Path, max_bytes: usize, secret: bool) -> Result<Zeroizing<Vec<u8>>, HostError>").map_err(|_| "invalid native interface profile")?;
                     if quote::quote!(#signature).to_string() != quote::quote!(#approved).to_string()
                         || quote::quote!(#visibility).to_string() != "pub (super)"

@@ -13,6 +13,9 @@ use zeroize::Zeroizing;
 pub(crate) fn native_file_protection_supported() -> bool {
     true
 }
+pub(crate) fn private_log_supported() -> bool {
+    true
+}
 pub(crate) fn system_log_supported() -> bool {
     true
 }
