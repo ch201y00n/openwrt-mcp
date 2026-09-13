@@ -526,3 +526,4 @@ fn projection_overlap_check_compares_decoded_segments_not_string_prefixes() {
     slash.output_fields = vec!["/a~1b".into(), "/a/b".into()];
     assert!(fixture_catalog(vec![slash]).is_ok());
 }
+mod management;
