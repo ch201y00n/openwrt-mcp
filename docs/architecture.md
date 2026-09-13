@@ -1,5 +1,10 @@
 # Architecture
 
+Future scope and delivery are tracked in the [management feature specification](management-feature-spec.md)
+and [staged plan](implementation-plan.md). Proposed modules/guardian/storage interfaces
+there are not approved v20 interfaces. This planning revision changes no executable
+boundary, dependency, permission or current implementation claim.
+
 Version 20 extends the exact UCI recipe set from twenty-four to twenty-eight for
 LED, Dropbear, uHTTPd and odhcpd selected configuration views. Reuse category-owned
 definitions, pure validation, bounded typed projection and the same authorized,

@@ -4,6 +4,10 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 
 [한국어 안내](README.ko.md)
 
+Planning documents (Korean): [full management feature specification](docs/management-feature-spec.md)
+and [staged implementation plan](docs/implementation-plan.md). These distinguish
+current coverage from the complete management target; they are not a completion claim.
+
 **Status: v0.1 foundation, under development.** Independent community project; not affiliated with or endorsed by OpenWrt. Full OpenWrt feature coverage is the product goal, not a claim about this initial implementation. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [coverage](docs/coverage.md).
 
 ## What works in this foundation

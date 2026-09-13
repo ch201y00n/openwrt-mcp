@@ -41,6 +41,12 @@ The workspace default member is the server: ordinary release builds produce the 
 
 ## Feature workflow
 
+Use the stable IDs in [the management feature specification](management-feature-spec.md)
+and the dependencies in [the staged plan](implementation-plan.md) to identify the
+profile and read/configure/execute/verify/recover slice being delivered. Keep target
+scope, current catalog coverage and actual acceptance evidence separate. Planning
+IDs are not client-selected permissions or a second executable tool inventory.
+
 Use Conventional Commits: `type(optional-scope): concise description`. Prefer
 `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
 or `revert`; architecture-only checkpoints use `docs(architecture)`. Describe

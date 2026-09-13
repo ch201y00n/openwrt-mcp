@@ -1,55 +1,243 @@
-# Comprehensive management implementation plan
+# 전체 관리 기능 단계별 구현 계획
 
-Status: active work, not a completion claim. The user requested continued implementation and validation until the project goals are met. The first reference is the actual BPI-R4 installation; no live router changes or remote publication are authorized by repository development.
+계획 버전: 1. 작성: 2026-09-14 (Asia/Seoul). 기준 커밋: `a711593`.
+상태: **실행을 위한 개발 계획**. 이 문서 작성 완료와 제품 기능 완성을 구분한다.
+기능 범위는 [전체 기능 명세](management-feature-spec.md)의 156개 ID를 따른다.
+기존 단계/측정/커밋 이력은 [이력 문서](implementation-history.md)에 원문 보존했다.
 
-## Completion model
+현재 51개 관리 조회와 보안 기반이 있으며 변경 관리 도구는 없다.
+현재 아키텍처는 v20이고, 네 가지 추가 UCI 조회는 설계만 승인된 상태다.
+본 계획은 승인된 아키텍처·하네스를 변경하지 않는다. 신규 기능 경계는 별도 체크포인트로 먼저 승인·검증한다.
+실제 라우터 변경·개인 Vault/키 접근·외부 계정 조작·배포·push는 이 계획의 작성이나 저장소 개발로 승인되지 않는다.
 
-For a recorded release/device/package/service inventory, every management surface must have explicit classification, typed input/output/effects, policy enforcement, capability prerequisites and evidence. Record read/configure/execute/verify/recover separately. A generic privileged command or a successful host build does not count as tested support. Unknown third-party surfaces remain explicit gaps until reviewed adapters are added. Version/variant/package changes must be detected and must not silently inherit old compatibility assertions.
+## 1. 진행 원칙
 
-The goals continue to include cross-platform Windows/Linux/macOS hosts, bounded performance/resource use, easy category access and independent execution controls, age encryption with abstract sources/containers, safe configurable audit logs and architecture-first development. Requirements that need new boundaries get an architecture-only validated checkpoint before implementation.
+목표는 조회 도구 개수를 늘리는 것이 아니라, 기준 프로필의 기능을 안전한 전체 관리 흐름으로 완성하는 것이다.
 
-## Milestones
+1. 현재 기능과 기준 장치의 관리 표면을 먼저 대조한다. 그러나 모든 조회 구현을 끝내야만 변경 기반을 시작하는 직렬 구조로 만들지 않는다.
+2. 공통 계획/권한/영향/백업/복구/검증을 한 번 설계하고, 작은 비밀 없는 변경 하나를 끝까지 구현한다.
+3. 그 검증된 흐름으로 기능군을 확대한다. 설정을 바꾸는 부분만 구현하고 검증·복구를 다음 단계로 미루지 않는다.
+4. 버전별 차이는 프로필/순수 codec/검토된 어댑터로 모은다. features와 MCP에 OS/버전 조건문을 흩뿌리지 않는다.
+5. 시험 자료·문서·코드는 재사용하되 기대값은 production 정의로부터 자동 생성하지 않는다.
+6. 성능은 반복 측정한다. Rust 사용, 바이너리 크기 또는 테스트 통과만으로 낮은 RSS/지연시간을 주장하지 않는다.
+7. 설계는 공통 동작과 실패 처리를 묶어 검토하고, 기능 구현은 2~4개 구체 계약의 작은 묶음으로 진행한다.
+8. 플랫폼 구현·보안 검토·테스트 작성은 해당 공통 계약이 확정되면 독립적으로 진행할 수 있다. 같은 경계의 재설계와 소비자 구현을 동시에 진행하지 않는다.
 
-| Stage | Scope | State |
+## 2. 단계·의존성·납품 기준
+
+각 단계의 `필수 완료 조건`이 충족돼야 해당 결과를 제품 지원으로 표시한다.
+뒤 단계에 묶인 기능도 앞 단계에 필요한 최소 조회/모델/시험은 먼저 구현할 수 있다.
+일정 날짜는 약속하지 않는다. P1의 실제 표면 대장과 P2의 복구 결정 전에는 전체 공수를 신뢰성 있게 추정할 수 없다.
+
+| 단계 | 선행 조건 | 주 산출물 / 기능 ID | 필수 완료 조건 |
+| --- | --- | --- | --- |
+| P0 범위·기준선 정리 | 없음 | 기능 명세, 이 계획, 현재 51개 도구 대응표 | ID/단계/도구 대응 검증, 미완성과 외부 승인 경계 표시. 이번 문서 작업 범위 |
+| P1 프로필·누락 대장·필수 조회 | P0 | CTL-03~07/10, PKG-01, QUAL-02, ADD-09; NET-01/STO-01/WIFI-01 | 관찰/기록된 모든 관리 표면이 ID 또는 명시적 미확인 항목에 대응. v20 조회 4종 행동 테스트 완료 |
+| P2 변경 아키텍처·하네스 | P1의 첫 변경 대상과 영향 경계 확정 | SEC-01, QUAL-01; TXN/secret/guardian/저장 경계 ADR | trait·상태 기계·소유권·예산·권한·부정 테스트를 행동 코드보다 먼저 검증하고 별도 커밋 |
+| P3 비밀·암호문 백업·복원 기반 | P2 | SEC-03~05/07/08/11, TXN-04~06; TXN-10의 스테이징 | 실제 제공자/전송/저장 어댑터를 합성 자료로 연결, 완전한 스트림/인증/발행/실패 검증, 세 호스트 보장 명시 |
+| P4 첫 안전한 변경 전체 흐름 | P3 + 복구 권한 설계 결정 | TXN-01~03/07~11, CTL-08, SEC-09, SYS-02 | 한 실제 구현의 계획→백업→복구 준비→적용→검증→확인/복구를 에뮬레이터에서 성공·장애 모두 검증 |
+| P5 시스템·서비스 기본 관리 | P4 | SYS-01/03~04/06~07/12, DNS-06, SVC-01~03/07, DIAG-01~02 | 설정/상태/실행 구분, 서비스별 효과와 사후조건, 관리 접속 손실 복구 |
+| P6 네트워크·방화벽·DNS 전체 흐름 | P4 + P5의 서비스 계약 | NET-02~12, FW-01~09, DNS-01~05/07/09, DIAG-03~04 | 간접 lan3 영향 차단, IPv4/IPv6·구역 격리·연결 단절/복구, 기본 프로필 하위 옵션 대조 |
+| P7 무선·기준 VPN | P6 + SEC-03 | WIFI-02~08/10~11, VPN-01~02/05~06, DIAG-05 | 비밀 없는 인터페이스, 규제/드라이버 조건, 무선·터널 손실 복구; 하드웨어는 별도 시험 |
+| P8 계정·부가 서비스·선택 프로필 | P4; 네트워크 관련은 P6/P7 | SYS-05/08, NET-13~14, WIFI-09, FW-10, DNS-08/10, SVC-04~06/08, VPN-03~04/07, STO-09, DIAG-06, ADD-01~08 | 기준 설치 패키지부터 하위 계약 폐쇄, 임의 스크립트/자격 증명 우회 없음, 외부 권한 단계 분리 |
+| P9 패키지·파일·저장장치 관리 | P4~P6의 영향/서비스·유지보수 정책 | PKG-02~08, STO-02~04/06~08/10, SYS-11 | 의존/후크/사용자 데이터 영향·공간/동시성·부분 실패 시험. 모든 작업에 가역성 보장하지 않음 |
+| P10 펌웨어·부팅·파괴적 유지보수 | P9 + 복구/하드웨어별 결정 | FIRM-01~07, STO-05, SYS-09~10, TXN-12 | 출처·image·boot media 검증, 재전송 방지, 실기기 대역외 복구. raw flash/강제 우회 일반 도구 없음 |
+| P11 플랫폼·자원·전체성·배포 수락 | 기능군 구현 완료; 기반 작업은 P2부터 병행 가능 | CTL-01~02/09, SEC-02/06/10/12, DIAG-07~08, QUAL-03~08 | 적용 가능한 모든 ID/하위 표면의 구현·세 호스트·대상 검증·자원·보안 증거 확보, 승인 후 배포 |
+
+핵심 의존 경로는 P1의 최소 필수 발견 → P2 → P3 → P4다.
+P4 이후 시스템/서비스, 네트워크, 부가 패키지 작업은 확정된 계약을 공유한다.
+P8은 이미 설치된 패키지/격리 시험 이미지부터 다루므로 P9의 설치 도구 완성을 기다리지 않는다.
+P9 이후에는 설치→설정→실행→삭제의 교차 기능 시험을 추가한다.
+P11은 검증을 마지막에 몰아넣는 단계가 아니라, 각 단계의 증거를 모아 최종 전체성을 판정하는 단계다.
+
+## 3. 단계별 실제 작업 묶음
+
+### P1: 누락을 보이게 하고, 첫 변경에 필요한 관찰을 준비
+
+- 관리 표면 대장에 `프로필 / 구성요소 / 설정 섹션·필드·메서드 / 기능 ID / 하위 동작 / 위험 / 증거 / 공백`을 기록한다.
+- 현재 소스와 catalog의 51개 도구를 명세와 대조한다. API 목록만 보고 없는 메서드를 absent로 처리하지 않는다.
+- v20의 SYS-04/06/07와 DNS-06 조회 4종은 이미 승인된 경계에서 구현한다. 별도 새 체크포인트를 중복 생성하지 않는다.
+- package/API/driver/설정 옵션의 버전 차이와 변경 감지, 비 UCI/CLI 전용 표면을 등록한다.
+- 최초 변경 후보의 실제 설정/의존 서비스/공유 옵션과 복구 후 상태를 관찰하는 어댑터를 우선한다.
+- 대장/계약/증거 참조 검사를 기존 xtask에 추가할 필요가 있으면 그 개발 경계를 먼저 검토한다. tool 목록을 하네스 안에 복제하지 않는다.
+- 신선한 장치 인벤토리가 필요한 시점에는 읽을 항목과 민감도만 제시해 별도 범위를 확인한다. 기존 백업은 현재 상태가 아니다.
+
+완료: 고아 표면/기능이 보이고 다음 작업을 선택할 수 있다. P1에서 모든 관리 읽기를 완성할 필요는 없다.
+
+### P2: 공통 변경 경계를 먼저 고정
+
+아래를 각각 명확한 결정으로 묶는다. 하나의 거대한 범용 관리자 trait로 합치지 않는다.
+
+- 순수 도메인: 타입 있는 의도·자원·기준 상태·효과·계획/작업 상태·권한 합산.
+- runtime: 같은 dispatcher에서 plan/admit/status/apply/verify/confirm/recover; 변경 이후 로그 실패와 회복 의무.
+- 장치 측 실행 접수/복구: 소유자 인증, 여러 호스트 충돌, 외부 UCI/LuCI 변경과 검출 가능한 한계.
+- 바이너리 백업/복원 전송, SecretValue 전달, 작업 상태 채널: 일반 JSON 실행 결과와 분리.
+- 목적별 암호문 저장·제한 스테이징·발행 acknowledgement·내구성·원자적 표시·부분 실패.
+- 각 작업의 최댓값/타임아웃/작업 수/저널·캐시 보존·단계별 취소 가능 구간.
+
+현재 v15 그래프, v16/v17 codec, v18 sealing은 생산 소비자가 금지되어 있다.
+통합하기 전에 이 금지를 필요한 소유자에만 한정해 변경하는 ADR/spec/부정 테스트를 커밋해야 한다.
+새 장치 guardian은 기존 단일 호스트 프로세스 모델을 확장하므로 배포·권한·IPC·리소스 예산도 별도 결정한다.
+guardian이 OpenWrt 전용이라는 사실은 Windows/Linux/macOS 공통 관리 호스트 코드를 OS 종속적으로 만들어도 된다는 의미가 아니다.
+
+완료: 하네스가 금지해야 할 우회 사례를 실제로 거부한다. 설계 문서만 있거나 API 골격만 있는 상태는 P3/P4 구현 완료가 아니다.
+
+### P3: 암호문을 실제 어댑터까지 연결
+
+- 승인된 캡처 범위/파일 형식/후크 효과를 먼저 확정하고, 생산자 종료·기대 manifest·정확한 EOF를 확인한다.
+- 바이너리를 평문 파일/JSON에 담지 않고 제한된 스트림으로 archive/gzip 검사와 age에 전달한다.
+- 암호문 저장 어댑터는 private staging, 생성 충돌, 완전한 finalize, 원자적 공개, fsync/저장소 확인을 구별한다.
+- artifact 출처·대상·범위·작업 ID의 신뢰 바인딩을 구현한다. age 복호화 성공만으로 출처가 인증된 것은 아니다.
+- 복호화는 완전한 인증 후에만 적용 가능하다. 제한·비동기화·저장소 외부 스테이징을 세 호스트에서 검증한다.
+- 환경변수/제한 파일/ZIP의 기존 키 공급자를 재사용하고 목적이 다른 서비스 비밀 참조는 별도 포트로 구현한다.
+- 잘린 소스·암호화 종료 실패·목적지 full·취소·경합·rename/동기화 실패·출처 변조를 주입한다.
+
+완료: 합성 자료의 캡처→암호문 저장→완전 인증→검사 흐름이 실제 host/transport 어댑터에서 동작한다.
+기준 라우터 자료 수집이나 실제 키/Vault 사용은 이 단계의 개발 시험에 필요하지 않다.
+
+### P4: 하나의 변경을 끝까지
+
+첫 후보는 SYS-02의 검토된 단일 비밀 아닌 scalar다. 정확한 옵션과 서비스 영향은 P2에서 확정한다.
+호스트 이름 변경도 전체 system reload가 처리하는 다른 설정의 영향까지 검토해야 한다.
+
+- plan ID는 대상·부팅 세대·프로필·기준 상태·효과·만료에 묶는다. 익명 섹션 인덱스만으로 대상을 고정하지 않는다.
+- 장치 접수 후 foreign pending/drift/보호 자원/저장공간을 재검사한다.
+- 암호문 백업 완료 및 요구된 복구 프로필 준비 확인 전에는 설정을 쓰지 않는다.
+- apply와 confirm을 구분하고, 확인 직전 구성과 실제 동작을 새로 관찰한다.
+- SSH 끊김·호스트 crash·guardian/rpcd 재시작·기한 경과·중복 요청·confirm 경합을 주입한다.
+- 프로세스 메모리에만 있는 임시 복구는 연구/실험 프로필로만 표시한다. 재부팅/전원 손실 복구 요구를 충족한 것으로 계산하지 않는다.
+- 에뮬레이터에서 이전 상태로 복구된 것을 확인하고, 상태 불명/복구 실패도 정상적으로 보고되는지 시험한다.
+
+완료: 재사용 가능한 첫 종단 간 변경 경로. 다른 패키지/서비스에도 안전하다는 자동 승인으로 확대하지 않는다.
+
+### P5~P8: 공통 흐름을 기능군에 적용
+
+각 작업 묶음은 `읽기 계약 보완 + 변경 의도 + 효과 + 사후조건 + 복구 + 버전 시험 + MCP 권한 시험`을 한 세트로 한다.
+
+- P5: 단순 시스템/관리 서비스부터. 로그·프로세스 조회는 선택 필드 모델을 먼저 정해 비밀 포함 원문을 반환하지 않는다.
+- P6: 인터페이스/zone/DNS 참조를 통합하고 create/update/delete/list/order 등의 하위 동작을 빠짐없이 대응한다.
+- P6: 전역 network/firewall/멀티캐스트 작업은 lan3를 문자열로 참조하지 않아도 영향을 계산한다. 보호 정책에 막히는 동작을 자동 허용하지 않는다.
+- P7: 무선 보안·MLO·WireGuard/Tailscale을 독립 프로필로 구현한다. 기존 보드의 radio/boot 지원은 QEMU로 대체 검증할 수 없다.
+- P8: 기준에 기록된 adblock/ACME/Avahi/nginx/Samba/Tailscale부터 처리하고 선택 패키지로 확장한다.
+- P8: 계정·cron·hotplug·고급 설정은 범용 파일/셸 편집이 아니다. 지원 템플릿/옵션을 명세하고 임의 스크립트 요구는 운영자 확장으로 분리한다.
+- 임의 미래 패키지 때문에 현재 프로필 전체성 판정이 끝없이 변하지 않도록 프로필 인벤토리를 버전 고정한다. 프로필 밖 패키지는 명시적 후속 범위로 추적한다.
+
+완료: 기능 ID 하나씩 적용 가능한 하위 동작을 닫는다. 모듈 추가 또는 일부 조회만으로 기능군 완료를 표시하지 않는다.
+
+### P9~P10: 비가역 효과를 가진 관리
+
+- package manager별 계획/의존 해석/저장소 검증/스크립트 영향과 재접속 조정을 구현한다.
+- 파일·마운트·swap·extroot는 사용 중 자원, 루트 파일시스템, 보호 서비스, 데이터 보관 범위를 먼저 검증한다.
+- format/resize/partition/flash는 구성 백업만으로 사용자 데이터까지 복구된다고 주장하지 않는다.
+- firmware 획득 신뢰와 보드 호환성 검사를 분리하고 동일한 승인 image를 다시 확인한 뒤 한 번만 제출한다.
+- 공장 초기화·부팅 매체 전환·bootloader/calibration 작업은 각기 별도 보드 계약과 명시적인 유지보수 승인 조건을 가진다.
+- 패키지 downgrade, 기존 설정 복원, alternate slot 전환을 모든 실패의 범용 역연산으로 취급하지 않는다.
+- 실제 power-loss/failed-boot 시험은 복구 가능한 전용 장치와 별도 승인 후에만 한다. 일상 사용 라우터를 임의로 파괴 시험하지 않는다.
+
+완료: 성공뿐 아니라 중단·부분 적용·비가역성·지원하지 못하는 복구 조건까지 정확히 표시한다.
+
+### P11: 검증 범위를 합쳐 최종 판정
+
+- Windows GNU/MSVC, Linux, macOS에서 공통 기능과 선택한 네이티브 기능을 실제 실행한다.
+- Vault는 사용 가능한 환경에서 사용자 해제/잠김/동기화·hydration/경합 조건을 검증한다. 확인할 수 없는 환경은 대체 추정하지 않는다.
+- 기준 APK, 이전 opkg, 다른 패키지/driver/ACL/미설치/unknown 변형의 프로필 시험을 수행한다.
+- 실제 OpenWrt SDK/musl로 대상 바이너리/패키지를 만들고 procd lifecycle·설치/제거·최소 권한을 검증한다.
+- 소비 메모리·CPU·정규화/스키마 크기·연결 재사용·오류 후 자원 회수·사용 편의를 측정한다.
+- 보안/의존성/라이선스/SBOM·배포 아티팩트 검증과 문서 정합성을 확인한다.
+- BPI-R4의 포트/DSA/SFP/Wi-Fi/MLO/저장장치/boot 및 lan3 보호 불변식을 별도 수락한다.
+- 표면 대장을 다시 대조해 적용 가능한 미구현/미확인 표면이 0개인지 확인한다. 해당 없음은 근거를 남긴다.
+
+완료: 특정 버전 프로필에 한해 전체 지원을 선언할 수 있다. 테스트 통과만으로 공개 push/릴리스 권한이 생기지 않는다.
+
+## 4. Rust 소유권과 디렉터리 배치
+
+현재 12개 crate의 역할은 유지한다. 아래 새 하위 모듈/장치 패키지 이름은 **배치 후보**이며
+현재 machine contract가 이미 허용했다는 뜻이 아니다. 새 consumer·trait·dependency는 P2 및 후속 ADR에서 확정한다.
+
+| 소유 영역 | 배치 / 책임 | 금지하는 편의 구현 |
 | --- | --- | --- |
-| Foundation v2-v4 | Policy/dispatcher/MCP, ten initial conservative reads, age/key sources, explicit local/SSH targets, host platform separation, architecture harness | Implemented; historical milestone had 192 Linux-on-WSL tests; native-host and device acceptance incomplete |
-| Reference inventory | Live safe software identity and management metadata, compared with official release/package source evidence | Initial selected metadata recorded; full family closure remains; see reference-target.md |
-| v5 capability architecture | Typed bounded probes, operation prerequisites, target/auth-bound expiring observations, policy/availability/evidence separation, variant handling, harness rejection tests | Architecture-only full gate passed (208 tests, including four non-behavior scaffold checks); checkpoint precedes implementation |
-| Capability implementation | Local/SSH probes on the same selected target, strict parsers, offline CLI preservation, existing tool gating, operator-visible safe support status | Implemented; historical v5 full gate passed with 260 distinct Linux-on-WSL tests; native-host acceptance remains |
-| v6 bounded read architecture | Finite typed projections, bound local selectors, duplicate-rejecting response parser, global row/byte limits and five mandatory native suites | Architecture-only checkpoint eccd3e7 passed with 272 tests (51 harness, five declaration scaffolds), before functional work |
-| First v6 typed read increment | network_interfaces, network_interface_status.v2, wireless_devices, service_status, service_status_list; shared decoder/projection/MCP result boundaries | Implemented; full Linux-on-WSL gate passes 347 tests; fourteen total reads, five typed contracts. See collection-read-contracts.md and validation.md |
-| Native Windows common path | GNU native build, policy/age/key-source/SSH/MCP fixtures and actual binary stdio; no WSL substitution | Full native gate passes 315 distinct tests after a test-only SystemRoot fix; MSVC/macOS and protected file/Vault facilities remain pending. See windows-validation.md |
-| Passive wireless observations | Station list/exact local selection and driver-reported countries; no active scan, mutation or raw configuration | Implemented within v6; 17 reads/eight typed contracts. Ten additional host/MCP regressions pass; no radio acceptance. See wireless-observation-contracts.md |
-| v7 APK observation pagination | Bounded complete query capture, explicit source scope and private expiring pages | Architecture checkpoint 0521c7c preceded implementation; 18 total reads, 387 Linux-on-WSL / 355 native Windows GNU tests. APK-visible non-atomic scope, not whole-device inventory. See package-observations.md |
-| v14 opkg root-status observation | Exact no-initialization version/file recipe; strict bounded parser, opaque status and shared APK/opkg snapshot | Architecture-only 2233f3e passed both full gates before behavior. Implementation gates pass 450 native Windows GNU / 471 Linux-on-WSL tests, zero ignored, 82 harness regressions. Catalog 51 reads; no manager fallback, health inference or mutation. See opkg-observations.md |
-| v8 Windows protected reads | Local NTFS handle-relative config/key reads, conservative owner/DACL checks, volume/name/link validation, independent read/log capabilities | Architecture-only 9c0117f validated before implementation; native synthetic files and exact ZIP custody composition pass. Personal Vault, file logging and macOS protection remain separate gaps. See windows-protected-files.md |
-| Broader typed read coverage | Additional network/wireless/service surfaces plus packages, storage, DNS/DHCP, VPN, firewall and system/diagnostics | Planned; individual contracts/evidence required; existing bounded profiles do not prove coverage of a family |
-| v9 LuCI/storage observations | Two additional exact object descriptions; scoped mount/block/swap metadata in unchanged typed response owners | Architecture-only acf6532 passed both host gates before behavior. Two storage reads brought the catalog to 20; synthetic acceptance, no hardware/emulated storage claim |
-| v10 DHCP/finite observation responses | Ordered duplicate-preserving rows, false/integer sentinels and root error guards; fixed IPv4/IPv6 lease reads | Architecture-only 4040ce3 passed both host gates before behavior. Two DHCP reads bring the catalog to 22; storage contracts become v2. No complete lease/DNS, emulator or hardware claim. See dhcp-observations.md |
-| Interface IP observations within v10 | Exact local selection of netifd address/route/managed-neighbor and DNS/search lists | Four additional typed reads, 26 total tools. Existing owners/bounds only; no kernel inventory, active discovery or mutation claim. See interface-ip-observations.md |
-| Isolated OpenWrt acceptance | Official 25.12.5 ARM64 QEMU userspace, then an opkg-family release and variant/negative fixtures | v6 passed twelve reads and two explicit unavailable cases; separate v7 capture enumerated 205 records in 13 pages with replay/refresh checks. See emulator-validation-v6.md and emulator-validation-v7.md. Broader coverage and opkg-family acceptance remain |
-| Mutation architecture | Device-owned transaction/recovery authority, encrypted streaming backups, guarded plans, protected-resource graph, secret references, explicit uncertainty | Proposed separately in management-workflows.md; not implemented |
-| v15 pure protected-resource analysis | Typed immutable supplied graphs, before/after influence union, bounded cycle-safe closure, safe count-only result | Architecture-only 8adc327 passed both full host gates before behavior (455 native Windows GNU / 476 Linux-on-WSL tests, 87 harness regressions). Fifteen new graph tests exercise 3,584 small reference models and maximum bounds; implementation gates pass 470 native / 491 Linux-on-WSL tests, zero ignored. Internal predicate only; no live graph, production consumer, mutation authority or new MCP tool. See protected-resource-effects.md |
-| Typed mutation coverage | UCI, service lifecycle, package management, storage, VPN, DNS/firewall/network/wireless, credentials, firmware/recovery | Planned; no generic shortcut around transaction/authorization requirements |
-| v16 supplied archive validation | Incremental regular-only tar framing, exact path/size manifests, all members once, zeroizing headers/names and no payload retention | Architecture-only 6c3e256 passed both gates before behavior (475 native / 496 Linux-on-WSL, 92 harness). Fifteen new tests and eight independent host producer/validator combinations pass; full implementation gates 490 / 511, zero ignored. No capture, gzip, crypto pipeline, publication, extraction or production consumer. See backup-archive-validation.md |
-| v19 Windows private logs | Private-at-creation DACL, append-only file access, validated handle-relative bounded rotation and terminal failure | Implemented after architecture-only f3059d3 (formerly 15dae37); native files and actual MCP binary synthetic evidence. See windows-private-logs.md; no Vault/system-log/durability claim |
-| Full host facilities | Native Windows/macOS system-log destinations, macOS protected files/private logs, optional actual Vault integration, native OS acceptance | Windows protected reads and private rotating files implemented under v8/v19; remaining facilities stay explicitly unsupported |
-| v17 bounded gzip archive validation | One complete gzip member, bounded optional metadata/inflate/ratio, unchanged inner manifest validation | Architecture-only e72e685 passed both full gates before behavior (495 native / 516 Linux-on-WSL, 97 harness). Fifteen new tests, eight positive and four expected-negative producer/validator combinations pass; full implementation gates 510 / 531, zero ignored. No application consumer, backup capture, crypto/publication or restoration. See gzip-archive-validation.md |
-| Completion/release assessment | Coverage gaps closed for recorded reference, variant handling verified, native-host evidence, resource measurements, security/license review | Not complete; external publication and live destructive tests require separate authority |
-| v18 supplied-stream sealing | Full-input/producer/checker/cipher accounting, bounded streaming, trusted private stage publication and truthful cleanup/uncertainty | Architecture-only 47cf2e4 passed 515 native / 536 Linux-on-WSL tests before implementation. Full gates pass 546 / 567, zero ignored, 102 harness; 26 runtime and five actual age/gzip fixture tests added. No production consumer, real capture/store, restore or mutation tool. See validated-archive-sealing.md |
+| core | 기존 `core/src/management`, 필요 시 하위 intent/plan/state/effects | OS/I/O·crypto·JSON 비밀·실제 장치 상태를 순수 모델에 혼합 |
+| features | `features/src/categories/<category>/`의 조회/설정/실행/검증 정의 | 버전 탐색·프로세스·UCI 세션 제어·권한 변경 |
+| runtime | `runtime/src/management/` 후보, 기존 protection/sealing 역할 분리 | 파일·네트워크 직접 접근, 정책/감사 없는 별도 실행기 |
+| device-codec | 관리 프로필별 고정 인코딩·bounded parser | 원격 I/O, 동적으로 발견한 명령 실행 |
+| adapters / backend-ssh | 같은 포트의 로컬/원격 구현, 승인된 binary/job 채널 | Windows 호스트에서 router 프로그램 실행, JSON에 backup/secret 삽입 |
+| host-platform | Windows/Linux/macOS의 목적별 private staging/store/ACL | POSIX mode를 macOS ACL로 대체, 일반 파일을 Vault로 선언 |
+| key-sources / crypto-age | 위치/컨테이너와 암호 공급자 독립 유지 | 서로 의존, 서비스 비밀을 암호화 키 타입에 무리하게 혼합 |
+| mcp / server | 안전한 요청/상태 매핑 / 운영자 설정·조립 | 프로토콜이 파일/장치 실행·복구 권한 선택을 직접 수행 |
+| 장치 guardian 후보 | 명시적으로 설치한 OpenWrt 측 접수/저널/복구 | 자동 배포, 임의 command API, 호스트 권한의 무제한 대리 |
+| xtask / tests | 경계·명세 추적·버전 진화와 독립 행동/장애 시험 | 실패 무시·테스트 제외·생산 정의에서 정답 자동 생성 |
 
-## Reference management families
+새 wrapper 하나를 추가할 때마다 crate를 만들지 않는다. 새로운 신뢰/I/O/배포 경계가 있을 때만 별도 crate를 검토한다.
+카테고리별로 복구 엔진을 복제하지 않고, 그 카테고리의 검증/복구 전략만 명확한 타입 계약으로 제공한다.
 
-Latest configuration milestone: v11/v12 established six closed UCI recipes and bounded string/list representation. Architecture-only v13 checkpoint `fe677cb` expands that exact allowlist to 24 before behavior. Eighteen additional [base-service views](base-uci-observations.md) bring the catalog to 50 reads/40 typed contracts. Full gates pass 433 native Windows GNU / 454 Linux-on-WSL tests, zero ignored, with 79 harness regressions counted once. [Scoped v13 emulator evidence](emulator-validation-v13.md) covers fixed pending RAM fixtures, not configuration application or hardware. Broader reads, mutation/backup/recovery, variant and remaining host-facility milestones are still active gaps.
+## 5. 검증 묶음과 증거의 승격
 
-System identity/time/NTP/LEDs/accounts/SSH/web management; interface/device/bridge/DSA/VLAN/address/route/protocol management; wireless radio/BSS/security/client/channel management; firewall zones/rules/NAT/sets/effective rules; DNS/DHCP/RA/leases; services/startup/cron; package inventories/repositories/signing/install/remove; storage/mount/swap/filesystems/shares; WireGuard and installed VPN providers; firmware/image provenance/backup/restore/reset/recovery; logs/processes/connectivity and active diagnostics; installed add-on services such as adblock, ACME, Avahi, Samba, nginx and Tailscale.
+| 시험 묶음 | 언제 | 요구 결과 |
+| --- | --- | --- |
+| 경계/명세 | 새 설계·모든 커밋 | 소유권/의존/버전/ID/계약 참조 정합성, 권한 우회 부정 사례 |
+| 도메인/codec | 각 계약 구현 | 타입·중복·빈 값·잘못된 형식·overflow·미지원 버전, 독립 기대값 |
+| runtime/MCP | 각 작업 묶음 | 재인가·audit·deadline·동시성·캐시/페이지·실제 프로토콜 오류/비밀 차단 |
+| 실제 host adapter | 관련 파일/네트워크 구현 | ACL·링크·경합·끊김·저장 실패·시간 초과·유니코드 |
+| 격리 OpenWrt | P3 이후 매 기능군 | 실제 버전 API/프로세스/설정·읽기/적용/확인/복구, 장치 신뢰 조건 |
+| 실기기 | 별도 승인 후 | hardware/driver/boot·보호 서비스·대역외 복구, 실제 사후 상태 |
+| 최종 품질 | 매 증분 측정 + P11 | 성능/장기 실행/보안 검토/배포·전체 기능 대장 폐쇄 |
 
-Optional OpenVPN/strongSwan/pbr/mwan3/SQM and other variants need detected packages and reviewed contracts; this list does not assert they are installed on the reference router. Active scans/ping, package lifecycle scripts and arbitrary startup scripts must not inherit a harmless read classification from a UI or upstream ACL label.
+모든 단계에서 [변경 설계안의 장애 표](management-workflows.md)의 관련 행을 실행한다.
+위험한 테스트를 실행할 수 없으면 증거 공백을 남긴다. emulator/fixture 결과로 조용히 대체하지 않는다.
 
-## Working safeguards
+자원 수락 목표는 기존 [제품 요구사항](requirements.md)을 따른다:
+기준 aarch64 OpenWrt에서 stripped binary 10 MiB 이하, idle RSS 16 MiB 이하,
+60초 idle CPU 1% 미만, 1,000개 연산 정책 검사 p95 100µs 이하,
+장치 I/O 제외 dispatcher p95 2ms 이하. 아직 목표이며 달성 주장이 아니다.
+호스트·장치 guardian·최대 작업 peak RSS/CPU는 따로 계측하고 합산 비용도 기록한다.
+새 helper의 별도 자원 상한은 P2에서 수치로 확정해야 하며, 기존 한도를 조용히 늘려 맞추지 않는다.
 
-- Use synthetic keys and fake/isolated targets for development; never copy actual identities or Vault archives into the repository.
-- Read-only reference queries may collect selected public software metadata, never raw network/wireless settings, credentials, QR data, MACs or decrypted backups.
-- Preserve KT IPTV's lan3 and its indirect dependencies; no live network/service/package/firmware changes in this development work.
-- Keep implementation, target availability, permission and validation status as separate facts.
-- Run the full repository gate before commits; retain checkpoints and evidence. No public push or complete-goal claim while required work remains.
+측정에는 하드웨어/OS/OpenWrt/패키지/Rust/빌드 플래그/카탈로그·입력 크기/반복 횟수를 남긴다.
+warm/cold·성공/실패·작은/최대 입력을 분리한다. 최적화는 관찰된 병목에만 적용한다.
+
+## 6. 효율적인 작업 관리
+
+작업 단위는 `기능 ID + 지원 프로필 + R/W/X/V/B 하위 동작 + 계약 버전`이다.
+행 156개는 크기가 다르므로 단순 완료 행 비율이나 도구 개수로 전체 공수를 나타내지 않는다.
+
+- 동시에 변경 중인 공통 아키텍처 경계는 하나로 제한한다. 계약 동결 후 독립 기능군/플랫폼 시험을 진행한다.
+- 기능 묶음의 완료 없이 조회만 계속 추가하거나 인프라만 계속 세분화하지 않는다. P4의 첫 전체 흐름을 우선한다.
+- 우선순위: 다른 작업을 여는 의존성 → 보안/복구 위험 → 기준 장치 사용 빈도 → 재사용 효과 → 선택 변형.
+- 각 묶음 종료 시 `행동 구현 / 필요한 증거 / 플랫폼·프로필 공백 / 다음 작업 / 결정 대기`를 갱신한다.
+- 새 요구는 먼저 해당 ID에 하위 표면을 추가하거나 새 ID를 부여하고 영향/소유권/하네스 변경 여부를 판단한다.
+- 일정 추정은 묶음별 실제 처리량과 남은 하위 계약 수로 갱신한다. 승인·하드웨어 대기 시간은 구현 시간과 분리한다.
+- `tools/Test-Repository.ps1`를 커밋 전에 통과시키며 architecture-only와 기능 커밋을 분리한다.
+- Conventional Commits를 사용한다. 예: `docs(architecture): define guarded mutation contracts`, `feat(system): add guarded hostname workflow`.
+- 미래 추적 footer 예: `Feature: SYS-02, TXN-01, TXN-08`. 이 footer는 작업 추적 제안이지 현재 자동 하네스 기능이 아니다.
+
+## 7. 결정·외부 의존 대장
+
+현재 문서 작업은 아래 선택이 없어도 끝낼 수 있다. 선택이 필요한 기능 구현/실기기 배포 전에 결정한다.
+불명확한 항목을 임의로 결정하거나 안전성을 낮춰 진행하지 않는다. 독립적인 명세·합성 시험·조회 보완은 계속 가능하다.
+
+| 결정 | 확정 시점 | 필요한 내용 / 미확정일 때 |
+| --- | --- | --- |
+| D1 첫 변경 프로필 | P2 전 | SYS-02의 정확한 scalar·서비스 효과·대상 식별·검증, 후보를 실기기 변경 승인으로 보지 않음 |
+| D2 장치 실행 접수/독점 구간 | P2 전 | LuCI/CLI 동시 변경 정책, guardian 인증/권한/배포, 외부 root writer의 격리 한계 |
+| D3 내구성·복구 권한 | P2~P4 전 | 별도 장치 복구 키/권한·부팅 복구·저장 실패 시 보장, archival identity 라우터 보관은 선택하지 않음 |
+| D4 암호문·스테이징 위치 | P3 실제 운영 연결 전 | 각 호스트의 승인 경로/저장소·보존·내구성·원자적 공개, 개인 Vault/키는 개발에 사용하지 않음 |
+| D5 지원 프로필 목록 | P1 및 각 릴리스 | 기준 package/API/driver inventory, 이전 opkg와 선택 변형; 미관찰=미확인 |
+| D6 네이티브/하드웨어 시험 환경 | 해당 수락 전 | macOS/MSVC, 무선/SFP/boot media, 복구 가능한 별도 장치·대역외 접속 |
+| D7 외부 시스템 권한 | 해당 ADD/VPN 동작 전 | Tailscale control plane·DNS API·CA·저장소 등, 라우터 권한과 별도 |
+| D8 배포·공개·파괴적 시험 | 실행 직전 | 운영자 명시적 승인·검증된 백업·복구 계획. 저장소 commit은 push나 라우터 변경 승인이 아님 |
+
+## 8. 다음 실행 묶음과 완료 보고
+
+P0 문서 검증: 156개 기능 ID의 중복 없음, 12개 단계 참조, 내부 파일 링크,
+기존 계획 원문 보존을 확인했다. 대상 미설정·읽기 권한의 오프라인 실행 파일 catalog와
+기준선의 51개 도구 이름이 정확히 일치한다. 실제 장치 접속이나 새 기능 실행 검증은 아니다.
+
+다음 개발은 P1에서 시작한다.
+
+1. 현재 51개 도구 대응표를 실행 파일과 대조하고, 관리 표면 대장 스키마와 상태/증거 규칙을 확정한다.
+2. 이미 설계가 승인된 v20 조회 네 가지의 기능 정의·독립 필드/bounds·MCP 권한/감사 시험을 구현한다.
+3. P4 첫 변경에 필요한 관찰/효과/복구 의존 목록과 P2 결정 초안을 준비한다.
+4. 네이티브 및 Linux 전체 검증 후 Conventional Commit으로 기능 묶음을 저장한다. 새 단계는 진척 증거와 함께 보고한다.
+
+제품의 최종 완료는 P11의 프로필별 수락 조건으로 판단한다.
+현재 이 계획을 작성했다고 변경 기능, 네 가지 v20 조회, 전체 기능 또는 실기기 검증이 완료된 것은 아니다.

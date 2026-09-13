@@ -1,5 +1,13 @@
 # Product requirements
 
+The [comprehensive management feature specification](management-feature-spec.md)
+defines the target backlog with stable feature IDs, per-profile completeness,
+permission/effect rules and acceptance criteria. The [staged implementation plan](implementation-plan.md)
+defines dependencies and delivery gates; previous milestone records are preserved
+in [implementation history](implementation-history.md). These planning documents
+do not admit new production consumers, operations or dependencies under v20.
+Each future boundary still requires a validated architecture-only checkpoint.
+
 Architecture v20 requires four additional parameterless closed UCI observations:
 system/led, dropbear/dropbear and uhttpd/uhttpd under System.Read, dhcp/odhcpd under
 DhcpDns.Read. Select only reviewed bounded scalar/text-list configuration fields;

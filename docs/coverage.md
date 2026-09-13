@@ -1,5 +1,11 @@
 # Capability coverage
 
+The [full feature specification](management-feature-spec.md) records the target
+backlog and maps all 51 current built-in reads to stable feature IDs. Use the
+[staged plan](implementation-plan.md) for future work. The current v20 checkpoint
+adds only architecture/harness for four more UCI recipes; those four operations
+are not implemented. The milestones below retain their scoped implementation evidence.
+
 The v19 [Windows private log profile](windows-private-logs.md) implements protected
 append/rotation through the existing audit configuration. Native synthetic files
 and actual MCP binary composition have scoped evidence. This adds no router tool,
