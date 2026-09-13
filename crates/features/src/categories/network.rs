@@ -1,6 +1,6 @@
 mod observations;
 
-use crate::definition::{argument, read};
+use crate::definition::{argument, read, uci_read};
 use openwrt_mcp_core::{
     Category, Collection, InnerRecord, Operation, OutputMode, Parameter, ParameterKind, Presence,
     SAFE_INTEGER_MAX, ScalarField, ScalarKind, Selection, TypedProjection,
@@ -58,6 +58,22 @@ pub(crate) fn operations() -> Vec<Operation> {
         "/metric",
     ];
     vec![
+        uci_read(
+            "network_interface_configuration",
+            openwrt_mcp_core::uci::UciReadProfile::NetworkInterfaces,
+            &[
+                ("proto", 64),
+                ("device", 256),
+                ("mtu", 32),
+                ("metric", 32),
+                ("auto", 8),
+                ("defaultroute", 8),
+                ("peerdns", 8),
+                ("delegate", 8),
+                ("ip4table", 64),
+                ("ip6table", 64),
+            ],
+        ),
         device,
         read(
             "network_lan_status",

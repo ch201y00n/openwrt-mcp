@@ -1,4 +1,5 @@
 //! Pure synthetic v6 acceptance. No device, keys or host exclusions.
+mod text_enum;
 use openwrt_mcp_core::{
     Catalog, CoreError, MAX_NORMALIZED_BYTES, Operation, OutputMode, PreparedAction,
     SAFE_INTEGER_MAX, TypedProjection, check_normalized_result,

@@ -40,6 +40,11 @@ impl Catalog {
             return Err(CoreError::DuplicateOperation);
         }
         for mut operation in custom {
+            // Introspection of uci must not grant operator extensions a raw
+            // configuration/credential or mutation path, even when privileged.
+            if matches!(&operation.action, crate::Action::Ubus { object, .. } if object == "uci") {
+                return Err(CoreError::InvalidDefinition);
+            }
             if !names.insert(operation.name.clone()) {
                 return Err(CoreError::DuplicateOperation);
             }

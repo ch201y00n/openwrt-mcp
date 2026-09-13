@@ -13,6 +13,7 @@ pub fn builtins() -> Vec<Operation> {
     operations.extend(categories::packages::operations());
     operations.extend(categories::storage::operations());
     operations.extend(categories::dhcp_dns::operations());
+    operations.extend(categories::firewall::operations());
     operations
 }
 

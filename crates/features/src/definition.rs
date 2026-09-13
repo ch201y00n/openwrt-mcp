@@ -111,3 +111,83 @@ pub(crate) fn interface_observation(
     }));
     operation
 }
+
+/// Assemble one closed recipe. Category modules own their reviewed scalar fields.
+pub(crate) fn uci_read(
+    name: &str,
+    profile: openwrt_mcp_core::uci::UciReadProfile,
+    options: &[(&str, usize)],
+) -> Operation {
+    let mut operation = read(
+        name,
+        "Read selected non-secret scalar UCI options and section metadata. Sessionless shared-delta, non-atomic view; not committed-only or effective service state. Option values remain text; lists are not coerced. Section names/indices are not durable mutation handles. No configuration changes.",
+        profile.category(),
+        "uci",
+        "get",
+        &format!("{name}.v1"),
+        &[],
+    );
+    argument(
+        &mut operation,
+        "config",
+        ParameterKind::String,
+        Value::from(profile.config()),
+    );
+    argument(
+        &mut operation,
+        "type",
+        ParameterKind::String,
+        Value::from(profile.section_type()),
+    );
+    let mut fields = vec![
+        ScalarField {
+            name: "section_type".into(),
+            source: "/.type".into(),
+            presence: Presence::Required,
+            value: ScalarKind::TextEnum {
+                max_bytes: 16,
+                values: vec![profile.section_type().into()],
+            },
+        },
+        ScalarField {
+            name: "anonymous".into(),
+            source: "/.anonymous".into(),
+            presence: Presence::Required,
+            value: ScalarKind::Boolean {},
+        },
+        ScalarField {
+            name: "index".into(),
+            source: "/.index".into(),
+            presence: Presence::Required,
+            value: ScalarKind::SafeInteger {
+                min: 0,
+                max: u32::MAX.into(),
+            },
+        },
+    ];
+    fields.extend(options.iter().map(|(name, max_bytes)| ScalarField {
+        name: (*name).into(),
+        source: format!("/{name}"),
+        presence: Presence::Optional,
+        value: ScalarKind::Text {
+            max_bytes: *max_bytes,
+        },
+    }));
+    operation.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec!["/error".into()],
+        collection: Collection::ObjectEntries {
+            source: "/values".into(),
+            max_items: 128,
+            key: openwrt_mcp_core::TextIdentity {
+                name: "section".into(),
+                max_bytes: 256,
+            },
+            record: InnerRecord {
+                fields,
+                collections: vec![],
+            },
+        },
+        selection: Selection::All {},
+    }));
+    operation
+}

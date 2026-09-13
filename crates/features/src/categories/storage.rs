@@ -1,12 +1,28 @@
 //! LuCI-visible storage observations, not complete device inventories.
-use crate::definition::read;
+use crate::definition::{read, uci_read};
 use openwrt_mcp_core::{
     Category, Collection, CounterSource, InnerRecord, Operation, OutputMode, Presence, ScalarField,
     ScalarKind, Selection, TextIdentity, TypedProjection,
 };
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![mounts(), block_devices()]
+    vec![
+        mounts(),
+        block_devices(),
+        uci_read(
+            "storage_mount_configuration",
+            openwrt_mcp_core::uci::UciReadProfile::Mounts,
+            &[
+                ("device", 1024),
+                ("uuid", 256),
+                ("label", 256),
+                ("target", 1024),
+                ("fstype", 64),
+                ("enabled", 8),
+                ("enabled_fsck", 8),
+            ],
+        ),
+    ]
 }
 
 fn text(name: &str, source: &str, max_bytes: usize, presence: Presence) -> ScalarField {

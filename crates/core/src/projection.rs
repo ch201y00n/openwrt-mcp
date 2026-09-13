@@ -22,6 +22,7 @@ pub const MAX_COLLECTION_ITEMS: usize = 256;
 pub const MAX_COLLECTION_NODES: usize = 8;
 pub const MAX_RECORD_FIELDS: usize = 64;
 pub const MAX_TEXT_BYTES: usize = 1024;
+pub const MAX_TEXT_ENUM_VALUES: usize = 16;
 const MAX_SCHEMA_DEPTH: usize = 8;
 const MAX_POINTER_DEPTH: usize = 8;
 const MAX_POINTER_BYTES: usize = 512;
@@ -45,10 +46,24 @@ pub enum CounterSource {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ScalarKind {
     Boolean {},
-    Text { max_bytes: usize },
-    SafeInteger { min: i64, max: i64 },
-    FalseOrSafeInteger { min: i64, max: i64 },
-    DecimalCounter { source: CounterSource },
+    Text {
+        max_bytes: usize,
+    },
+    TextEnum {
+        max_bytes: usize,
+        values: Vec<String>,
+    },
+    SafeInteger {
+        min: i64,
+        max: i64,
+    },
+    FalseOrSafeInteger {
+        min: i64,
+        max: i64,
+    },
+    DecimalCounter {
+        source: CounterSource,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -203,6 +218,12 @@ impl ScalarKind {
         let valid = match self {
             Self::Boolean {} | Self::DecimalCounter { .. } => true,
             Self::Text { max_bytes } => (1..=MAX_TEXT_BYTES).contains(max_bytes),
+            Self::TextEnum { max_bytes, values } => {
+                (1..=MAX_TEXT_BYTES).contains(max_bytes)
+                    && (1..=MAX_TEXT_ENUM_VALUES).contains(&values.len())
+                    && values.iter().all(|value| valid_identity(value, *max_bytes))
+                    && values.iter().collect::<BTreeSet<_>>().len() == values.len()
+            }
             Self::SafeInteger { min, max } | Self::FalseOrSafeInteger { min, max } => {
                 min <= max && *min >= -SAFE_INTEGER_MAX && *max <= SAFE_INTEGER_MAX
             }

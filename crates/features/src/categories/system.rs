@@ -1,8 +1,13 @@
-use crate::definition::read;
+use crate::definition::{read, uci_read};
 use openwrt_mcp_core::{Category, Operation};
 
 pub(crate) fn operations() -> Vec<Operation> {
     vec![
+        uci_read(
+            "system_configuration",
+            openwrt_mcp_core::uci::UciReadProfile::System,
+            &[("hostname", 256), ("timezone", 256), ("zonename", 256)],
+        ),
         read(
             "system_board",
             "Read selected board and OpenWrt release identifiers.",

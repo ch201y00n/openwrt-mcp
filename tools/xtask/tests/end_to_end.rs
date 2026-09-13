@@ -836,6 +836,20 @@ fn assembled_v10_gate_requires_finite_observation_and_guard_contracts() {
 
 #[test]
 fn assembled_v11_gate_requires_closed_uci_admission_and_exact_text_enums() {
+    let old_fixture = Fixture::new();
+    old_fixture.capability_checkpoint(10);
+    let old_source = fs::read_to_string(old_fixture.root.join("architecture/spec.toml")).unwrap();
+    let mut old: toml::Value = toml::from_str(&old_source).unwrap();
+    old["projection_contract"]
+        .as_table_mut()
+        .unwrap()
+        .insert("text_enums".into(), "exact_finite_no_coercion".into());
+    old["projection_contract"]
+        .as_table_mut()
+        .unwrap()
+        .insert("max_text_enum_values".into(), 16.into());
+    old_fixture.write("architecture/spec.toml", &toml::to_string(&old).unwrap());
+    old_fixture.denied("text enum expansion");
     let fixture = Fixture::new();
     fixture.capability_checkpoint(11);
     xtask::architecture(&fixture.root, None).unwrap();

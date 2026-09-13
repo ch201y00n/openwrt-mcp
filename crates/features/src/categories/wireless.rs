@@ -1,6 +1,6 @@
 mod observations;
 
-use crate::definition::{argument, read};
+use crate::definition::{argument, read, uci_read};
 use openwrt_mcp_core::{
     Category, Collection, Operation, OutputMode, Parameter, ParameterKind, ScalarKind, Selection,
     TypedProjection,
@@ -64,7 +64,25 @@ pub(crate) fn operations() -> Vec<Operation> {
         },
         selection: Selection::All {},
     }));
-    let mut operations = vec![radio, devices];
+    let mut operations = vec![
+        radio,
+        devices,
+        uci_read(
+            "wireless_radio_configuration",
+            openwrt_mcp_core::uci::UciReadProfile::WirelessRadios,
+            &[
+                ("type", 64),
+                ("path", 256),
+                ("macaddr", 17),
+                ("disabled", 8),
+                ("country", 8),
+                ("channel", 32),
+                ("htmode", 32),
+                ("band", 16),
+                ("txpower", 32),
+            ],
+        ),
+    ];
     operations.extend(observations::operations());
     operations
 }

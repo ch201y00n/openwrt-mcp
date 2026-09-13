@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+mod uci;
 use openwrt_mcp_core::{
     Access, CAPABILITY_TOOL_NAME, CapabilityObservation, Category, Grant, MethodSignature,
     ObjectObservation, Policy, PreparedAction, ProbeRequest, ReviewedObject, UbusArgumentType,
@@ -38,6 +39,13 @@ impl Backend for RecordingBackend {
             ReviewedObject::Iwinfo => ("info", vec![("device", UbusArgumentType::String)]),
             ReviewedObject::NetworkInterface => ("dump", vec![]),
             ReviewedObject::Luci => ("getMountPoints", vec![]),
+            ReviewedObject::Uci => (
+                "get",
+                vec![
+                    ("config", UbusArgumentType::String),
+                    ("type", UbusArgumentType::String),
+                ],
+            ),
             ReviewedObject::LuciRpc => {
                 ("getDHCPLeases", vec![("family", UbusArgumentType::Integer)])
             }
@@ -497,6 +505,7 @@ fn interface(name: &str) -> Value {
 
 fn network_tools() -> Vec<&'static str> {
     vec![
+        "network_interface_configuration",
         "network_interface_addresses",
         "network_interface_routes",
         "network_interface_neighbors",
@@ -505,6 +514,23 @@ fn network_tools() -> Vec<&'static str> {
         "network_wan_status",
         "network_interface_status",
         "network_interfaces",
+    ]
+}
+
+fn dhcp_tools() -> Vec<&'static str> {
+    vec![
+        "dhcp_v4_leases",
+        "dhcp_v6_leases",
+        "dhcp_interface_dns",
+        "dhcp_dnsmasq_configuration",
+    ]
+}
+
+fn storage_tools() -> Vec<&'static str> {
+    vec![
+        "storage_mounts",
+        "storage_block_devices",
+        "storage_mount_configuration",
     ]
 }
 
@@ -561,7 +587,7 @@ async fn interface_ip_mcp_preserves_scoped_rows_and_never_transmits_the_selector
             visible: if category == Category::Network {
                 network_tools()
             } else {
-                vec!["dhcp_v4_leases", "dhcp_v6_leases", "dhcp_interface_dns"]
+                dhcp_tools()
             },
             arguments: json!({"interface":selected}),
             action: PreparedAction::Ubus {
@@ -702,6 +728,7 @@ fn raw_service() -> Value {
 
 fn wireless_tools() -> Vec<&'static str> {
     vec![
+        "wireless_radio_configuration",
         "wireless_radio_info",
         "wireless_devices",
         "wireless_stations",
@@ -863,7 +890,7 @@ async fn storage_mcp_reads_keep_fixed_calls_typed_capacity_and_payload_free_audi
         check_read_contract(ReadContract {
             name,
             category: Category::Storage,
-            visible: vec!["storage_mounts", "storage_block_devices"],
+            visible: storage_tools(),
             arguments: json!({}),
             action: PreparedAction::Ubus {
                 object: "luci".into(),
@@ -908,7 +935,7 @@ async fn dhcp_mcp_preserves_duplicate_rows_and_false_expiry_without_leaking_priv
         check_read_contract(ReadContract {
             name,
             category: Category::DhcpDns,
-            visible: vec!["dhcp_v4_leases", "dhcp_v6_leases", "dhcp_interface_dns"],
+            visible: dhcp_tools(),
             arguments: json!({}),
             action: PreparedAction::Ubus {
                 object: "luci-rpc".into(),

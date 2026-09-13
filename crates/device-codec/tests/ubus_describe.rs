@@ -31,6 +31,7 @@ fn every_closed_probe_matches_the_reviewed_registry_and_remote_encoding() {
         "service",
         "luci",
         "luci-rpc",
+        "uci",
     ];
     assert_eq!(registry.matches("[[probes]]").count(), objects.len());
     assert_eq!(
@@ -49,7 +50,7 @@ fn every_closed_probe_matches_the_reviewed_registry_and_remote_encoding() {
         );
     }
     assert_eq!(ReviewedObject::ALL.len(), objects.len());
-    for object in ["*", "system;reboot", "uci", "-S", "", "{object}"] {
+    for object in ["*", "system;reboot", "file", "-S", "", "{object}"] {
         assert!(ReviewedObject::from_name(object).is_none());
     }
     assert!(!registry.contains("\"call\""));

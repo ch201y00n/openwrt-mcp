@@ -140,15 +140,8 @@ fn text_enums_require_exact_finite_values_without_projection_downgrades() {
         bad["projection_contract"]["profile"] = profile.into();
         denied(&bad);
     }
-    let mut old = original;
-    old["version"] = 10.into();
-    old["capability_contract"]["probe_profile"] = "base_luci_v2".into();
-    old.as_table_mut().unwrap().remove("uci_read_contract");
-    let error = Contract::parse(&toml::to_string(&old).unwrap())
-        .unwrap()
-        .validate(&root())
-        .unwrap_err();
-    assert!(error.contains("text enum expansion"));
+    // Downgrade rejection is exercised by the assembled v10 fixture with its
+    // own old registry, independent of this checkout's production migration.
 }
 
 #[test]

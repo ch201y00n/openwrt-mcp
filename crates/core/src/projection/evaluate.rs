@@ -56,6 +56,13 @@ impl<'a> Scalar<'a> {
                 }
                 Ok(Self::Text(text))
             }
+            ScalarKind::TextEnum { max_bytes, values } => {
+                let text = value.as_str().ok_or(invalid)?;
+                if !valid_identity(text, *max_bytes) || !values.iter().any(|v| v == text) {
+                    return Err(invalid);
+                }
+                Ok(Self::Text(text))
+            }
             ScalarKind::FalseOrSafeInteger { .. } if value == &Value::Bool(false) => {
                 Ok(Self::Boolean(false))
             }

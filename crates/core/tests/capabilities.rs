@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+mod uci;
 
 use openwrt_mcp_core::{
     Action, CAPABILITY_TOOL_NAME, CapabilityObservation, CapabilityRequirement, Catalog, Category,
@@ -207,6 +208,7 @@ fn probe_registry_is_closed_and_exact_not_a_wildcard_or_parameter() {
         "service",
         "luci",
         "luci-rpc",
+        "uci",
     ];
     assert_eq!(ReviewedObject::ALL.map(ReviewedObject::as_str), expected);
     for object in ReviewedObject::ALL {
@@ -220,7 +222,6 @@ fn probe_registry_is_closed_and_exact_not_a_wildcard_or_parameter() {
         "System",
         "network.*",
         "network.interface.other",
-        "uci",
         "file",
         "{object}",
         "system\n",

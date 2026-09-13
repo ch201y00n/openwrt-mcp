@@ -17,6 +17,60 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
     let expectations = [
         (
+            "system_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
+            "network_interface_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
+            "wireless_radio_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
+            "firewall_defaults_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
+            "dhcp_dnsmasq_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
+            "storage_mount_configuration",
+            ReviewedObject::Uci,
+            "get",
+            vec![
+                ("config", ParameterKind::String),
+                ("type", ParameterKind::String),
+            ],
+        ),
+        (
             "network_interface_addresses",
             ReviewedObject::NetworkInterface,
             "dump",
@@ -220,7 +274,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 26);
+    assert_eq!(operations.len(), 32);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::ApkInstalledPage {}) {

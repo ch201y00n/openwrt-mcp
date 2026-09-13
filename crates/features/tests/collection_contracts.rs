@@ -1,5 +1,6 @@
 //! Synthetic v6 response contracts, not device acceptance or complete visibility.
 mod interface_ip;
+mod uci;
 
 use std::collections::BTreeSet;
 
@@ -200,6 +201,7 @@ fn fixtures() -> Vec<Fixture> {
         },
     ];
     fixtures.extend(interface_ip::fixtures());
+    fixtures.extend(uci::fixtures());
     fixtures
 }
 

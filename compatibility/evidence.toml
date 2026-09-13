@@ -125,3 +125,24 @@ artifacts = ["docs/emulator-validation.md"]
 observed_at = "2026-09-12T20:03:11Z"
 host = "linux"
 environment = "wsl"
+
+[[records]]
+id = "v11-qemu-closed-uci-selected-options"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["system_configuration", "network_interface_configuration", "firewall_defaults_configuration", "dhcp_dnsmasq_configuration"]
+artifacts = ["docs/emulator-validation-v11.md"]
+observed_at = "2026-09-13T10:19:45Z"
+host = "linux"
+environment = "wsl"
+
+# Safe failure only despite matching input signatures; NOT successful reads.
+[[records]]
+id = "v11-qemu-uci-unavailable-calls"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["wireless_radio_configuration", "storage_mount_configuration"]
+artifacts = ["docs/emulator-validation-v11.md"]
+observed_at = "2026-09-13T10:19:45Z"
+host = "linux"
+environment = "wsl"

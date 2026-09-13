@@ -11,9 +11,9 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Twenty-five conservative ubus read operations across system, network, wireless, DHCP/DNS, services, storage and diagnostics; fixed-action operator extensions.
+- Thirty-one conservative ubus read operations across system, network, wireless, firewall, DHCP/DNS, services, storage and diagnostics; fixed-action operator extensions excluding raw UCI.
 - One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
-- Sixteen typed response contracts for bounded interface, wireless, DHCP/DNS, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [interface IP observations](docs/interface-ip-observations.md), [passive wireless contracts](docs/wireless-observation-contracts.md), [DHCP lease observations](docs/dhcp-observations.md) and [scoped storage observations](docs/storage-observations.md).
+- Twenty-two typed response contracts, including six [closed UCI configuration observations](docs/uci-observations.md). Other contracts cover [initial reads](docs/collection-read-contracts.md), [interface IP](docs/interface-ip-observations.md), [passive wireless](docs/wireless-observation-contracts.md), [DHCP leases](docs/dhcp-observations.md) and [scoped storage](docs/storage-observations.md). UCI reads are non-atomic shared-delta views, not committed-only or effective state.
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.

@@ -9,6 +9,7 @@ mod operation;
 pub mod packages;
 mod policy;
 pub mod projection;
+pub mod uci;
 
 pub use capability::{
     CAPABILITY_TOOL_NAME, CapabilityObservation, CapabilityRequirement, IncompatibilityReason,

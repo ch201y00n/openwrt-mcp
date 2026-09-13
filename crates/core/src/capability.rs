@@ -29,10 +29,11 @@ pub enum ReviewedObject {
     Service,
     Luci,
     LuciRpc,
+    Uci,
 }
 
 impl ReviewedObject {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::System,
         Self::NetworkDevice,
         Self::NetworkInterface,
@@ -42,6 +43,7 @@ impl ReviewedObject {
         Self::Service,
         Self::Luci,
         Self::LuciRpc,
+        Self::Uci,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -55,6 +57,7 @@ impl ReviewedObject {
             Self::Service => "service",
             Self::Luci => "luci",
             Self::LuciRpc => "luci-rpc",
+            Self::Uci => "uci",
         }
     }
 

@@ -1,5 +1,7 @@
 # Opt-in example for all currently implemented built-in read categories.
 # No write or execute grants; missing categories remain denied.
+# Includes selected non-secret scalar UCI options in each granted category.
+# These are sessionless shared-delta observations, not committed/effective state.
 # Wireless.Read includes station MAC identities and passive link metrics.
 # Deny wireless_stations and wireless_station_status to hide client identities.
 # Services.Read includes generic service/instance names and running/PID metadata,
@@ -16,6 +18,10 @@ access = "read"
 execute = false
 
 [policy.categories.wireless]
+access = "read"
+execute = false
+
+[policy.categories.firewall]
 access = "read"
 execute = false
 

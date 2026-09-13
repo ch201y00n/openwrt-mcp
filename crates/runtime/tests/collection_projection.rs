@@ -188,6 +188,46 @@ async fn observation_sentinel_and_root_guard_use_the_existing_audited_dispatch_p
 fn row(name: &str) -> Value {
     json!({"name":name,"up":true,"password":PRIVATE,"data":{"key":PRIVATE},"undeclared":[PRIVATE]})
 }
+
+#[tokio::test]
+async fn exact_text_enums_fail_through_normal_projection_and_audit_without_coercion() {
+    let mut value = serde_json::to_value(operation(false)).unwrap();
+    value["output_mode"]["typed"]["collection"]["record"]["fields"][1] = json!({
+        "name":"section_type","source":"/.type","presence":"required",
+        "value":{"kind":"text_enum","max_bytes":16,"values":["interface"]}});
+    let op: Operation = serde_json::from_value(value).unwrap();
+    let (dispatcher, target, audit) = fixture(
+        op,
+        vec![
+            json!({"items":[{"name":"n",".type":"interface","key":PRIVATE}]}),
+            json!({"items":[{"name":"n",".type":"Interface","key":PRIVATE}]}),
+            json!({"items":[{"name":"n",".type":null}]}),
+        ],
+        true,
+        false,
+    );
+    assert_eq!(
+        dispatcher
+            .invoke("fixture_collection", json!({}))
+            .await
+            .unwrap(),
+        json!({"items":[{"name":"n","section_type":"interface"}]})
+    );
+    last_outcome(&audit, AuditOutcome::Success);
+    for _ in 0..2 {
+        assert_eq!(
+            dispatcher
+                .invoke("fixture_collection", json!({}))
+                .await
+                .unwrap_err()
+                .code(),
+            "invalid_output"
+        );
+        last_outcome(&audit, AuditOutcome::Failed);
+    }
+    assert_eq!(target.probes.load(Ordering::SeqCst), 1);
+    assert_eq!(target.calls.lock().unwrap().len(), 3);
+}
 fn last_outcome(audit: &Log, expected: AuditOutcome) {
     let events = audit.events.lock().unwrap();
     let last = events.last().unwrap();

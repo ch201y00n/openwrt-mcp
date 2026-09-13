@@ -346,6 +346,7 @@ impl Operation {
         if self.parameters.keys().any(|name| !used.contains(name)) {
             return Err(invalid);
         }
+        crate::uci::validate_read(self)?;
         self.capability
             .validate_for(&self.action, &self.parameters)?;
         // Bound every constituent before allocating the serialized definition.
