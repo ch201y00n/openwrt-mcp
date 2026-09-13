@@ -133,6 +133,17 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
         .unwrap()
         .remove("backup_archive_contract");
     old.as_table_mut().unwrap().remove("gzip_archive_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("archive_sealing_contract");
+    for r in old["crates"].as_array_mut().unwrap() {
+        if r["name"].as_str() == Some("openwrt-mcp") {
+            r["dev_dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("openwrt-mcp-device-codec"));
+        }
+    }
     validate(&old).unwrap();
     old["version"] = 14.into();
     assert!(validate(&old).unwrap_err().contains("v14 requires"));

@@ -28,6 +28,7 @@ fn rule() -> CrateRule {
 fn contract() -> Contract {
     Contract {
         gzip_archive_contract: None,
+        archive_sealing_contract: None,
         backup_archive_contract: None,
         management_effect_contract: None,
         opkg_status_contract: None,

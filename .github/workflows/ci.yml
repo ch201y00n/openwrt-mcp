@@ -53,6 +53,11 @@
           "run": "cargo test --locked -p openwrt-mcp-runtime --test protection"
         },
         {
+          "name": "Required portable protection composition suite",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp --test protection_composition"
+        },
+        {
           "name": "Required portable MCP protocol suite",
           "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp-transport --test protocol"

@@ -10,6 +10,7 @@ mod opkg_status;
 mod packages;
 mod portability;
 mod projection;
+mod sealing;
 mod source;
 mod spec;
 mod uci_reads;
@@ -26,6 +27,7 @@ pub use management_effects::check_management_source;
 pub use metadata::check_metadata;
 pub use portability::{check_native_ci, check_portable_source, check_portable_suite};
 pub use projection::{ActionResponseContract, McpResultContract, ProjectionContract};
+pub use sealing::check_sealing_source;
 pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
 pub use windows_reads::{
@@ -133,6 +135,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         check_management_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         check_archive_source(&contract, file, &source, &aliases)
+            .map_err(|error| format!("{file}: {error}"))?;
+        check_sealing_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         if contract.version >= 17 || file.starts_with("crates/device-codec/src/gzip") {
             check_gzip_source(&contract, file, &source, &aliases)

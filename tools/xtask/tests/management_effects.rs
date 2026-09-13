@@ -31,6 +31,17 @@ fn every_effect_field_and_budget_requires_exact_versioned_non_authorizing_contra
         .unwrap()
         .remove("backup_archive_contract");
     old.as_table_mut().unwrap().remove("gzip_archive_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("archive_sealing_contract");
+    for r in old["crates"].as_array_mut().unwrap() {
+        if r["name"].as_str() == Some("openwrt-mcp") {
+            r["dev_dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("openwrt-mcp-device-codec"));
+        }
+    }
     for rule in old["crates"].as_array_mut().unwrap() {
         if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
             rule["dependencies"]

@@ -47,11 +47,29 @@ fn gzip_requires_exact_profile_bounds_and_v17() {
     denied(&v);
     let mut v = original.clone();
     v.as_table_mut().unwrap().remove("gzip_archive_contract");
+    v.as_table_mut().unwrap().remove("archive_sealing_contract");
+    for r in v["crates"].as_array_mut().unwrap() {
+        if r["name"].as_str() == Some("openwrt-mcp") {
+            r["dev_dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("openwrt-mcp-device-codec"));
+        }
+    }
     denied(&v);
     let mut v = original.clone();
     v["version"] = 16.into();
     denied(&v);
     v.as_table_mut().unwrap().remove("gzip_archive_contract");
+    v.as_table_mut().unwrap().remove("archive_sealing_contract");
+    for r in v["crates"].as_array_mut().unwrap() {
+        if r["name"].as_str() == Some("openwrt-mcp") {
+            r["dev_dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("openwrt-mcp-device-codec"));
+        }
+    }
     v["backup_archive_contract"]["consumers"] = "none_until_separate_integration_checkpoint".into();
     for r in v["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp-device-codec") {

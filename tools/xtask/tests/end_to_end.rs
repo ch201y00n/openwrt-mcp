@@ -181,9 +181,31 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18
         ));
         spec["version"] = (version as i64).into();
+        if version < 18 {
+            spec.as_table_mut()
+                .unwrap()
+                .remove("archive_sealing_contract");
+            spec["decision"] = "docs/adr/0017-bounded-gzip-archive-validation.md".into();
+            for rule in spec["crates"].as_array_mut().unwrap() {
+                rule["forbidden_paths"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|p| p.as_str() != Some("openwrt_mcp_runtime::sealing"));
+                if rule["name"].as_str() == Some("openwrt-mcp") {
+                    rule["dev_dependencies"]
+                        .as_array_mut()
+                        .unwrap()
+                        .retain(|d| d.as_str() != Some("openwrt-mcp-device-codec"));
+                }
+            }
+            spec["required_portable_tests"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|p| p.as_str() != Some("crates/server/tests/protection_composition.rs"));
+        }
         if version < 17 {
             spec.as_table_mut().unwrap().remove("gzip_archive_contract");
             spec["backup_archive_contract"]["consumers"] =
@@ -1284,4 +1306,46 @@ fn assembled_v17_gate_keeps_gzip_inside_its_reviewed_boundary() {
         "use openwrt_mcp_device_codec::gzip::Validator;\n",
     );
     fixture.denied("gzip");
+}
+
+#[test]
+fn assembled_v18_gate_keeps_stream_sealing_out_of_device_authority() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(18);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to) in [
+        (
+            "max_ciphertext_bytes = 76546048",
+            "max_ciphertext_bytes = 76546049",
+        ),
+        ("known_published_error_no_abort_or_retry", "abort_published"),
+        (
+            "true_eof_independent_counts_archive_and_producer_complete",
+            "cipher_report_only",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied("exact bounded supplied-stream profile");
+    }
+    fixture.write(path, &original);
+    fixture.write("crates/runtime/src/lib.rs", "pub mod sealing;\n");
+    fixture.write("crates/runtime/src/sealing/mod.rs", "pub struct Sealer;\n");
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write("crates/runtime/src/sealing/mod.rs", "use std::fs::File;\n");
+    fixture.denied("std::fs");
+    fixture.write("crates/runtime/src/sealing/mod.rs", "pub struct Sealer;\n");
+    fixture.write(
+        "crates/runtime/src/lib.rs",
+        "pub mod sealing; use crate::sealing::Sealer;\n",
+    );
+    fixture.denied("sibling authority");
+    fixture.write("crates/runtime/src/lib.rs", "pub mod sealing;\n");
+    fixture.write(
+        "crates/mcp/src/lib.rs",
+        "use openwrt_mcp_runtime::sealing::Sealer;\n",
+    );
+    fixture.denied("sealing");
 }

@@ -1,5 +1,7 @@
 # Architecture-first development workflow
 
+For v18, commit the exact provided-stream sealing contract and negative harness before adding runtime::sealing or the server fixture dependency. No production consumers, real source/store access or MCP behavior are admitted. Test independent counts/EOF, producer/validator/cipher failures, deadlines, cleanup, publication uncertainty and complete synthetic age/gzip composition. Neither a mock durability capability nor a supplied-stream result is real backup acceptance. See ADR 0018.
+
 For v17, validate and commit the separate gzip codec declaration before dependency/behavior changes. Preserve v16 regular-tar rules and all external archive bans, allow only the gzip wrapper as an internal consumer, and confine pinned low-level flate2 use to its owned module. Native malformed/completeness/resource tests must precede a gzip acceptance claim. A correct CRC is not authentication and decompressor reset/free is not guaranteed scrubbing. No workflow integration is implied; see ADR 0017.
 
 Architecture v16 adds only the declared archive codec boundary before implementing its parser. Validate and commit requirements, ADR and negative harness first; preserve exact source ownership, zeroize-only extra dependency allowance, production consumer bans and mandatory native action-response suite. Add behavioral fixtures in a separate archive module afterward. Neither declaration tests nor a valid tar predicate count as implemented backup, producer completion or restore authorization. See ADR 0016.

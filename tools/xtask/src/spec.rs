@@ -13,6 +13,8 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct Contract {
     #[serde(default)]
+    pub archive_sealing_contract: Option<crate::sealing::SealingContract>,
+    #[serde(default)]
     pub gzip_archive_contract: Option<crate::gzip_archives::GzipArchiveContract>,
     #[serde(default)]
     pub backup_archive_contract: Option<crate::backup_archives::BackupArchiveContract>,
@@ -133,6 +135,7 @@ impl Contract {
         self.validate_management_effects()?;
         self.validate_backup_archives()?;
         self.validate_gzip_archives()?;
+        self.validate_sealing()?;
         Ok(())
     }
 

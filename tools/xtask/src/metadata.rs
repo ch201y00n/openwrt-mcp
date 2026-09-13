@@ -44,6 +44,14 @@ pub fn check_metadata(contract: &Contract, metadata: &Value) -> CheckResult {
                 .as_str()
                 .ok_or("missing dependency package name")?;
             let kind = dependency["kind"].as_str().unwrap_or("normal");
+            if name == "openwrt-mcp"
+                && original == "openwrt-mcp-device-codec"
+                && (contract.version < 18 || kind != "dev")
+            {
+                return Err(
+                    "sealing fixture codec requires v18 development-only dependency".into(),
+                );
+            }
             if contract.version >= 17 && original == "flate2" {
                 crate::check_gzip_dependency(name, dependency)?;
             }
