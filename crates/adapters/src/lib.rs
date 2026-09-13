@@ -2,6 +2,7 @@
 
 mod audit;
 mod backend;
+pub mod tokens;
 
 pub use audit::{AuditConfig, AuditDestination, AuditFormat, AuditWriter};
 pub use backend::{LocalBackend, UnconfiguredBackend};

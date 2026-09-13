@@ -174,6 +174,9 @@ impl<'a> PreparedInvocation<'a> {
     }
 
     pub fn project(&self, output: &Value) -> Result<Value, CoreError> {
+        if matches!(self.action, PreparedAction::ApkInstalledPage { .. }) {
+            return Err(CoreError::InvalidDefinition);
+        }
         match &self.projection {
             BoundProjection::Legacy(operation) => legacy::project(operation, output),
             BoundProjection::Typed {

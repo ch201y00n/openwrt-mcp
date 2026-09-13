@@ -5,6 +5,7 @@ mod backend;
 mod capability;
 mod dispatcher;
 mod error;
+pub mod packages;
 pub mod protection;
 
 pub use audit::{AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};

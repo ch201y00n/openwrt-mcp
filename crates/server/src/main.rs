@@ -91,7 +91,10 @@ async fn run() -> Result<(), &'static str> {
         Arc::new(audit),
         config.limits,
     )
-    .map_err(|_| "dispatcher_initialization_failed")?;
+    .map_err(|_| "dispatcher_initialization_failed")?
+    .with_snapshot_tokens(Arc::new(
+        openwrt_mcp_adapters::tokens::RandomSnapshotTokens::default(),
+    ));
     config
         .logging
         .event(LogLevel::Info, "server_starting")

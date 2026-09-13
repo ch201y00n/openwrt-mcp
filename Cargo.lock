@@ -1376,6 +1376,7 @@ name = "openwrt-mcp-adapters"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "getrandom 0.4.3",
  "openwrt-mcp-core",
  "openwrt-mcp-device-codec",
  "openwrt-mcp-host-platform",

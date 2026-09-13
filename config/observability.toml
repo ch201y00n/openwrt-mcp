@@ -26,6 +26,11 @@ execute = false
 access = "read"
 execute = false
 
+# Exact package names/versions/architectures; non-atomic APK-visible observation.
+[policy.categories.packages]
+access = "read"
+execute = false
+
 [audit]
 enabled = true
 format = "json"

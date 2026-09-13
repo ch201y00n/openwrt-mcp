@@ -3,6 +3,10 @@ use openwrt_mcp_core::CoreError;
 /// Never attach raw OS errors, arguments, paths or device output to these errors.
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
+    #[error("package continuation is unavailable or stale")]
+    InvalidCursor,
+    #[error("snapshot entropy is unavailable")]
+    EntropyUnavailable,
     #[error("operation rejected")]
     Core(#[from] CoreError),
     #[error("unknown operation")]
@@ -42,6 +46,8 @@ pub enum RuntimeError {
 impl RuntimeError {
     pub fn code(&self) -> &'static str {
         match self {
+            Self::InvalidCursor => "invalid_cursor",
+            Self::EntropyUnavailable => "entropy_unavailable",
             Self::Core(error) => error.code(),
             Self::UnknownOperation => "unknown_operation",
             Self::CapabilityUnknown => "capability_unknown",

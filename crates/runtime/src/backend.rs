@@ -37,6 +37,13 @@ impl Limits {
 
 #[async_trait]
 pub trait Backend: Send + Sync {
+    /// Closed APK-visible query. Default implementation never falls back to execute.
+    async fn capture_apk_installed(
+        &self,
+        _limits: &Limits,
+    ) -> Result<openwrt_mcp_core::packages::PackageObservation, RuntimeError> {
+        Err(RuntimeError::CapabilityUnknown)
+    }
     /// An opaque authentication/connection generation, never a release number.
     /// None prevents cached evidence reuse. Reconnection must change this value.
     fn capability_epoch(&self) -> Option<u64> {

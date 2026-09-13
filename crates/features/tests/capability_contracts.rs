@@ -118,7 +118,11 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
             vec![],
         ),
     ];
-    assert_eq!(catalog.operations().len(), expectations.len());
+    assert_eq!(catalog.operations().len(), expectations.len() + 1);
+    assert!(matches!(
+        catalog.get("packages_apk_installed").unwrap().capability,
+        CapabilityRequirement::ApkInstalledQuery {}
+    ));
     let mut response_ids = BTreeSet::new();
     for (name, object, method, arguments) in expectations {
         let operation = catalog.get(name).unwrap();
@@ -165,9 +169,16 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 17);
+    assert_eq!(operations.len(), 18);
     let mut objects = BTreeSet::new();
     for operation in &operations {
+        if matches!(operation.action, Action::ApkInstalledPage {}) {
+            assert!(matches!(
+                operation.capability,
+                CapabilityRequirement::ApkInstalledQuery {}
+            ));
+            continue;
+        }
         let Action::Ubus { object, .. } = &operation.action else {
             panic!("the v5 builtins must use checked ubus reads");
         };

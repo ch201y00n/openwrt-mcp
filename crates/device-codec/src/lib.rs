@@ -3,6 +3,7 @@
 
 mod command;
 mod describe;
+pub mod packages;
 mod response;
 
 pub use command::{CommandSpec, compile_action, compile_probe, encode_remote};

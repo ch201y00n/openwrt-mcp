@@ -12,6 +12,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
 - Seventeen conservative ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
 - Eight typed response contracts for bounded interface, wireless and service observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md) and [passive wireless contracts](docs/wireless-observation-contracts.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
@@ -23,7 +24,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-Full gates pass 357 distinct tests on Linux-on-WSL and 325 on [native Windows GNU](docs/windows-validation.md). The earlier actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including the first five typed contracts, and two explicit unavailable/error cases; it does not validate the later station/country additions. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
+Full gates pass 387 distinct tests on Linux-on-WSL and 355 on [native Windows GNU](docs/windows-validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. See [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
 
 ## Build and check
 
@@ -73,7 +74,7 @@ Wireless.Read includes station MAC identities and passive link metrics. Deny `wi
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v6](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, response limits and mandatory native host tests. The capability and bounded-collection designs were separately checkpointed before functional work; their required suites now contain behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v7](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, paged package observations and mandatory native host tests. Capability, collection and package workflow designs were separately checkpointed before functional work; their required suites contain behavioral tests. Incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

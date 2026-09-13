@@ -6,6 +6,7 @@ pub mod capability;
 mod catalog;
 mod error;
 mod operation;
+pub mod packages;
 mod policy;
 pub mod projection;
 

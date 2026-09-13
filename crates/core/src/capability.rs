@@ -66,6 +66,7 @@ pub enum ProbeRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CapabilityRequirement {
+    ApkInstalledQuery {},
     UbusMethod {
         object: String,
         method: String,
@@ -210,6 +211,7 @@ impl CapabilityRequirement {
         match self {
             Self::UbusMethod { object, .. } => ReviewedObject::from_name(object),
             Self::Unverified {} => None,
+            Self::ApkInstalledQuery {} => None,
         }
     }
 
@@ -219,12 +221,14 @@ impl CapabilityRequirement {
                 response_contract, ..
             } => Some(response_contract),
             Self::Unverified {} => None,
+            Self::ApkInstalledQuery {} => Some(crate::packages::PACKAGE_RESPONSE_CONTRACT),
         }
     }
 
     fn valid_shape(&self) -> bool {
         match self {
             Self::Unverified {} => true,
+            Self::ApkInstalledQuery {} => true,
             Self::UbusMethod {
                 object,
                 method,
@@ -250,6 +254,7 @@ impl CapabilityRequirement {
             return Err(invalid);
         }
         match (self, action) {
+            (Self::ApkInstalledQuery {}, Action::ApkInstalledPage {}) => Ok(()),
             (Self::Unverified {}, Action::Process { .. }) => Ok(()),
             (
                 Self::UbusMethod {

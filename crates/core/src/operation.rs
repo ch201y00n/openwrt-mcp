@@ -36,6 +36,7 @@ pub struct Parameter {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    ApkInstalledPage {},
     Ubus {
         object: String,
         method: String,
@@ -77,6 +78,9 @@ pub struct Operation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreparedAction {
+    ApkInstalledPage {
+        cursor: Option<String>,
+    },
     Ubus {
         object: String,
         method: String,
@@ -274,6 +278,23 @@ impl Operation {
             Ok(())
         };
         match &self.action {
+            Action::ApkInstalledPage {} => {
+                let cursor = self.parameters.get("cursor").ok_or(invalid)?;
+                if self.parameters.len() != 1
+                    || cursor.required
+                    || cursor.kind != ParameterKind::String
+                    || !cursor.allowed_values.is_empty()
+                    || !self.output_fields.is_empty()
+                    || self.output_mode != OutputMode::Scalars
+                    || !self.requirements.contains(&Requirement {
+                        category: crate::Category::Packages,
+                        permission: crate::Permission::Read,
+                    })
+                {
+                    return Err(invalid);
+                }
+                used.insert("cursor".into());
+            }
             Action::Ubus {
                 object,
                 method,
@@ -383,6 +404,15 @@ impl Operation {
             }
         }
         match &self.action {
+            Action::ApkInstalledPage {} => {
+                let cursor = values.get("cursor").and_then(Value::as_str);
+                if let Some(cursor) = cursor {
+                    crate::packages::PackageCursor::parse(cursor)?;
+                }
+                Ok(PreparedAction::ApkInstalledPage {
+                    cursor: cursor.map(str::to_owned),
+                })
+            }
             Action::Ubus {
                 object,
                 method,
@@ -444,10 +474,18 @@ impl Operation {
                             .map(|(_, max)| max),
                         _ => None,
                     };
-                    let max = selector_limit.unwrap_or(MAX_VALUE_BYTES);
+                    let max = if matches!(self.action, Action::ApkInstalledPage {}) {
+                        37
+                    } else {
+                        selector_limit.unwrap_or(MAX_VALUE_BYTES)
+                    };
                     schema.insert("maxLength".into(), json!(max));
                     if selector_limit.is_some() {
                         schema.insert("minLength".into(), json!(1));
+                    }
+                    if matches!(self.action, Action::ApkInstalledPage {}) {
+                        schema.insert("minLength".into(), json!(34));
+                        schema.insert("pattern".into(), json!("^[0-9a-f]{32}\\.[1-9][0-9]{0,3}$"));
                     }
                     schema.insert(
                         "description".into(),

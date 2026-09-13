@@ -47,6 +47,7 @@ pub struct Dispatcher {
     permits: Semaphore,
     sequence: AtomicU64,
     capabilities: CapabilityCache,
+    packages: crate::packages::Packages,
 }
 
 impl Dispatcher {
@@ -71,6 +72,7 @@ impl Dispatcher {
             limits,
             sequence: AtomicU64::new(1),
             capabilities: CapabilityCache::default(),
+            packages: crate::packages::Packages::default(),
         })
     }
 
@@ -81,6 +83,15 @@ impl Dispatcher {
             .filter(|operation| self.policy.authorize(operation).is_ok())
             .cloned()
             .collect()
+    }
+
+    /// Composition supplies entropy; the default constructor keeps capture closed.
+    pub fn with_snapshot_tokens(
+        mut self,
+        tokens: Arc<dyn crate::packages::SnapshotTokens>,
+    ) -> Self {
+        self.packages.tokens = Some(tokens);
+        self
     }
 
     pub async fn invoke(&self, name: &str, arguments: Value) -> Result<Value, RuntimeError> {
@@ -103,6 +114,37 @@ impl Dispatcher {
         let _permit = self.admit(operation, request_sequence, kind).await?;
         let started = Instant::now();
         let deadline = tokio::time::Instant::now() + Duration::from_millis(self.limits.timeout_ms);
+        if let openwrt_mcp_core::PreparedAction::ApkInstalledPage { cursor } = invocation.action() {
+            let mut lease = match self.packages.lease() {
+                Ok(lease) => lease,
+                Err(error) => {
+                    return self
+                        .finish(request_sequence, operation, kind, started, Err(error))
+                        .await;
+                }
+            };
+            let result = tokio::time::timeout_at(
+                deadline,
+                self.packages.page(
+                    &mut lease,
+                    &operation.name,
+                    cursor.as_deref(),
+                    self.backend.as_ref(),
+                    &self.limits,
+                    deadline,
+                ),
+            )
+            .await
+            .unwrap_or(Err(RuntimeError::Timeout));
+            let result = enforce_deadline(deadline, None, result);
+            let result = self
+                .finish(request_sequence, operation, kind, started, result)
+                .await;
+            if result.is_ok() {
+                lease.preserve(self.backend.as_ref())?;
+            }
+            return result;
+        }
         let mut issued = None;
         let result = tokio::time::timeout_at(deadline, async {
             let observation = self
@@ -197,6 +239,29 @@ impl Dispatcher {
             .unwrap_or(false);
         let _permit = self.admit(operation, request_sequence, kind).await?;
         let started = Instant::now();
+        if matches!(
+            operation.capability,
+            openwrt_mcp_core::CapabilityRequirement::ApkInstalledQuery {}
+        ) {
+            return self
+                .finish(
+                    request_sequence,
+                    operation,
+                    kind,
+                    started,
+                    Ok(CapabilityStatus {
+                        compatibility: "unknown",
+                        reason: "capture_required",
+                        scope: "closed_query_response",
+                        response_contract: operation
+                            .capability
+                            .response_contract()
+                            .map(str::to_owned),
+                        remaining_ttl_ms: None,
+                    }),
+                )
+                .await;
+        }
         let deadline = tokio::time::Instant::now() + Duration::from_millis(self.limits.timeout_ms);
         let mut issued = None;
         let result = tokio::time::timeout_at(deadline, async {

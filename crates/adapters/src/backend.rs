@@ -54,6 +54,39 @@ impl Backend for UnconfiguredBackend {
 
 #[async_trait]
 impl Backend for LocalBackend {
+    async fn capture_apk_installed(
+        &self,
+        limits: &Limits,
+    ) -> Result<openwrt_mcp_core::packages::PackageObservation, RuntimeError> {
+        use openwrt_mcp_device_codec::packages::{
+            MAX_APK_VERSION_BYTES, apk_installed_command, apk_version_command, parse_apk_installed,
+            validate_apk_version,
+        };
+        limits.validate()?;
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(limits.timeout_ms);
+        let maximum = limits
+            .max_output_bytes
+            .min(openwrt_mcp_core::packages::MAX_PACKAGE_SOURCE_BYTES);
+        let version = run(
+            &apk_version_command(),
+            maximum.min(MAX_APK_VERSION_BYTES),
+            deadline,
+        )
+        .await?;
+        validate_apk_version(&version).map_err(|_| RuntimeError::CapabilityUnsupported)?;
+        if tokio::time::Instant::now() >= deadline {
+            return Err(RuntimeError::Timeout);
+        }
+        let bytes = run(&apk_installed_command(), maximum, deadline).await?;
+        let result = parse_apk_installed(&bytes, maximum).map_err(|error| match error {
+            CodecError::OutputLimit => RuntimeError::OutputLimit,
+            _ => RuntimeError::InvalidOutput,
+        });
+        if tokio::time::Instant::now() >= deadline {
+            return Err(RuntimeError::Timeout);
+        }
+        result
+    }
     fn capability_epoch(&self) -> Option<u64> {
         Some(1)
     }

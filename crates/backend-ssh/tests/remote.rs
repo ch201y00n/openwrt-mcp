@@ -80,6 +80,80 @@ fn probe_request() -> ProbeRequest {
     ProbeRequest::DescribeUbusObject(ReviewedObject::System)
 }
 
+#[tokio::test]
+async fn package_capture_uses_one_session_and_two_closed_literal_commands() {
+    use openwrt_mcp_device_codec::{
+        encode_remote,
+        packages::{apk_installed_command, apk_version_command},
+    };
+    let mut fixture = Fixture::new(vec![
+        described(b"apk-tools 3.0.5, compiled for aarch64.\n"),
+        described(br#"[{"name":"libfixture-20260913","version":"1-r2","arch":"aarch64"}]"#),
+    ])
+    .await;
+    let source = MemoryKey::new(2);
+    let backend = SshBackend::new(fixture.options.clone(), source.clone()).unwrap();
+    let captured = backend
+        .capture_apk_installed(&Limits::default())
+        .await
+        .unwrap();
+    assert_eq!(
+        captured.page(&[1; 16], 0).unwrap()["items"][0]["name"],
+        "libfixture-20260913"
+    );
+    assert_eq!(
+        *fixture.observed.commands.lock().unwrap(),
+        vec![
+            encode_remote(&apk_version_command()).unwrap(),
+            encode_remote(&apk_installed_command()).unwrap()
+        ]
+    );
+    assert_eq!(fixture.observed.connections.load(Ordering::SeqCst), 1);
+    assert_eq!(source.reads.load(Ordering::SeqCst), 1);
+    drop(backend);
+    fixture.closed().await;
+}
+
+#[tokio::test]
+async fn package_capture_never_queries_after_unknown_version_and_rejects_late_bad_records() {
+    for (replies, expected, count) in [
+        (
+            vec![described(b"apk-tools 3.0.6, compiled for aarch64.\n")],
+            "capability_unsupported",
+            1,
+        ),
+        (
+            vec![
+                described(b"apk-tools 3.0.5, compiled for aarch64.\n"),
+                described(br#"[{"name":"fixture","version":"1","arch":"a"},{"name":"bad"}]"#),
+            ],
+            "invalid_output",
+            2,
+        ),
+        (
+            vec![Reply::Complete {
+                stdout: b"apk-tools 3.0.5, compiled for aarch64.\n".to_vec(),
+                stderr: vec![],
+                status: Some(1),
+            }],
+            "backend_failed",
+            1,
+        ),
+    ] {
+        let mut fixture = Fixture::new(replies).await;
+        let backend = SshBackend::new(fixture.options.clone(), MemoryKey::new(2)).unwrap();
+        let error = backend
+            .capture_apk_installed(&Limits::default())
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.code(), expected);
+        assert_eq!(fixture.observed.commands.lock().unwrap().len(), count);
+        drop(backend);
+        fixture.closed().await;
+    }
+}
+
 #[derive(Default)]
 struct Observed {
     commands: Mutex<Vec<Vec<u8>>>,
