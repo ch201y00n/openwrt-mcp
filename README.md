@@ -88,7 +88,7 @@ Network.Read includes scoped address, route and netifd-managed neighbor observat
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v15](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded scalar/list projections, closed UCI reads, paged APK/opkg observations, protected Windows reads, isolated pure effect analysis and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v16](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded scalar/list projections, closed UCI reads, paged APK/opkg observations, protected Windows reads, isolated pure effect analysis and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

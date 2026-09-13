@@ -1,6 +1,7 @@
 //! Portable codecs over provided data only: no target access or policy decisions.
 //! Command templates remain router POSIX data on Windows, Linux and macOS hosts.
 
+pub mod archive;
 mod command;
 mod describe;
 pub mod packages;

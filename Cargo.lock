@@ -1426,6 +1426,7 @@ dependencies = [
  "openwrt-mcp-core",
  "serde",
  "serde_json",
+ "zeroize",
 ]
 
 [[package]]

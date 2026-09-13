@@ -8,6 +8,8 @@ Implementation must first update the requirements, ADR, architecture and version
 
 ## Reference baseline and evidence
 
+Archive structure is now a second separately accepted prerequisite: [ADR 0016](adr/0016-bounded-backup-archive-validation.md) and [bounded supplied-archive validation](backup-archive-validation.md). It does not implement any capture, crypto/publication, restore or guardian workflow described below; all production consumers remain blocked.
+
 The reference-device inventory reported during development on 2026-09-13 was BPI-R4, OpenWrt 25.12.5 r33051-f5dae5ece4, kernel 6.12.94, mediatek/filogic, with apk 3.0.5 on aarch64. This is a dated observation, not a statement of current device state or proof of mutation support. Fresh device inventory is required before acceptance or execution.
 
 Do not infer installed component behavior from the release number alone. The official [25.12.5 rpcd package definition](https://github.com/openwrt/openwrt/blob/v25.12.5/package/system/rpcd/Makefile) selects `28faf6403792d25b9826043aaf37880624c19568`; the reported installed rpcd and associated modules were `2026.07.19~e37ed9d8-r1`, resolving to `e37ed9d814699098eb7e26c8b33c054840782dfb`. That [upstream commit](https://github.com/openwrt/rpcd/commit/e37ed9d814699098eb7e26c8b33c054840782dfb) directly follows the release-base commit and changes only the file plugin's path/ACL handling. Git blob identities for `uci.c`, `include/rpcd/uci.h` and `session.c` are identical between the two commits. These source facts do not attest the running executable or exclude downstream patches.

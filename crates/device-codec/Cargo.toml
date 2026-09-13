@@ -10,6 +10,7 @@ publish.workspace = true
 openwrt-mcp-core = { path = "../core" }
 serde.workspace = true
 serde_json.workspace = true
+zeroize.workspace = true
 
 [lints]
 workspace = true
