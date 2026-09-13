@@ -1,5 +1,5 @@
-version = 8
-decision = "docs/adr/0008-windows-protected-reads.md"
+version = 9
+decision = "docs/adr/0009-reviewed-luci-observations.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
@@ -52,6 +52,7 @@ max_arch_bytes = 64
 required_tests = ["crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
 
 [capability_contract]
+probe_profile = "base_luci_v2"
 probe_registry = "architecture/capability-probes.toml"
 evidence_manifest = "compatibility/evidence.toml"
 required_tests = ["crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs"]

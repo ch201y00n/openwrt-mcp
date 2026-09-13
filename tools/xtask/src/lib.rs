@@ -10,7 +10,10 @@ mod source;
 mod spec;
 mod windows_reads;
 
-pub use capability::{CapabilityContract, check_capability_registry, check_compatibility_evidence};
+pub use capability::{
+    CapabilityContract, check_capability_registry, check_capability_registry_for_version,
+    check_compatibility_evidence,
+};
 pub use change::validate_evolution;
 pub use metadata::check_metadata;
 pub use portability::{check_native_ci, check_portable_source, check_portable_suite};

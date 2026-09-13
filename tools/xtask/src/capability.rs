@@ -31,6 +31,8 @@ const REFERENCE: &str = "bpi-r4-openwrt-25.12.5-reference";
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityContract {
+    #[serde(default)]
+    pub probe_profile: Option<String>,
     pub probe_registry: String,
     pub evidence_manifest: String,
     pub required_tests: Vec<String>,
@@ -42,6 +44,13 @@ impl Contract {
             .capability_contract
             .as_ref()
             .ok_or("v5 requires a capability contract")?;
+        if (self.version >= 9 && capability.probe_profile.as_deref() != Some("base_luci_v2"))
+            || (self.version < 9 && capability.probe_profile.is_some())
+        {
+            return Err(
+                "capability probe profile requires its reviewed architecture version".into(),
+            );
+        }
         if capability.probe_registry != "architecture/capability-probes.toml"
             || capability.evidence_manifest != "compatibility/evidence.toml"
             || !exact(&capability.required_tests, &SUITES)
@@ -111,7 +120,10 @@ impl Contract {
                 return Err("both target adapters require the shared codec boundary".into());
             }
         }
-        check_capability_registry(&read_artifact(root, &capability.probe_registry)?)?;
+        check_capability_registry_for_version(
+            &read_artifact(root, &capability.probe_registry)?,
+            self.version,
+        )?;
         check_compatibility_evidence(root, &read_artifact(root, &capability.evidence_manifest)?)
     }
 }
@@ -154,11 +166,30 @@ struct Probe {
 
 /// Reject any expansion of the reviewed probe surface or runtime trust contract.
 pub fn check_capability_registry(source: &str) -> CheckResult {
+    check_capability_registry_for_version(source, 9)
+}
+
+/// v1 is the closed pre-migration subset; v2 requires the v9 checkpoint.
+pub fn check_capability_registry_for_version(
+    source: &str,
+    architecture_version: u64,
+) -> CheckResult {
     let registry: Registry =
         toml::from_str(source).map_err(|_| "invalid capability probe registry or unknown field")?;
+    let mut expected = BTreeSet::from(OBJECTS);
+    match registry.schema_version {
+        1 => {}
+        2 if architecture_version >= 9 => {
+            expected.extend(["luci", "luci-rpc"]);
+        }
+        _ => {
+            return Err(
+                "capability registry profile requires reviewed architecture evolution".into(),
+            );
+        }
+    }
     let runtime = &registry.runtime;
-    if registry.schema_version != 1
-        || runtime.backend_ownership != "same_immutable_backend"
+    if runtime.backend_ownership != "same_immutable_backend"
         || runtime.cache_ownership != "private_dispatcher"
         || runtime.epoch_binding != "opaque_backend_epoch"
         || runtime.ttl_seconds != 30
@@ -179,7 +210,7 @@ pub fn check_capability_registry(source: &str) -> CheckResult {
     }
     let mut objects = BTreeSet::new();
     for probe in &registry.probes {
-        if !OBJECTS.contains(&probe.object.as_str())
+        if !expected.contains(probe.object.as_str())
             || !objects.insert(probe.object.as_str())
             || probe.id != format!("ubus.{}", probe.object)
             || probe.program != "/bin/ubus"
@@ -189,7 +220,7 @@ pub fn check_capability_registry(source: &str) -> CheckResult {
             return Err("capability probe must be exact reviewed read-only ubus -v list".into());
         }
     }
-    if objects != BTreeSet::from(OBJECTS) {
+    if objects != expected {
         return Err("capability registry is missing reviewed object probes".into());
     }
     Ok(())

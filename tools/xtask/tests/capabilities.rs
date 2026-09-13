@@ -125,6 +125,47 @@ fn probes_cannot_become_shells_method_calls_wildcards_or_signature_free_lists() 
 }
 
 #[test]
+fn luci_registry_requires_v9_and_only_two_additional_exact_descriptions() {
+    let original = contract();
+    original.validate(&root()).unwrap();
+    for profile in [None, Some("wildcard".into()), Some("base_v1".into())] {
+        let mut bad = original.clone();
+        bad.capability_contract.as_mut().unwrap().probe_profile = profile;
+        assert!(bad.validate(&root()).is_err());
+    }
+    let mut base: toml::Value =
+        toml::from_str(&read("architecture/capability-probes.toml")).unwrap();
+    base["schema_version"] = 1.into();
+    base["probes"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|probe| !matches!(probe["object"].as_str(), Some("luci" | "luci-rpc")));
+    let legacy = toml::to_string(&base).unwrap();
+    xtask::check_capability_registry_for_version(&legacy, 8).unwrap();
+    xtask::check_capability_registry_for_version(&legacy, 9).unwrap();
+    base["schema_version"] = 2.into();
+    for object in ["luci", "luci-rpc"] {
+        let probe: toml::Value = toml::from_str(&format!("id='ubus.{object}'\nobject='{object}'\nprogram='/bin/ubus'\narguments=['-v','list','{object}']\neffect='read'\n")).unwrap();
+        base["probes"].as_array_mut().unwrap().push(probe);
+    }
+    let reviewed = toml::to_string(&base).unwrap();
+    xtask::check_capability_registry_for_version(&reviewed, 9).unwrap();
+    assert!(xtask::check_capability_registry_for_version(&reviewed, 8).is_err());
+    for object in ["luci.*", "luci-rpc.*", "dhcp", "file", "uci", "{object}"] {
+        let mut bad = base.clone();
+        bad["probes"].as_array_mut().unwrap().last_mut().unwrap()["object"] = object.into();
+        assert!(check_capability_registry(&toml::to_string(&bad).unwrap()).is_err());
+    }
+    for version in [0, 3, 99] {
+        let mut bad = base.clone();
+        bad["schema_version"] = version.into();
+        assert!(check_capability_registry(&toml::to_string(&bad).unwrap()).is_err());
+    }
+    base["probes"].as_array_mut().unwrap().pop();
+    assert!(check_capability_registry(&toml::to_string(&base).unwrap()).is_err());
+}
+
+#[test]
 fn registry_cannot_weaken_auth_binding_freshness_audit_or_fail_closed_behavior() {
     let source = read("architecture/capability-probes.toml");
     for (before, after) in [

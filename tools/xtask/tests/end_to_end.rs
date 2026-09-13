@@ -132,8 +132,15 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8));
+        assert!(matches!(version, 5 | 6 | 8 | 9));
         spec["version"] = (version as i64).into();
+        if version < 9 {
+            spec["capability_contract"]
+                .as_table_mut()
+                .unwrap()
+                .remove("probe_profile");
+            spec["decision"] = "docs/adr/0008-windows-protected-reads.md".into();
+        }
         if version < 8 {
             spec.as_table_mut().unwrap().remove("windows_read_contract");
             if let Some(package) = spec.as_table_mut().unwrap().remove("package_contract") {
@@ -243,6 +250,17 @@ impl Fixture {
             ".github/workflows/ci.yml",
         ] {
             self.write(path, &fs::read_to_string(repository.join(path)).unwrap());
+        }
+        if version < 9 {
+            let path = "architecture/capability-probes.toml";
+            let mut registry: toml::Value =
+                toml::from_str(&fs::read_to_string(self.root.join(path)).unwrap()).unwrap();
+            registry["schema_version"] = 1.into();
+            registry["probes"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|probe| !matches!(probe["object"].as_str(), Some("luci" | "luci-rpc")));
+            self.write(path, &toml::to_string(&registry).unwrap());
         }
         let evidence: toml::Value = toml::from_str(
             &fs::read_to_string(self.root.join("compatibility/evidence.toml")).unwrap(),
@@ -652,4 +670,41 @@ fn assembled_v8_gate_confines_native_unsafe_and_lint_authority() {
     fixture.write("crates/host-platform/src/windows/native.rs", "//! reset\n");
     fixture.write("crates/host-platform/Cargo.toml", "[package]\nname='openwrt-mcp-host-platform'\nversion='0.1.0'\nedition='2024'\n[lints.rust]\nunsafe_code='allow'\n");
     fixture.denied("lint boundary");
+}
+
+#[test]
+fn assembled_v9_gate_rejects_unreviewed_profile_and_luci_call_probe() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(9);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    fixture.write(path, &original.replace("base_luci_v2", "wildcard"));
+    fixture.denied("probe profile");
+    fixture.write(path, &original);
+    let path = "architecture/capability-probes.toml";
+    let mut registry: toml::Value =
+        toml::from_str(&fs::read_to_string(fixture.root.join(path)).unwrap()).unwrap();
+    registry["schema_version"] = 2.into();
+    registry["probes"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|probe| !matches!(probe["object"].as_str(), Some("luci" | "luci-rpc")));
+    for object in ["luci", "luci-rpc"] {
+        let probe: toml::Value = toml::from_str(&format!("id='ubus.{object}'\nobject='{object}'\nprogram='/bin/ubus'\narguments=['-v','list','{object}']\neffect='read'\n")).unwrap();
+        registry["probes"].as_array_mut().unwrap().push(probe);
+    }
+    fixture.write(path, &toml::to_string(&registry).unwrap());
+    xtask::architecture(&fixture.root, None).unwrap();
+    registry["probes"]
+        .as_array_mut()
+        .unwrap()
+        .last_mut()
+        .unwrap()["arguments"] = toml::Value::Array(
+        ["call", "luci-rpc", "getDHCPLeases", "{}"]
+            .map(Into::into)
+            .to_vec(),
+    );
+    fixture.write(path, &toml::to_string(&registry).unwrap());
+    fixture.denied("exact reviewed read-only");
 }
