@@ -241,7 +241,11 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
                     "{name}.v{}",
                     if matches!(
                         name,
-                        "network_interface_status" | "storage_mounts" | "storage_block_devices"
+                        "network_interface_status"
+                            | "storage_mounts"
+                            | "storage_block_devices"
+                            | "network_interface_configuration"
+                            | "dhcp_dnsmasq_configuration"
                     ) {
                         2
                     } else {

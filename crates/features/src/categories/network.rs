@@ -1,6 +1,6 @@
 mod observations;
 
-use crate::definition::{argument, read, uci_read};
+use crate::definition::{argument, read, uci_read_with_options};
 use openwrt_mcp_core::{
     Category, Collection, InnerRecord, Operation, OutputMode, Parameter, ParameterKind, Presence,
     SAFE_INTEGER_MAX, ScalarField, ScalarKind, Selection, TypedProjection,
@@ -58,7 +58,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         "/metric",
     ];
     vec![
-        uci_read(
+        uci_read_with_options(
             "network_interface_configuration",
             openwrt_mcp_core::uci::UciReadProfile::NetworkInterfaces,
             &[
@@ -72,6 +72,12 @@ pub(crate) fn operations() -> Vec<Operation> {
                 ("delegate", 8),
                 ("ip4table", 64),
                 ("ip6table", 64),
+            ],
+            &[
+                ("ipaddr", 1024),
+                ("ip6addr", 1024),
+                ("dns", 1024),
+                ("ifname", 256),
             ],
         ),
         device,

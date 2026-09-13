@@ -15,6 +15,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
 - Twenty-two typed response contracts, including six [closed UCI configuration observations](docs/uci-observations.md). Other contracts cover [initial reads](docs/collection-read-contracts.md), [interface IP](docs/interface-ip-observations.md), [passive wireless](docs/wireless-observation-contracts.md), [DHCP leases](docs/dhcp-observations.md) and [scoped storage](docs/storage-observations.md). UCI reads are non-atomic shared-delta views, not committed-only or effective state.
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
+- Network/dnsmasq configuration v2 preserves selected string/list options with fixed kind/values output, including empty forms and duplicate values. No splitting/coercion or increased global limits; [exact fields](docs/uci-observations.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
 - Explicit OpenWrt targets: unconfigured by default, verified on-device execution, or native persistent SSH independent of the workstation OS.
@@ -28,6 +29,8 @@ This version has no built-in configuration mutation, firmware upgrade, encrypted
 Full gates cover Linux-on-WSL and [native Windows GNU](docs/windows-validation.md); current counts and scope are in [verification and measurements](docs/validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. BPI-R4 hardware, MSVC and macOS acceptance remain pending.
 
 The [v10 emulator run](docs/emulator-validation-v10.md) adds scoped interface-IP and LuCI acceptance: IPv4 address rows, three mounts and valid empty route/neighbor/DNS/block/lease lists. Those empty cases are not populated-device acceptance.
+
+The [v12 emulator run](docs/emulator-validation-v12.md) validates network/dnsmasq v2 text/list fields with fixed synthetic pending RAM sections and 66 safe audit events. Those sections were never committed or applied; this is not physical-router or mutation acceptance.
 
 ## Build and check
 
@@ -81,7 +84,7 @@ Network.Read includes scoped address, route and netifd-managed neighbor observat
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v10](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, finite projections, paged package observations, protected Windows reads and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v12](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded scalar/list projections, closed UCI reads, paged package observations, protected Windows reads and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only.
 
 ```powershell
 ./tools/Test-Repository.ps1

@@ -191,3 +191,43 @@ pub(crate) fn uci_read(
     }));
     operation
 }
+
+/// Extend a closed UCI projection, without changing its action or permission.
+pub(crate) fn uci_read_with_options(
+    name: &str,
+    profile: openwrt_mcp_core::uci::UciReadProfile,
+    scalars: &[(&str, usize)],
+    options: &[(&str, usize)],
+) -> Operation {
+    let mut operation = uci_read(name, profile, scalars);
+    operation.description = "Read selected non-secret UCI scalar and text/list options with section metadata. Sessionless shared-delta, non-atomic view; not committed-only or effective state. Text/list fields preserve representation as kind/values, with shared bounded items and no splitting/coercion. Discloses selected addresses/domains/paths; no file contents or configuration changes.".into();
+    let CapabilityRequirement::UbusMethod {
+        response_contract, ..
+    } = &mut operation.capability
+    else {
+        unreachable!("closed UCI definition has Ubus metadata");
+    };
+    *response_contract = format!("{name}.v2");
+    let OutputMode::Typed(projection) = &mut operation.output_mode else {
+        unreachable!("closed UCI definition has typed output");
+    };
+    let TypedProjection::Collection {
+        collection: Collection::ObjectEntries { record, .. },
+        ..
+    } = projection.as_mut()
+    else {
+        unreachable!("closed UCI definition has a section map");
+    };
+    record
+        .collections
+        .extend(options.iter().map(|(name, max_bytes)| CollectionField {
+            name: (*name).into(),
+            presence: Presence::Optional,
+            collection: Collection::TextOption {
+                source: format!("/{name}"),
+                max_items: 128,
+                max_bytes: *max_bytes,
+            },
+        }));
+    operation
+}

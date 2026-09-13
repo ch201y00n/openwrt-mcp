@@ -109,7 +109,10 @@ pub(crate) fn validate_read(operation: &Operation) -> Result<(), CoreError> {
     if source != "/values"
         || !(1..=128).contains(max_items)
         || !(1..=256).contains(&key.max_bytes)
-        || !record.collections.is_empty()
+        || record
+            .collections
+            .iter()
+            .any(|field| !matches!(field.collection, Collection::TextOption { .. }))
         || !reject_if_present.iter().any(|path| path == "/error")
         || !record.fields.iter().any(|field| {
             field.source == "/.type"

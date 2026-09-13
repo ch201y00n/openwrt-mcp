@@ -26,7 +26,7 @@ fn recipes() -> [Recipe; 6] {
         },
         Recipe {
             name: "network_interface_configuration",
-            response: "network_interface_configuration.v1",
+            response: "network_interface_configuration.v2",
             category: Category::Network,
             config: "network",
             section_type: "interface",
@@ -80,7 +80,7 @@ fn recipes() -> [Recipe; 6] {
         },
         Recipe {
             name: "dhcp_dnsmasq_configuration",
-            response: "dhcp_dnsmasq_configuration.v1",
+            response: "dhcp_dnsmasq_configuration.v2",
             category: Category::DhcpDns,
             config: "dhcp",
             section_type: "dnsmasq",
@@ -123,6 +123,26 @@ fn row(recipe: &Recipe) -> Value {
     json!({".type":recipe.section_type,".anonymous":true,".index":42})
 }
 
+fn text_options(name: &str) -> &'static [(&'static str, usize)] {
+    match name {
+        "network_interface_configuration" => &[
+            ("ipaddr", 1024),
+            ("ip6addr", 1024),
+            ("dns", 1024),
+            ("ifname", 256),
+        ],
+        "dhcp_dnsmasq_configuration" => &[
+            ("server", 1024),
+            ("address", 1024),
+            ("interface", 256),
+            ("notinterface", 256),
+            ("rebind_domain", 1024),
+            ("addnhosts", 1024),
+        ],
+        _ => &[],
+    }
+}
+
 pub(super) fn fixtures() -> Vec<Fixture> {
     recipes().into_iter().map(|recipe| {
         let mut raw = row(&recipe);
@@ -130,6 +150,11 @@ pub(super) fn fixtures() -> Vec<Fixture> {
         for (name, _) in recipe.options { raw[name] = json!("1"); clean[name] = json!("1"); }
         for name in [".name", "password", "key", "options", "ssid", "command", "data", "server", "ipaddr", "ifname", "dns"] {
             raw[name] = json!({"value":"synthetic-secret"});
+        }
+        for (index,(name,_)) in text_options(recipe.name).iter().enumerate() {
+            let (kind,values)=if index%2==0 {("string",json!(["one two"]))} else {("list",json!(["second","first","first",""]))};
+            raw[name]=if kind=="string" {values[0].clone()} else {values.clone()};
+            clean[name]=json!({"kind":kind,"values":values});
         }
         Fixture { name: recipe.name, response: recipe.response, category: recipe.category,
             input: json!({}), object: "uci", method: "get", arguments: json!({"config":recipe.config,"type":recipe.section_type}),
@@ -157,7 +182,7 @@ fn every_uci_option_is_exact_optional_bounded_text_and_no_extra_field_is_declare
             panic!()
         };
         assert_eq!(record.fields.len(), recipe.options.len() + 3);
-        assert!(record.collections.is_empty());
+        assert_eq!(record.collections.len(), text_options(recipe.name).len());
         assert_eq!(
             observe(&recipe, json!({"values":{}})).unwrap(),
             json!({"items":[]})
@@ -204,6 +229,117 @@ fn every_uci_option_is_exact_optional_bounded_text_and_no_extra_field_is_declare
                 );
             }
         }
+    }
+}
+
+#[test]
+fn selected_uci_text_options_have_exact_fields_presence_and_representation_boundaries() {
+    for recipe in recipes() {
+        let op = operation(recipe.name);
+        let OutputMode::Typed(projection) = &op.output_mode else {
+            panic!()
+        };
+        let TypedProjection::Collection {
+            collection: Collection::ObjectEntries { record, .. },
+            ..
+        } = projection.as_ref()
+        else {
+            panic!()
+        };
+        for (name, max) in text_options(recipe.name) {
+            let field = record.collections.iter().find(|f| f.name == *name).unwrap();
+            assert_eq!(field.presence, Presence::Optional);
+            assert_eq!(
+                field.collection,
+                Collection::TextOption {
+                    source: format!("/{name}"),
+                    max_items: 128,
+                    max_bytes: *max
+                }
+            );
+            for (input, kind, values) in [
+                (json!(""), "string", json!([""])),
+                (json!([]), "list", json!([])),
+                (json!("one two"), "string", json!(["one two"])),
+                (
+                    json!(["two", "one", "one", ""]),
+                    "list",
+                    json!(["two", "one", "one", ""]),
+                ),
+                (
+                    json!("é".repeat(max / 2)),
+                    "string",
+                    json!(["é".repeat(max / 2)]),
+                ),
+            ] {
+                let mut raw = row(&recipe);
+                raw[name] = input;
+                assert_eq!(
+                    observe(&recipe, json!({"values":{"n":raw}})).unwrap()["items"][0][name],
+                    json!({"kind":kind,"values":values})
+                );
+            }
+            for input in [
+                json!(null),
+                json!(true),
+                json!(0),
+                json!({}),
+                json!(["fine", null]),
+                json!(["fine", false]),
+                json!(["fine", ["nested"]]),
+                json!("x".repeat(max + 1)),
+                json!(["fine", "é".repeat(max / 2 + 1)]),
+                json!("bad\u{0}"),
+            ] {
+                let mut raw = row(&recipe);
+                raw[name] = input;
+                assert_eq!(
+                    observe(&recipe, json!({"values":{"n":raw}})),
+                    Err(CoreError::InvalidOutput)
+                );
+            }
+            for count in [128, 129] {
+                let mut raw = row(&recipe);
+                raw[name] = json!(vec![""; count]);
+                let result = observe(&recipe, json!({"values":{"n":raw}}));
+                if count == 128 {
+                    assert_eq!(
+                        result.unwrap()["items"][0][name]["values"]
+                            .as_array()
+                            .unwrap()
+                            .len(),
+                        128
+                    );
+                } else {
+                    assert_eq!(result, Err(CoreError::OutputLimit));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn uci_text_options_share_section_and_sibling_budgets_and_reject_escaped_overflow() {
+    for recipe in recipes()
+        .into_iter()
+        .filter(|r| !text_options(r.name).is_empty())
+    {
+        let options = text_options(recipe.name);
+        let mut raw = row(&recipe);
+        raw[options[0].0] = json!(vec![""; 128]);
+        raw[options[1].0] = json!(vec![""; 127]);
+        assert!(observe(&recipe, json!({"values":{"n":raw.clone()}})).is_ok());
+        raw[options[1].0] = json!(vec![""; 128]);
+        assert_eq!(
+            observe(&recipe, json!({"values":{"n":raw}})),
+            Err(CoreError::OutputLimit)
+        );
+        let mut raw = row(&recipe);
+        raw[options[0].0] = json!(vec!["\u{1}".repeat(options[0].1); 128]);
+        assert_eq!(
+            observe(&recipe, json!({"values":{"n":raw}})),
+            Err(CoreError::OutputLimit)
+        );
     }
 }
 

@@ -146,3 +146,25 @@ artifacts = ["docs/emulator-validation-v11.md"]
 observed_at = "2026-09-13T10:19:45Z"
 host = "linux"
 environment = "wsl"
+
+# Populated v2 text-option evidence includes two synthetic pending RAM sections.
+[[records]]
+id = "v12-qemu-uci-text-options"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["network_interface_configuration", "dhcp_dnsmasq_configuration"]
+artifacts = ["docs/emulator-validation-v12.md"]
+observed_at = "2026-09-13T10:45:51Z"
+host = "linux"
+environment = "wsl"
+
+# Safe failure only, not successful configuration reads.
+[[records]]
+id = "v12-qemu-uci-unavailable-calls"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["wireless_radio_configuration", "storage_mount_configuration"]
+artifacts = ["docs/emulator-validation-v12.md"]
+observed_at = "2026-09-13T10:45:51Z"
+host = "linux"
+environment = "wsl"

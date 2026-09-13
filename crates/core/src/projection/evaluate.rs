@@ -259,6 +259,17 @@ impl<R> Collection<R> {
     where
         R: RecordShape,
     {
+        if let Self::TextOption {
+            max_items,
+            max_bytes,
+            ..
+        } = self
+        {
+            if selector.is_some() {
+                return Err(CoreError::InvalidDefinition);
+            }
+            return project_text_option(source, *max_items, *max_bytes, emit, budget);
+        }
         let mut rows = Vec::new();
         let mut selected = None;
         let mut observed = false;
@@ -266,6 +277,7 @@ impl<R> Collection<R> {
             budget.bytes(2)?;
         }
         match self {
+            Self::TextOption { .. } => return Err(CoreError::InvalidDefinition),
             Self::RowArray {
                 max_items, record, ..
             } => {
@@ -402,6 +414,46 @@ impl<R> Collection<R> {
             Some(Value::Array(rows))
         })
     }
+}
+
+/// Preserve the finite source representation without returning a raw subtree.
+/// A string is one value, not whitespace-tokenized configuration semantics.
+fn project_text_option(
+    source: &Value,
+    max_items: usize,
+    max_bytes: usize,
+    emit: bool,
+    budget: &mut Budget,
+) -> Result<Option<Value>, CoreError> {
+    let (kind, values) = match source {
+        Value::String(_) => ("string", std::slice::from_ref(source)),
+        Value::Array(values) => ("list", values.as_slice()),
+        _ => return Err(CoreError::InvalidOutput),
+    };
+    budget.scan(values.len(), max_items)?;
+    if emit {
+        budget.bytes(2)?; // object braces
+        budget.key("kind", false)?;
+        budget.text(kind)?;
+        budget.key("values", true)?;
+        budget.bytes(2)?; // array brackets
+    }
+    let mut projected = Vec::new();
+    for value in values {
+        let scalar = Scalar::read(&ScalarKind::Text { max_bytes }, value)?;
+        if emit {
+            budget.emit()?;
+            budget.bytes(usize::from(!projected.is_empty()))?;
+            projected.push(scalar.to_value(budget)?);
+        }
+    }
+    if !emit {
+        return Ok(None);
+    }
+    Ok(Some(Value::Object(Map::from_iter([
+        ("kind".into(), Value::String(kind.into())),
+        ("values".into(), Value::Array(projected)),
+    ]))))
 }
 
 pub(super) fn project(

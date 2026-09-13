@@ -114,6 +114,32 @@ fn all_closed_uci_profiles_bind_exact_arguments_and_reject_even_privileged_custo
 }
 
 #[test]
+fn closed_uci_profiles_admit_only_bounded_terminal_text_option_collections() {
+    for profile in UciReadProfile::ALL {
+        let mut value = definition(profile);
+        value["output_mode"]["typed"]["collection"]["record"]["collections"] = json!([
+            {"name":"option","presence":"optional","collection":{"kind":"text_option","source":"/option","max_items":128,"max_bytes":1024}}
+        ]);
+        let op: Operation = serde_json::from_value(value.clone()).unwrap();
+        Catalog::with_builtins(vec![op.clone()], vec![]).unwrap();
+        assert_eq!(
+            Catalog::new(vec![op]).unwrap_err(),
+            CoreError::InvalidDefinition
+        );
+        for form in [
+            json!({"kind":"row_array","source":"/option","max_items":1,"record":{"fields":[]}}),
+            json!({"kind":"object_entries","source":"/option","max_items":1,"key":{"name":"key","max_bytes":8},"record":{"fields":[]}}),
+            json!({"kind":"scalar_array","source":"/option","max_items":1,"name":"text","value":{"kind":"text","max_bytes":8},"unique":false}),
+        ] {
+            let mut bad = value.clone();
+            bad["output_mode"]["typed"]["collection"]["record"]["collections"][0]["collection"] =
+                form;
+            reject(bad);
+        }
+    }
+}
+
+#[test]
 fn uci_raw_untyped_unbounded_unguarded_or_wrong_section_contracts_are_not_admissible() {
     for profile in UciReadProfile::ALL {
         for mode in [json!("scalars"), json!("structured")] {

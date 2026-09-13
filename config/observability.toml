@@ -1,6 +1,7 @@
 # Opt-in example for all currently implemented built-in read categories.
 # No write or execute grants; missing categories remain denied.
 # Includes selected non-secret scalar UCI options in each granted category.
+# Network and DHCP/DNS also expose selected text/list address/resolver/path options.
 # These are sessionless shared-delta observations, not committed/effective state.
 # Wireless.Read includes station MAC identities and passive link metrics.
 # Deny wireless_stations and wireless_station_status to hide client identities.

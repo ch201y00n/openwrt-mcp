@@ -190,6 +190,51 @@ fn row(name: &str) -> Value {
 }
 
 #[tokio::test]
+async fn nested_text_options_use_existing_dispatch_audit_and_shared_item_limits() {
+    let mut value = serde_json::to_value(operation(false)).unwrap();
+    value["output_mode"]["typed"]["collection"]["record"]["collections"] = json!([
+        {"name":"option","presence":"optional","collection":{"kind":"text_option","source":"/option","max_items":128,"max_bytes":1024}}
+    ]);
+    let (dispatcher, target, audit) = fixture(
+        serde_json::from_value(value).unwrap(),
+        vec![
+            json!({"items":[{"name":"n","up":true,"option":"one two","key":PRIVATE}]}),
+            json!({"items":[{"name":"n","up":true,"option":["two","one","one"]}]}),
+            json!({"items":[{"name":"n","up":true,"option":["fine",null]}]}),
+            json!({"items":[{"name":"n","up":true,"option":vec!["";128]},{"name":"m","up":false,"option":vec!["";128]}]}),
+        ],
+        true,
+        false,
+    );
+    for normalized in [
+        json!({"kind":"string","values":["one two"]}),
+        json!({"kind":"list","values":["two","one","one"]}),
+    ] {
+        assert_eq!(
+            dispatcher
+                .invoke("fixture_collection", json!({}))
+                .await
+                .unwrap(),
+            json!({"items":[{"name":"n","up":true,"option":normalized}]})
+        );
+        last_outcome(&audit, AuditOutcome::Success);
+    }
+    for code in ["invalid_output", "output_limit"] {
+        assert_eq!(
+            dispatcher
+                .invoke("fixture_collection", json!({}))
+                .await
+                .unwrap_err()
+                .code(),
+            code
+        );
+        last_outcome(&audit, AuditOutcome::Failed);
+    }
+    assert_eq!(target.probes.load(Ordering::SeqCst), 1);
+    assert_eq!(target.calls.lock().unwrap().len(), 4);
+}
+
+#[tokio::test]
 async fn exact_text_enums_fail_through_normal_projection_and_audit_without_coercion() {
     let mut value = serde_json::to_value(operation(false)).unwrap();
     value["output_mode"]["typed"]["collection"]["record"]["fields"][1] = json!({

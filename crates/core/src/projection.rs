@@ -23,6 +23,7 @@ pub const MAX_COLLECTION_NODES: usize = 8;
 pub const MAX_RECORD_FIELDS: usize = 64;
 pub const MAX_TEXT_BYTES: usize = 1024;
 pub const MAX_TEXT_ENUM_VALUES: usize = 16;
+pub const MAX_TEXT_OPTION_ITEMS: usize = 128;
 const MAX_SCHEMA_DEPTH: usize = 8;
 const MAX_POINTER_DEPTH: usize = 8;
 const MAX_POINTER_BYTES: usize = 512;
@@ -106,6 +107,11 @@ pub struct CollectionField<C> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Collection<R> {
+    TextOption {
+        source: String,
+        max_items: usize,
+        max_bytes: usize,
+    },
     RowArray {
         source: String,
         max_items: usize,
@@ -320,6 +326,7 @@ impl<R> Collection<R> {
             Self::ObjectArray { source, .. }
             | Self::RowArray { source, .. }
             | Self::ObjectEntries { source, .. }
+            | Self::TextOption { source, .. }
             | Self::ScalarArray { source, .. } => source,
         }
     }
@@ -341,7 +348,7 @@ impl<R> Collection<R> {
                 None
             }),
             Self::ObjectEntries { key, .. } => Some(key.max_bytes),
-            Self::ScalarArray { .. } | Self::RowArray { .. } => None,
+            Self::ScalarArray { .. } | Self::RowArray { .. } | Self::TextOption { .. } => None,
         }
     }
 
@@ -355,6 +362,21 @@ impl<R> Collection<R> {
         }
         pointer_segments(self.source(), true)?;
         let max_items = match self {
+            Self::TextOption {
+                max_items,
+                max_bytes,
+                ..
+            } => {
+                // Root collections have depth one. TextOption is only a
+                // terminal named field, never a root items envelope/selector.
+                if depth == 1
+                    || !(1..=MAX_TEXT_BYTES).contains(max_bytes)
+                    || !(1..=MAX_TEXT_OPTION_ITEMS).contains(max_items)
+                {
+                    return Err(CoreError::InvalidDefinition);
+                }
+                *max_items
+            }
             Self::RowArray {
                 max_items, record, ..
             } => {
