@@ -37,6 +37,7 @@ impl Backend for RecordingBackend {
         let (method, arguments) = match object {
             ReviewedObject::Iwinfo => ("info", vec![("device", UbusArgumentType::String)]),
             ReviewedObject::NetworkInterface => ("dump", vec![]),
+            ReviewedObject::Luci => ("getMountPoints", vec![]),
             ReviewedObject::System => (
                 "watchdog",
                 vec![
@@ -79,6 +80,14 @@ impl Backend for RecordingBackend {
             }
             methods.insert(
                 "devices".into(),
+                MethodSignature {
+                    arguments: BTreeMap::new(),
+                },
+            );
+        }
+        if object == ReviewedObject::Luci {
+            methods.insert(
+                "getBlockDevices".into(),
                 MethodSignature {
                     arguments: BTreeMap::new(),
                 },
@@ -737,6 +746,49 @@ async fn country_list_mcp_is_a_passive_metadata_read_not_a_regulatory_setter() {
         ],
     })
     .await;
+}
+
+#[tokio::test]
+async fn storage_mcp_reads_keep_fixed_calls_typed_capacity_and_payload_free_audit() {
+    for (name, method, source, clean, invalid) in [
+        (
+            "storage_mounts",
+            "getMountPoints",
+            json!({"result":[{"device":"/dev/loop0","mount":"/mnt/test","size":9007199254740993_u64,"avail":0,"free":1,"options":{"password":PRIVATE}}]}),
+            json!({"items":[{"device":"/dev/loop0","mount":"/mnt/test","size_bytes":"9007199254740993","available_bytes":"0","free_bytes":"1"}]}),
+            json!({"result":[{"device":"/dev/loop0","mount":"/mnt/test","size":"1","avail":0,"free":0}]}),
+        ),
+        (
+            "storage_block_devices",
+            "getBlockDevices",
+            json!({"loop0":{"dev":"/dev/loop0","size":u64::MAX,"type":"ext4","password":PRIVATE}}),
+            json!({"items":[{"source_key":"loop0","device":"/dev/loop0","size_bytes":"18446744073709551615","filesystem":"ext4"}]}),
+            json!({"loop0":{"dev":"/dev/loop0","size":1}}),
+        ),
+    ] {
+        check_read_contract(ReadContract {
+            name,
+            category: Category::Storage,
+            visible: vec!["storage_mounts", "storage_block_devices"],
+            arguments: json!({}),
+            action: PreparedAction::Ubus {
+                object: "luci".into(),
+                method: method.into(),
+                arguments: json!({}),
+            },
+            invalid_arguments: vec![
+                json!({"path":PRIVATE}),
+                json!({"method":"setBlockDetect"}),
+                json!({"execute":true}),
+            ],
+            responses: vec![(source, clean)],
+            invalid_outputs: vec![
+                (invalid, "invalid_output"),
+                (json!({"error":PRIVATE}), "invalid_output"),
+            ],
+        })
+        .await;
+    }
 }
 
 fn clean_service(name: &str) -> Value {

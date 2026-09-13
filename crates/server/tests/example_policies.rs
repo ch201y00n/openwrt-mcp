@@ -37,7 +37,7 @@ fn observability_example_exposes_builtins_without_privileged_extensions() {
         toml::from_str(&fs::read_to_string(root.join("config/observability.toml")).unwrap())
             .unwrap();
     let catalog = config.catalog().unwrap();
-    assert_eq!(catalog.operations().len(), 18);
+    assert_eq!(catalog.operations().len(), 20);
     assert!(
         catalog
             .operations()

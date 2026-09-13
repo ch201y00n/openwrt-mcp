@@ -16,6 +16,18 @@ use serde_json::json;
 fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contract() {
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
     let expectations = [
+        (
+            "storage_mounts",
+            ReviewedObject::Luci,
+            "getMountPoints",
+            vec![],
+        ),
+        (
+            "storage_block_devices",
+            ReviewedObject::Luci,
+            "getBlockDevices",
+            vec![],
+        ),
         ("system_board", ReviewedObject::System, "board", vec![]),
         ("system_info", ReviewedObject::System, "info", vec![]),
         (
@@ -169,7 +181,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 18);
+    assert_eq!(operations.len(), 20);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::ApkInstalledPage {}) {
@@ -194,8 +206,16 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
         .into_iter()
         .map(ReviewedObject::as_str)
         .collect();
-    assert_eq!(objects, recorded);
-    assert_eq!(objects, reviewed);
+    assert_eq!(recorded, reviewed);
+    // v9 reserves luci-rpc introspection; DHCP response unions still need review.
+    assert_eq!(
+        recorded
+            .difference(&objects)
+            .copied()
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["luci-rpc"])
+    );
+    assert!(objects.is_subset(&recorded));
     assert_eq!(
         registry["runtime"]["operation_metadata"].as_str(),
         Some("required_ubus_method_signature_response_contract")

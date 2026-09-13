@@ -31,6 +31,12 @@ execute = false
 access = "read"
 execute = false
 
+# LuCI-visible paths, labels/UUIDs and capacity; not file contents or full inventory.
+# May read disk signatures or contact mounted network filesystems.
+[policy.categories.storage]
+access = "read"
+execute = false
+
 [audit]
 enabled = true
 format = "json"

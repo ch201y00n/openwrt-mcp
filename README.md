@@ -11,9 +11,9 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Seventeen conservative ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- Nineteen conservative ubus read operations across system, network, wireless, services, storage and diagnostics; fixed-action operator extensions.
 - One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
-- Eight typed response contracts for bounded interface, wireless and service observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md) and [passive wireless contracts](docs/wireless-observation-contracts.md).
+- Ten typed response contracts for bounded interface, wireless, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [passive wireless contracts](docs/wireless-observation-contracts.md) and [scoped storage observations](docs/storage-observations.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.

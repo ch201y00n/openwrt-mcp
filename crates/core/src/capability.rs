@@ -17,7 +17,7 @@ pub const MAX_OBSERVED_ARGUMENT_NAME_BYTES: usize = 64;
 pub const UBUS_INTEGER_MIN: i32 = i32::MIN;
 pub const UBUS_INTEGER_MAX: i32 = i32::MAX;
 
-/// The only object names admitted to the initial introspection probe family.
+/// Exact object names admitted by the reviewed introspection profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ReviewedObject {
     System,
@@ -27,10 +27,12 @@ pub enum ReviewedObject {
     NetworkInterfaceWan,
     Iwinfo,
     Service,
+    Luci,
+    LuciRpc,
 }
 
 impl ReviewedObject {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 9] = [
         Self::System,
         Self::NetworkDevice,
         Self::NetworkInterface,
@@ -38,6 +40,8 @@ impl ReviewedObject {
         Self::NetworkInterfaceWan,
         Self::Iwinfo,
         Self::Service,
+        Self::Luci,
+        Self::LuciRpc,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -49,6 +53,8 @@ impl ReviewedObject {
             Self::NetworkInterfaceWan => "network.interface.wan",
             Self::Iwinfo => "iwinfo",
             Self::Service => "service",
+            Self::Luci => "luci",
+            Self::LuciRpc => "luci-rpc",
         }
     }
 

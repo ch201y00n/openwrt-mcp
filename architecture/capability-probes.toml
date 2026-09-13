@@ -1,5 +1,5 @@
 # Architecture contract, not executable configuration or evidence of device support.
-schema_version = 1
+schema_version = 2
 
 [runtime]
 backend_ownership = "same_immutable_backend"
@@ -63,4 +63,18 @@ id = "ubus.service"
 object = "service"
 program = "/bin/ubus"
 arguments = ["-v", "list", "service"]
+effect = "read"
+
+[[probes]]
+id = "ubus.luci"
+object = "luci"
+program = "/bin/ubus"
+arguments = ["-v", "list", "luci"]
+effect = "read"
+
+[[probes]]
+id = "ubus.luci-rpc"
+object = "luci-rpc"
+program = "/bin/ubus"
+arguments = ["-v", "list", "luci-rpc"]
 effect = "read"

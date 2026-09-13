@@ -42,9 +42,9 @@ Metadata requests pass through the dispatcher and audit with `kind: "capability"
 
 ## Bounded, same-target observations
 
-The initial closed set is system, network.device, network.interface, network.interface.lan, network.interface.wan, iwinfo and service. Probe commands only describe one exact object with `ubus -v list`; they never call a method as a presence test. Local and SSH modes share the same parser and command contract. Discovery and execution use the same immutable backend and authentication context.
+The v9 closed set is system, network.device, network.interface, network.interface.lan, network.interface.wan, iwinfo, service, luci and luci-rpc. Probe commands only describe one exact object with `ubus -v list`; they never call a method as a presence test. Local and SSH modes share the parser and command contract. Discovery and execution use the same immutable backend and authentication context. LuCI is optional; discovering luci-rpc does not implement DHCP lease tools, and neither object grants access to its other methods.
 
-Observations last at most 30 seconds, measured by the host's monotonic clock. A private cache has at most seven entries. Connection/authentication epoch changes or invalidation prevent reuse. Probe, cache waiting and command execution share one device-work deadline; byte limits cap each response and introspection has an additional 64-KiB ceiling. The start audit must succeed before probe/key/connection I/O. There is no automatic operation replay.
+Observations last at most 30 seconds, measured by the host's monotonic clock. A private cache has at most nine entries, bounded by the closed object enum. Connection/authentication epoch changes or invalidation prevent reuse. Probe, cache waiting and command execution share one device-work deadline; byte limits cap each response and introspection has an additional 64-KiB ceiling. The start audit must succeed before probe/key/connection I/O. There is no automatic operation replay.
 
 External configuration or package changes within the TTL may not be immediately detected. A privileged external writer can race any check; this is not transaction isolation. Later package/firmware workflows must invalidate their observations on managed changes. Response contracts remain separate: a known method may have no requested interface, radio or service instance.
 

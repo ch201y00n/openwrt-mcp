@@ -94,7 +94,7 @@ impl Observation {
 }
 
 /// Owned by one dispatcher together with its immutable backend/configuration.
-/// At most seven entries; waiters are bounded by dispatcher admission/deadline.
+/// At most ReviewedObject::ALL.len() entries (nine in v9); bounded waiters.
 #[derive(Default)]
 pub(crate) struct CapabilityCache {
     entries: Mutex<BTreeMap<ReviewedObject, Observation>>,

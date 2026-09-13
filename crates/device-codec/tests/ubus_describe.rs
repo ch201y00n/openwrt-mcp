@@ -29,6 +29,8 @@ fn every_closed_probe_matches_the_reviewed_registry_and_remote_encoding() {
         "network.interface.wan",
         "iwinfo",
         "service",
+        "luci",
+        "luci-rpc",
     ];
     assert_eq!(registry.matches("[[probes]]").count(), objects.len());
     assert_eq!(
@@ -71,6 +73,48 @@ fn complete_signatures_preserve_each_type_and_unknown_future_labels() {
         assert_eq!(fields[name], expected);
     }
     assert_eq!(observed.object, ReviewedObject::System);
+}
+
+#[test]
+fn luci_descriptions_are_exact_objects_and_do_not_turn_other_methods_into_actions() {
+    for (object, lines, method) in [
+        (
+            ReviewedObject::Luci,
+            "\t\"getMountPoints\":{}\n\t\"getBlockDevices\":{}\n\t\"setBlockDetect\":{}\n\t\"setPassword\":{\"username\":\"String\",\"password\":\"String\"}\n",
+            "getMountPoints",
+        ),
+        (
+            ReviewedObject::LuciRpc,
+            "\t\"getDHCPLeases\":{\"family\":\"Integer\"}\n",
+            "getDHCPLeases",
+        ),
+    ] {
+        let source = format!("'{}' @00000001\n{lines}", object.as_str());
+        let CapabilityObservation::Ubus(observation) =
+            parse_ubus_describe(object, source.as_bytes(), MAX_PROBE_BYTES).unwrap()
+        else {
+            panic!("synthetic complete signature")
+        };
+        assert_eq!(observation.object, object);
+        assert!(observation.methods.contains_key(method));
+        let foreign = if object == ReviewedObject::Luci {
+            ReviewedObject::LuciRpc
+        } else {
+            ReviewedObject::Luci
+        };
+        assert_eq!(
+            parse_ubus_describe(foreign, source.as_bytes(), MAX_PROBE_BYTES),
+            Err(CodecError::InvalidObservation)
+        );
+        assert_eq!(
+            parse_ubus_describe(object, b"", MAX_PROBE_BYTES).unwrap(),
+            CapabilityObservation::Unknown(UnknownReason::NotObservedOrHidden)
+        );
+        assert_eq!(
+            compile_probe(ProbeRequest::DescribeUbusObject(object)).arguments(),
+            ["-v", "list", object.as_str()]
+        );
+    }
 }
 
 #[test]

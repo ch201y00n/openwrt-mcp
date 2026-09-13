@@ -11,6 +11,7 @@ pub fn builtins() -> Vec<Operation> {
     operations.extend(categories::services::operations());
     operations.extend(categories::diagnostics::operations());
     operations.extend(categories::packages::operations());
+    operations.extend(categories::storage::operations());
     operations
 }
 

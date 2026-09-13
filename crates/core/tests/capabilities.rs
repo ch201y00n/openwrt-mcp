@@ -205,6 +205,8 @@ fn probe_registry_is_closed_and_exact_not_a_wildcard_or_parameter() {
         "network.interface.wan",
         "iwinfo",
         "service",
+        "luci",
+        "luci-rpc",
     ];
     assert_eq!(ReviewedObject::ALL.map(ReviewedObject::as_str), expected);
     for object in ReviewedObject::ALL {

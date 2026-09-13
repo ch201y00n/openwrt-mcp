@@ -65,6 +65,28 @@ fn fixtures() -> Vec<Fixture> {
     let service = json!({"name":"fixture","instances":[{"name":"one","running":true,"pid":42,"exit_code":0},{"name":"two","running":false}]});
     vec![
         Fixture {
+            name: "storage_mounts",
+            response: "storage_mounts.v1",
+            category: Category::Storage,
+            input: json!({}),
+            object: "luci",
+            method: "getMountPoints",
+            arguments: json!({}),
+            source: json!({"result":[{"device":"/dev/loop0","mount":"/mnt/test","size":9007199254740993_u64,"avail":64,"free":128,"options":{"password":"synthetic-secret"}}],"error_detail":"synthetic-secret"}),
+            expected: json!({"items":[{"device":"/dev/loop0","mount":"/mnt/test","size_bytes":"9007199254740993","available_bytes":"64","free_bytes":"128"}]}),
+        },
+        Fixture {
+            name: "storage_block_devices",
+            response: "storage_block_devices.v1",
+            category: Category::Storage,
+            input: json!({}),
+            object: "luci",
+            method: "getBlockDevices",
+            arguments: json!({}),
+            source: json!({"loop0":{"dev":"/dev/loop0","size":u64::MAX,"type":"ext4","uuid":"fixture-uuid","label":"Fixture","version":"1.0","mount":"/mnt/test","password":"synthetic-secret"},"swap:/swapfile":{"dev":"/swapfile","size":1024,"type":"swap"}}),
+            expected: json!({"items":[{"source_key":"loop0","device":"/dev/loop0","size_bytes":"18446744073709551615","filesystem":"ext4","uuid":"fixture-uuid","label":"Fixture","version":"1.0","mount":"/mnt/test"},{"source_key":"swap:/swapfile","device":"/swapfile","size_bytes":"1024","filesystem":"swap"}]}),
+        },
+        Fixture {
             name: "wireless_stations",
             response: "wireless_stations.v1",
             category: Category::Wireless,
@@ -186,6 +208,140 @@ fn actual_typed_catalog_and_response_ids_have_exactly_matching_exercised_fixture
         );
         assert!(projected.is_object());
     }
+}
+
+#[test]
+fn storage_observations_reject_errors_ambiguous_identity_and_lossy_or_incomplete_fields() {
+    let mount = json!({"device":"/dev/loop0","mount":"/mnt/한글","size":1024,"avail":0,"free":0});
+    let block = json!({"dev":"/dev/loop0","size":1024,"type":"ext4"});
+    assert_eq!(
+        project("storage_mounts", &json!({}), &json!({"result":[]})).unwrap(),
+        json!({"items":[]})
+    );
+    assert_eq!(
+        project("storage_block_devices", &json!({}), &json!({})).unwrap(),
+        json!({"items":[]})
+    );
+    assert_eq!(
+        project(
+            "storage_mounts",
+            &json!({}),
+            &json!({"result":[mount.clone(),mount.clone()]})
+        ),
+        Err(CoreError::InvalidOutput)
+    );
+    for (name, record, fields) in [
+        (
+            "storage_mounts",
+            mount,
+            vec!["device", "mount", "size", "avail", "free"],
+        ),
+        ("storage_block_devices", block, vec!["dev", "size", "type"]),
+    ] {
+        let wrap = |row: Value| {
+            if name == "storage_mounts" {
+                json!({"result":[row]})
+            } else {
+                json!({"loop0":row})
+            }
+        };
+        for source in [json!(null), json!([]), json!({"error":"synthetic-secret"})] {
+            assert_eq!(
+                project(name, &json!({}), &source),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        for field in fields {
+            let mut missing = record.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert_eq!(
+                project(name, &json!({}), &wrap(missing)),
+                Err(CoreError::InvalidOutput)
+            );
+            for invalid in [
+                json!(null),
+                json!(true),
+                json!({"password":"synthetic-secret"}),
+                json!([]),
+            ] {
+                let mut bad = record.clone();
+                bad[field] = invalid;
+                assert_eq!(
+                    project(name, &json!({}), &wrap(bad)),
+                    Err(CoreError::InvalidOutput)
+                );
+            }
+        }
+        for size in [json!(-1), json!(1.0), json!("1024"), json!(1e30)] {
+            let mut bad = record.clone();
+            bad["size"] = size;
+            assert_eq!(
+                project(name, &json!({}), &wrap(bad)),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        let mut zero = record.clone();
+        zero["size"] = json!(0);
+        assert!(project(name, &json!({}), &wrap(zero)).is_ok());
+    }
+    for key in ["", "bad\u{0}key", &"x".repeat(1025)] {
+        assert_eq!(
+            project(
+                "storage_block_devices",
+                &json!({}),
+                &json!({key:{"dev":"/dev/loop0","size":1,"type":"ext4"}})
+            ),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+}
+
+#[test]
+fn storage_rows_text_and_serialized_size_have_independent_hard_bounds() {
+    for count in [128, 129] {
+        let mounts: Vec<_> = (0..count).map(|i| json!({"mount":format!("/mnt/{i}"),"device":"/dev/loop0","size":1024,"avail":0,"free":1})).collect();
+        let blocks: serde_json::Map<String, Value> = (0..count)
+            .map(|i| {
+                (
+                    format!("loop{i}"),
+                    json!({"dev":"/dev/loop0","size":1024,"type":"ext4"}),
+                )
+            })
+            .collect();
+        for (name, source) in [
+            ("storage_mounts", json!({"result":mounts})),
+            ("storage_block_devices", json!(blocks)),
+        ] {
+            let result = project(name, &json!({}), &source);
+            if count == 128 {
+                assert_eq!(result.unwrap()["items"].as_array().unwrap().len(), 128);
+            } else {
+                assert_eq!(result, Err(CoreError::OutputLimit));
+            }
+        }
+    }
+    for (field, max) in [
+        ("dev", 1024),
+        ("type", 64),
+        ("uuid", 256),
+        ("label", 256),
+        ("version", 64),
+        ("mount", 1024),
+    ] {
+        for size in [max, max + 1] {
+            let mut row = json!({"dev":"/dev/loop0","size":1,"type":"ext4"});
+            row[field] = json!("x".repeat(size));
+            assert_eq!(
+                project("storage_block_devices", &json!({}), &json!({"loop0":row})).is_ok(),
+                size == max
+            );
+        }
+    }
+    let rows: Vec<_> = (0..80).map(|i| json!({"mount":format!("/mnt/{i}"),"device":"x".repeat(1024),"size":1,"avail":0,"free":0})).collect();
+    assert_eq!(
+        project("storage_mounts", &json!({}), &json!({"result":rows})),
+        Err(CoreError::OutputLimit)
+    );
 }
 
 #[test]
