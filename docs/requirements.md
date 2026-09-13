@@ -1,5 +1,7 @@
 # Product requirements
 
+Architecture v16 requires bounded incremental uncompressed archive validation against every supplied expected path and size, with strict tar framing, no links/extensions/special entries, complete zero tail, no ignored suffix, safe paths and latched failure. Owned header/path memory is zeroizing; payloads are not retained. Count-only structural completion does not prove provenance, full scope, source success or safe extraction. Keep this codec outside production consumers until a separate integration checkpoint; no backup/restore tool is introduced. See ADR 0016.
+
 OpenWrt MCP is an independent community project. It aims to give AI agents comprehensive OpenWrt management through MCP with explicit operator control. Rust is an implementation choice; correctness and measured cost take precedence over language-based performance claims.
 
 ## User goals and acceptance criteria

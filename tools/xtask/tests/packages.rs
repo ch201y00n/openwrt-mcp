@@ -111,6 +111,14 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
     };
     validate(&original).unwrap();
     let mut old = original.clone();
+    for rule in old["crates"].as_array_mut().unwrap() {
+        if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
+            rule["dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("zeroize"));
+        }
+    }
     old["version"] = 13.into();
     assert!(
         validate(&old)
@@ -121,6 +129,9 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
     old.as_table_mut()
         .unwrap()
         .remove("management_effect_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("backup_archive_contract");
     validate(&old).unwrap();
     old["version"] = 14.into();
     assert!(validate(&old).unwrap_err().contains("v14 requires"));

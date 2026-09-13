@@ -1,5 +1,6 @@
 //! Development-only architecture checks; never linked into the shipped server.
 
+mod backup_archives;
 mod capability;
 mod change;
 mod management_effects;
@@ -13,6 +14,7 @@ mod spec;
 mod uci_reads;
 mod windows_reads;
 
+pub use backup_archives::check_archive_source;
 pub use capability::{
     CapabilityContract, check_capability_registry, check_capability_registry_for_version,
     check_compatibility_evidence,
@@ -127,6 +129,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         check_owned_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         check_management_source(&contract, file, &source, &aliases)
+            .map_err(|error| format!("{file}: {error}"))?;
+        check_archive_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         if !development {
             // A consumer's private-namespace ban must survive producer-side

@@ -181,9 +181,27 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
         ));
         spec["version"] = (version as i64).into();
+        if version < 16 {
+            spec.as_table_mut()
+                .unwrap()
+                .remove("backup_archive_contract");
+            spec["decision"] = "docs/adr/0015-protected-resource-effects.md".into();
+            for rule in spec["crates"].as_array_mut().unwrap() {
+                rule["forbidden_paths"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|p| p.as_str() != Some("openwrt_mcp_device_codec::archive"));
+                if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
+                    rule["dependencies"]
+                        .as_array_mut()
+                        .unwrap()
+                        .retain(|d| d.as_str() != Some("zeroize"));
+                }
+            }
+        }
         if version < 15 {
             spec.as_table_mut()
                 .unwrap()
@@ -1137,6 +1155,64 @@ fn assembled_v15_gate_keeps_effect_analysis_private_bounded_and_non_authorizing(
     fixture.write(
         "crates/core/src/lib.rs",
         "pub mod management; pub use management::EffectGraph;\n",
+    );
+    fixture.denied("public surface flattens protected namespace");
+}
+
+#[test]
+fn assembled_v16_gate_rejects_archive_contract_source_and_consumer_escapes() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(16);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("version = 16", "version = 15", "codec must remain portable"),
+        (
+            "max_tail_bytes = 32768",
+            "max_tail_bytes = 32769",
+            "exact bounded non-authorizing profile",
+        ),
+        (
+            "latched_first_error_no_reset",
+            "skip_failed_entry",
+            "exact bounded non-authorizing profile",
+        ),
+        (
+            "regular_only_no_links_directories_extensions_or_special",
+            "any_tar",
+            "exact bounded non-authorizing profile",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied(expected);
+    }
+    fixture.write(path, &original);
+    fixture.write("crates/device-codec/src/lib.rs", "pub mod archive;\n");
+    fixture.write(
+        "crates/device-codec/src/archive/mod.rs",
+        "pub struct Validator;\n",
+    );
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/device-codec/src/archive/mod.rs",
+        "use std::io::Read;\n",
+    );
+    fixture.denied("std::io");
+    fixture.write(
+        "crates/device-codec/src/archive/mod.rs",
+        "pub struct Validator;\n",
+    );
+    fixture.write(
+        "crates/backend-ssh/src/lib.rs",
+        "use openwrt_mcp_device_codec::archive::Validator;\n",
+    );
+    fixture.denied("archive");
+    fixture.write("crates/backend-ssh/src/lib.rs", "//! inert\n");
+    fixture.write(
+        "crates/device-codec/src/lib.rs",
+        "pub mod archive; pub use archive::Validator;\n",
     );
     fixture.denied("public surface flattens protected namespace");
 }

@@ -27,6 +27,17 @@ fn every_effect_field_and_budget_requires_exact_versioned_non_authorizing_contra
     parse(&original).validate(&root()).unwrap();
     let mut old = original.clone();
     old["version"] = 14.into();
+    old.as_table_mut()
+        .unwrap()
+        .remove("backup_archive_contract");
+    for rule in old["crates"].as_array_mut().unwrap() {
+        if rule["name"].as_str() == Some("openwrt-mcp-device-codec") {
+            rule["dependencies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|d| d.as_str() != Some("zeroize"));
+        }
+    }
     denied(&old);
     old.as_table_mut()
         .unwrap()

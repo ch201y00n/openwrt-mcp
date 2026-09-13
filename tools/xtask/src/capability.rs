@@ -73,13 +73,15 @@ impl Contract {
             .iter()
             .find(|rule| rule.name == CODEC)
             .ok_or("capability codec boundary is missing")?;
+        let codec_dependencies: &[&str] = if self.version >= 16 {
+            &["openwrt-mcp-core", "serde", "serde_json", "zeroize"]
+        } else {
+            &["openwrt-mcp-core", "serde", "serde_json"]
+        };
         if codec.path != "crates/device-codec"
             || codec.layer != "infrastructure"
             || !self.portable_crates.iter().any(|name| name == CODEC)
-            || !exact(
-                &codec.dependencies,
-                &["openwrt-mcp-core", "serde", "serde_json"],
-            )
+            || !exact(&codec.dependencies, codec_dependencies)
             || !codec.dev_dependencies.is_empty()
             || !codec.build_dependencies.is_empty()
         {

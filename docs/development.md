@@ -1,5 +1,7 @@
 # Architecture-first development workflow
 
+Architecture v16 adds only the declared archive codec boundary before implementing its parser. Validate and commit requirements, ADR and negative harness first; preserve exact source ownership, zeroize-only extra dependency allowance, production consumer bans and mandatory native action-response suite. Add behavioral fixtures in a separate archive module afterward. Neither declaration tests nor a valid tar predicate count as implemented backup, producer completion or restore authorization. See ADR 0016.
+
 Read requirements.md, architecture.md, architecture/spec.toml and the active ADR before modifying behavior. Build artifacts and synthetic tests never authorize live router changes.
 
 ## Standard directories
