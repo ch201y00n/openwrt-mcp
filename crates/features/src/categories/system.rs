@@ -1,8 +1,10 @@
+mod configuration;
+
 use crate::definition::{read, uci_read};
 use openwrt_mcp_core::{Category, Operation};
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![
+    let mut operations = vec![
         uci_read(
             "system_configuration",
             openwrt_mcp_core::uci::UciReadProfile::System,
@@ -51,5 +53,7 @@ pub(crate) fn operations() -> Vec<Operation> {
                 "/root/free",
             ],
         ),
-    ]
+    ];
+    operations.extend(configuration::operations());
+    operations
 }

@@ -1,6 +1,6 @@
 # Additional base-service UCI observations (v13)
 
-This is the implementation contract for eighteen additional parameterless reads. At the architecture-only checkpoint these tools are **not implemented**. All use the common [UCI section envelope and limits](uci-observations.md), fixed config/type/get, exact category Read, existing same-target capability checks and no execute grant. New response IDs are <tool>.v1. No existing response changes.
+This is the implemented contract for eighteen additional parameterless reads, following validated architecture-only checkpoint fe677cb. All use the common [UCI section envelope and limits](uci-observations.md), fixed config/type/get, exact category Read, existing same-target capability checks and no execute grant. New response IDs are <tool>.v1. No existing response changes. [Host validation](validation.md) is separate from device acceptance.
 
 All fields below are optional and selected by unchanged option name. Parentheses specify UTF-8 bytes per text. Scalar means exact JSON string only; TextOption means the fixed kind/values wrapper preserving the source string or list. No parsing, defaults, splitting, joining, normalization or action is performed. Numerical-looking strings remain strings. Each option list has at most 128 values under the unchanged shared 256-item and 64-KiB output budget.
 

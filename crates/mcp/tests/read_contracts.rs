@@ -505,6 +505,12 @@ fn interface(name: &str) -> Value {
 
 fn network_tools() -> Vec<&'static str> {
     vec![
+        "network_device_configuration",
+        "network_bridge_vlan_configuration",
+        "network_route_v4_configuration",
+        "network_route_v6_configuration",
+        "network_rule_v4_configuration",
+        "network_rule_v6_configuration",
         "network_interface_configuration",
         "network_interface_addresses",
         "network_interface_routes",
@@ -519,6 +525,10 @@ fn network_tools() -> Vec<&'static str> {
 
 fn dhcp_tools() -> Vec<&'static str> {
     vec![
+        "dhcp_pool_configuration",
+        "dhcp_host_configuration",
+        "dhcp_domain_configuration",
+        "dhcp_cname_configuration",
         "dhcp_v4_leases",
         "dhcp_v6_leases",
         "dhcp_interface_dns",
@@ -528,9 +538,31 @@ fn dhcp_tools() -> Vec<&'static str> {
 
 fn storage_tools() -> Vec<&'static str> {
     vec![
+        "storage_global_configuration",
+        "storage_swap_configuration",
         "storage_mounts",
         "storage_block_devices",
         "storage_mount_configuration",
+    ]
+}
+
+fn system_tools() -> Vec<&'static str> {
+    vec![
+        "system_board",
+        "system_info",
+        "system_configuration",
+        "system_timeserver_configuration",
+    ]
+}
+
+fn firewall_tools() -> Vec<&'static str> {
+    vec![
+        "firewall_defaults_configuration",
+        "firewall_zone_configuration",
+        "firewall_forwarding_configuration",
+        "firewall_rule_configuration",
+        "firewall_redirect_configuration",
+        "firewall_nat_configuration",
     ]
 }
 

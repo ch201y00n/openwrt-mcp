@@ -1,6 +1,8 @@
+mod base;
+
 use super::{
     Category, PRIVATE, PreparedAction, ReadContract, check_read_contract, dhcp_tools,
-    network_tools, storage_tools, wireless_tools,
+    firewall_tools, network_tools, storage_tools, system_tools, wireless_tools,
 };
 use serde_json::json;
 
@@ -88,7 +90,7 @@ async fn closed_uci_mcp_reads_are_category_scoped_fixed_bounded_and_payload_free
             Category::System,
             "system",
             "system",
-            vec!["system_board", "system_info", "system_configuration"],
+            system_tools(),
         ),
         (
             "network_interface_configuration",
@@ -109,7 +111,7 @@ async fn closed_uci_mcp_reads_are_category_scoped_fixed_bounded_and_payload_free
             Category::Firewall,
             "firewall",
             "defaults",
-            vec!["firewall_defaults_configuration"],
+            firewall_tools(),
         ),
         (
             "dhcp_dnsmasq_configuration",

@@ -1,4 +1,6 @@
-# Closed UCI configuration observations (v11/v12)
+# Initial closed UCI configuration observations (v11/v12)
+
+This page specifies the initial six tools; [v13 base-service observations](base-uci-observations.md) add eighteen profiles using the same envelope, limits and security boundaries. Twenty-four closed UCI reads are now implemented, not complete configuration management.
 
 These six parameterless tools read fixed `uci.get` config/type pairs under their own category's Read grant. No Execute flag is required. All custom Ubus `uci` operations are rejected, including privileged extensions. A discovered setter does not become callable.
 

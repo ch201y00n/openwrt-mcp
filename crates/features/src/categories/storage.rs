@@ -1,4 +1,5 @@
 //! LuCI-visible storage observations, not complete device inventories.
+mod configuration;
 use crate::definition::{read, uci_read};
 use openwrt_mcp_core::{
     Category, Collection, CounterSource, InnerRecord, Operation, OutputMode, Presence, ScalarField,
@@ -6,7 +7,7 @@ use openwrt_mcp_core::{
 };
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![
+    let mut operations = vec![
         mounts(),
         block_devices(),
         uci_read(
@@ -22,7 +23,9 @@ pub(crate) fn operations() -> Vec<Operation> {
                 ("enabled_fsck", 8),
             ],
         ),
-    ]
+    ];
+    operations.extend(configuration::operations());
+    operations
 }
 
 fn text(name: &str, source: &str, max_bytes: usize, presence: Presence) -> ScalarField {

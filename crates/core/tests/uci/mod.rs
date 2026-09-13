@@ -1,4 +1,6 @@
-use openwrt_mcp_core::{Catalog, CoreError, Operation, PreparedAction, uci::UciReadProfile};
+use openwrt_mcp_core::{
+    Catalog, Category, CoreError, Operation, PreparedAction, uci::UciReadProfile,
+};
 use serde_json::{Value, json};
 
 fn definition(profile: UciReadProfile) -> Value {
@@ -37,12 +39,40 @@ fn all_closed_uci_profiles_bind_exact_arguments_and_reject_even_privileged_custo
         ("firewall", "defaults"),
         ("dhcp", "dnsmasq"),
         ("fstab", "mount"),
+        ("system", "timeserver"),
+        ("network", "device"),
+        ("network", "bridge-vlan"),
+        ("network", "route"),
+        ("network", "route6"),
+        ("network", "rule"),
+        ("network", "rule6"),
+        ("firewall", "zone"),
+        ("firewall", "forwarding"),
+        ("firewall", "rule"),
+        ("firewall", "redirect"),
+        ("firewall", "nat"),
+        ("dhcp", "dhcp"),
+        ("dhcp", "host"),
+        ("dhcp", "domain"),
+        ("dhcp", "cname"),
+        ("fstab", "global"),
+        ("fstab", "swap"),
     ];
     assert_eq!(
         UciReadProfile::ALL.map(|p| (p.config(), p.section_type())),
         expected
     );
     for profile in UciReadProfile::ALL {
+        let category = match profile.config() {
+            "system" => Category::System,
+            "network" => Category::Network,
+            "wireless" => Category::Wireless,
+            "firewall" => Category::Firewall,
+            "dhcp" => Category::DhcpDns,
+            "fstab" => Category::Storage,
+            _ => panic!("unreviewed config"),
+        };
+        assert_eq!(profile.category(), category);
         let mut value = definition(profile);
         let operation: Operation = serde_json::from_value(value.clone()).unwrap();
         Catalog::with_builtins(vec![operation.clone()], vec![]).unwrap();
@@ -109,6 +139,33 @@ fn all_closed_uci_profiles_bind_exact_arguments_and_reject_even_privileged_custo
             let mut bad = definition(profile);
             bad["requirements"] = requirements;
             reject(bad);
+        }
+    }
+}
+
+#[test]
+fn closed_uci_recipe_cross_products_and_other_category_grants_never_expand_authority() {
+    for profile in UciReadProfile::ALL {
+        for other in UciReadProfile::ALL {
+            if !UciReadProfile::ALL
+                .iter()
+                .any(|p| p.config() == profile.config() && p.section_type() == other.section_type())
+            {
+                let mut bad = definition(profile);
+                bad["action"]["arguments"]["type"] = json!(other.section_type());
+                bad["output_mode"]["typed"]["collection"]["record"]["fields"][0]["value"]["values"] =
+                    json!([other.section_type()]);
+                reject(bad);
+            }
+            if other.category() != profile.category() {
+                let mut bad = definition(profile);
+                bad["requirements"] = json!([
+                    {"category":other.category(),"permission":"read"},
+                    {"category":other.category(),"permission":"write"},
+                    {"category":other.category(),"permission":"execute"}
+                ]);
+                reject(bad);
+            }
         }
     }
 }

@@ -1,8 +1,10 @@
+mod configuration;
+
 use crate::definition::uci_read;
 use openwrt_mcp_core::{Operation, uci::UciReadProfile};
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![uci_read(
+    let mut operations = vec![uci_read(
         "firewall_defaults_configuration",
         UciReadProfile::FirewallDefaults,
         &[
@@ -15,5 +17,7 @@ pub(crate) fn operations() -> Vec<Operation> {
             ("flow_offloading_hw", 8),
             ("disable_ipv6", 8),
         ],
-    )]
+    )];
+    operations.extend(configuration::operations());
+    operations
 }

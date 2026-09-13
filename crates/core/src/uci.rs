@@ -12,26 +12,77 @@ pub enum UciReadProfile {
     FirewallDefaults,
     Dnsmasq,
     Mounts,
+    Timeservers,
+    NetworkDevices,
+    BridgeVlans,
+    RoutesV4,
+    RoutesV6,
+    RulesV4,
+    RulesV6,
+    FirewallZones,
+    FirewallForwardings,
+    FirewallRules,
+    FirewallRedirects,
+    FirewallNats,
+    DhcpPools,
+    DhcpHosts,
+    DnsDomains,
+    DnsCnames,
+    StorageGlobals,
+    Swaps,
 }
 
 impl UciReadProfile {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 24] = [
         Self::System,
         Self::NetworkInterfaces,
         Self::WirelessRadios,
         Self::FirewallDefaults,
         Self::Dnsmasq,
         Self::Mounts,
+        Self::Timeservers,
+        Self::NetworkDevices,
+        Self::BridgeVlans,
+        Self::RoutesV4,
+        Self::RoutesV6,
+        Self::RulesV4,
+        Self::RulesV6,
+        Self::FirewallZones,
+        Self::FirewallForwardings,
+        Self::FirewallRules,
+        Self::FirewallRedirects,
+        Self::FirewallNats,
+        Self::DhcpPools,
+        Self::DhcpHosts,
+        Self::DnsDomains,
+        Self::DnsCnames,
+        Self::StorageGlobals,
+        Self::Swaps,
     ];
 
     pub const fn config(self) -> &'static str {
         match self {
-            Self::System => "system",
-            Self::NetworkInterfaces => "network",
+            Self::System | Self::Timeservers => "system",
+            Self::NetworkInterfaces
+            | Self::NetworkDevices
+            | Self::BridgeVlans
+            | Self::RoutesV4
+            | Self::RoutesV6
+            | Self::RulesV4
+            | Self::RulesV6 => "network",
             Self::WirelessRadios => "wireless",
-            Self::FirewallDefaults => "firewall",
-            Self::Dnsmasq => "dhcp",
-            Self::Mounts => "fstab",
+            Self::FirewallDefaults
+            | Self::FirewallZones
+            | Self::FirewallForwardings
+            | Self::FirewallRules
+            | Self::FirewallRedirects
+            | Self::FirewallNats => "firewall",
+            Self::Dnsmasq
+            | Self::DhcpPools
+            | Self::DhcpHosts
+            | Self::DnsDomains
+            | Self::DnsCnames => "dhcp",
+            Self::Mounts | Self::StorageGlobals | Self::Swaps => "fstab",
         }
     }
 
@@ -43,17 +94,49 @@ impl UciReadProfile {
             Self::FirewallDefaults => "defaults",
             Self::Dnsmasq => "dnsmasq",
             Self::Mounts => "mount",
+            Self::Timeservers => "timeserver",
+            Self::NetworkDevices => "device",
+            Self::BridgeVlans => "bridge-vlan",
+            Self::RoutesV4 => "route",
+            Self::RoutesV6 => "route6",
+            Self::RulesV4 | Self::FirewallRules => "rule",
+            Self::RulesV6 => "rule6",
+            Self::FirewallZones => "zone",
+            Self::FirewallForwardings => "forwarding",
+            Self::FirewallRedirects => "redirect",
+            Self::FirewallNats => "nat",
+            Self::DhcpPools => "dhcp",
+            Self::DhcpHosts => "host",
+            Self::DnsDomains => "domain",
+            Self::DnsCnames => "cname",
+            Self::StorageGlobals => "global",
+            Self::Swaps => "swap",
         }
     }
 
     pub const fn category(self) -> Category {
         match self {
-            Self::System => Category::System,
-            Self::NetworkInterfaces => Category::Network,
+            Self::System | Self::Timeservers => Category::System,
+            Self::NetworkInterfaces
+            | Self::NetworkDevices
+            | Self::BridgeVlans
+            | Self::RoutesV4
+            | Self::RoutesV6
+            | Self::RulesV4
+            | Self::RulesV6 => Category::Network,
             Self::WirelessRadios => Category::Wireless,
-            Self::FirewallDefaults => Category::Firewall,
-            Self::Dnsmasq => Category::DhcpDns,
-            Self::Mounts => Category::Storage,
+            Self::FirewallDefaults
+            | Self::FirewallZones
+            | Self::FirewallForwardings
+            | Self::FirewallRules
+            | Self::FirewallRedirects
+            | Self::FirewallNats => Category::Firewall,
+            Self::Dnsmasq
+            | Self::DhcpPools
+            | Self::DhcpHosts
+            | Self::DnsDomains
+            | Self::DnsCnames => Category::DhcpDns,
+            Self::Mounts | Self::StorageGlobals | Self::Swaps => Category::Storage,
         }
     }
 }

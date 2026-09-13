@@ -1,4 +1,5 @@
 //! Independent exact UCI field contracts; synthetic inputs only.
+mod base;
 use super::{Fixture, operation, project};
 use openwrt_mcp_core::{
     Category, Collection, CoreError, OutputMode, Presence, ScalarKind, TypedProjection,
@@ -14,7 +15,7 @@ struct Recipe {
     options: &'static [(&'static str, usize)],
 }
 
-fn recipes() -> [Recipe; 6] {
+fn recipes() -> Vec<Recipe> {
     [
         Recipe {
             name: "system_configuration",
@@ -117,6 +118,9 @@ fn recipes() -> [Recipe; 6] {
             ],
         },
     ]
+    .into_iter()
+    .chain(base::recipes())
+    .collect()
 }
 
 fn row(recipe: &Recipe) -> Value {
@@ -139,7 +143,7 @@ fn text_options(name: &str) -> &'static [(&'static str, usize)] {
             ("rebind_domain", 1024),
             ("addnhosts", 1024),
         ],
-        _ => &[],
+        _ => base::text_options(name),
     }
 }
 
@@ -148,8 +152,10 @@ pub(super) fn fixtures() -> Vec<Fixture> {
         let mut raw = row(&recipe);
         let mut clean = json!({"section":"cfg_fixture","section_type":recipe.section_type,"anonymous":true,"index":42});
         for (name, _) in recipe.options { raw[name] = json!("1"); clean[name] = json!("1"); }
-        for name in [".name", "password", "key", "options", "ssid", "command", "data", "server", "ipaddr", "ifname", "dns"] {
-            raw[name] = json!({"value":"synthetic-secret"});
+        for name in [".name", "password", "key", "options", "ssid", "command", "data", "server", "ipaddr", "ifname", "dns", "extra", "extra_src", "extra_dest", "extraconftext", "dhcp_option", "script"] {
+            if !recipe.options.iter().any(|(selected,_)| *selected == name) {
+                raw[name] = json!({"value":"synthetic-secret"});
+            }
         }
         for (index,(name,_)) in text_options(recipe.name).iter().enumerate() {
             let (kind,values)=if index%2==0 {("string",json!(["one two"]))} else {("list",json!(["second","first","first",""]))};
@@ -327,13 +333,24 @@ fn uci_text_options_share_section_and_sibling_budgets_and_reject_escaped_overflo
         let options = text_options(recipe.name);
         let mut raw = row(&recipe);
         raw[options[0].0] = json!(vec![""; 128]);
-        raw[options[1].0] = json!(vec![""; 127]);
-        assert!(observe(&recipe, json!({"values":{"n":raw.clone()}})).is_ok());
-        raw[options[1].0] = json!(vec![""; 128]);
-        assert_eq!(
-            observe(&recipe, json!({"values":{"n":raw}})),
-            Err(CoreError::OutputLimit)
-        );
+        if let Some(second) = options.get(1) {
+            raw[second.0] = json!(vec![""; 127]);
+            assert!(observe(&recipe, json!({"values":{"n":raw.clone()}})).is_ok());
+            raw[second.0] = json!(vec![""; 128]);
+            assert_eq!(
+                observe(&recipe, json!({"values":{"n":raw}})),
+                Err(CoreError::OutputLimit)
+            );
+        } else {
+            raw[options[0].0] = json!(vec![""; 127]);
+            assert!(observe(&recipe, json!({"values":{"n":raw.clone(),"m":raw.clone()}})).is_ok());
+            let mut late = raw.clone();
+            late[options[0].0] = json!(vec![""; 128]);
+            assert_eq!(
+                observe(&recipe, json!({"values":{"n":raw,"m":late}})),
+                Err(CoreError::OutputLimit)
+            );
+        }
         let mut raw = row(&recipe);
         raw[options[0].0] = json!(vec!["\u{1}".repeat(options[0].1); 128]);
         assert_eq!(

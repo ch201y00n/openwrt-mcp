@@ -15,7 +15,7 @@ use serde_json::json;
 #[test]
 fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contract() {
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
-    let expectations = [
+    let mut expectations = vec![
         (
             "system_configuration",
             ReviewedObject::Uci,
@@ -220,6 +220,40 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
             vec![],
         ),
     ];
+    expectations.extend(
+        [
+            "system_timeserver_configuration",
+            "network_device_configuration",
+            "network_bridge_vlan_configuration",
+            "network_route_v4_configuration",
+            "network_route_v6_configuration",
+            "network_rule_v4_configuration",
+            "network_rule_v6_configuration",
+            "firewall_zone_configuration",
+            "firewall_forwarding_configuration",
+            "firewall_rule_configuration",
+            "firewall_redirect_configuration",
+            "firewall_nat_configuration",
+            "dhcp_pool_configuration",
+            "dhcp_host_configuration",
+            "dhcp_domain_configuration",
+            "dhcp_cname_configuration",
+            "storage_global_configuration",
+            "storage_swap_configuration",
+        ]
+        .into_iter()
+        .map(|name| {
+            (
+                name,
+                ReviewedObject::Uci,
+                "get",
+                vec![
+                    ("config", ParameterKind::String),
+                    ("type", ParameterKind::String),
+                ],
+            )
+        }),
+    );
     assert_eq!(catalog.operations().len(), expectations.len() + 1);
     assert!(matches!(
         catalog.get("packages_apk_installed").unwrap().capability,
@@ -278,7 +312,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 32);
+    assert_eq!(operations.len(), 50);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::ApkInstalledPage {}) {

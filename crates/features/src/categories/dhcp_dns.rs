@@ -1,4 +1,5 @@
 //! Non-atomic LuCI lease-file observations; not active-client or DNS discovery.
+mod configuration;
 use crate::definition::{argument, interface_observation, read, uci_read_with_options};
 use openwrt_mcp_core::{
     Category, Collection, CollectionField, InnerRecord, Operation, OutputMode, ParameterKind,
@@ -7,12 +8,13 @@ use openwrt_mcp_core::{
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![
+    let mut operations = vec![
         leases(false),
         leases(true),
         interface_dns(),
         uci_read_with_options(
             "dhcp_dnsmasq_configuration",
+            2,
             openwrt_mcp_core::uci::UciReadProfile::Dnsmasq,
             &[
                 ("domain", 256),
@@ -38,7 +40,9 @@ pub(crate) fn operations() -> Vec<Operation> {
                 ("addnhosts", 1024),
             ],
         ),
-    ]
+    ];
+    operations.extend(configuration::operations());
+    operations
 }
 
 fn text(name: &str, max_bytes: usize, presence: Presence) -> ScalarField {

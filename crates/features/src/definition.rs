@@ -195,6 +195,7 @@ pub(crate) fn uci_read(
 /// Extend a closed UCI projection, without changing its action or permission.
 pub(crate) fn uci_read_with_options(
     name: &str,
+    response_version: u8,
     profile: openwrt_mcp_core::uci::UciReadProfile,
     scalars: &[(&str, usize)],
     options: &[(&str, usize)],
@@ -207,7 +208,7 @@ pub(crate) fn uci_read_with_options(
     else {
         unreachable!("closed UCI definition has Ubus metadata");
     };
-    *response_contract = format!("{name}.v2");
+    *response_contract = format!("{name}.v{response_version}");
     let OutputMode::Typed(projection) = &mut operation.output_mode else {
         unreachable!("closed UCI definition has typed output");
     };

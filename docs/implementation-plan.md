@@ -34,6 +34,8 @@ The goals continue to include cross-platform Windows/Linux/macOS hosts, bounded 
 
 ## Reference management families
 
+Latest configuration milestone: v11/v12 established six closed UCI recipes and bounded string/list representation. Architecture-only v13 checkpoint `fe677cb` expands that exact allowlist to 24 before behavior. Eighteen additional [base-service views](base-uci-observations.md) bring the catalog to 50 reads/40 typed contracts. Full gates pass 433 native Windows GNU / 454 Linux-on-WSL tests, zero ignored, with 79 harness regressions counted once. [Scoped v13 emulator evidence](emulator-validation-v13.md) covers fixed pending RAM fixtures, not configuration application or hardware. Broader reads, mutation/backup/recovery, variant and remaining host-facility milestones are still active gaps.
+
 System identity/time/NTP/LEDs/accounts/SSH/web management; interface/device/bridge/DSA/VLAN/address/route/protocol management; wireless radio/BSS/security/client/channel management; firewall zones/rules/NAT/sets/effective rules; DNS/DHCP/RA/leases; services/startup/cron; package inventories/repositories/signing/install/remove; storage/mount/swap/filesystems/shares; WireGuard and installed VPN providers; firmware/image provenance/backup/restore/reset/recovery; logs/processes/connectivity and active diagnostics; installed add-on services such as adblock, ACME, Avahi, Samba, nginx and Tailscale.
 
 Optional OpenVPN/strongSwan/pbr/mwan3/SQM and other variants need detected packages and reviewed contracts; this list does not assert they are installed on the reference router. Active scans/ping, package lifecycle scripts and arbitrary startup scripts must not inherit a harmless read classification from a UI or upstream ACL label.

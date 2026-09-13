@@ -1,3 +1,4 @@
+mod configuration;
 mod observations;
 
 use crate::definition::{argument, read, uci_read_with_options};
@@ -57,9 +58,10 @@ pub(crate) fn operations() -> Vec<Operation> {
         "/l3_device",
         "/metric",
     ];
-    vec![
+    let mut operations = vec![
         uci_read_with_options(
             "network_interface_configuration",
+            2,
             openwrt_mcp_core::uci::UciReadProfile::NetworkInterfaces,
             &[
                 ("proto", 64),
@@ -104,7 +106,9 @@ pub(crate) fn operations() -> Vec<Operation> {
         observations::addresses(),
         observations::routes(),
         observations::neighbors(),
-    ]
+    ];
+    operations.extend(configuration::operations());
+    operations
 }
 
 fn interface_status() -> Operation {
