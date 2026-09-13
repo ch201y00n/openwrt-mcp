@@ -1,0 +1,102 @@
+//! Negative architecture checks; checkpoint declarations are not feature tests.
+use std::{fs, path::PathBuf};
+use xtask::{Contract, check_native_ci, check_portable_suite};
+
+fn root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+fn declaration() -> toml::Value {
+    toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
+}
+fn denied(value: &toml::Value) {
+    assert!(
+        Contract::parse(&toml::to_string(value).unwrap())
+            .and_then(|contract| contract.validate(&root()))
+            .is_err()
+    );
+}
+
+#[test]
+fn package_contract_cannot_be_removed_weakened_or_extended_without_review() {
+    let original = declaration();
+    let mut missing = original.clone();
+    missing.as_table_mut().unwrap().remove("package_contract");
+    denied(&missing);
+    for (field, value) in original["package_contract"].as_table().unwrap() {
+        let mut removed = original.clone();
+        removed["package_contract"]
+            .as_table_mut()
+            .unwrap()
+            .remove(field);
+        denied(&removed);
+        let mut changed = original.clone();
+        changed["package_contract"][field] = match value {
+            toml::Value::String(_) => "unreviewed".into(),
+            toml::Value::Integer(number) => (number + 1).into(),
+            toml::Value::Boolean(flag) => (!flag).into(),
+            toml::Value::Array(_) => toml::Value::Array(vec![]),
+            _ => unreachable!(),
+        };
+        denied(&changed);
+    }
+    let mut extra = original;
+    extra["package_contract"]
+        .as_table_mut()
+        .unwrap()
+        .insert("fallback".into(), true.into());
+    denied(&extra);
+}
+
+#[test]
+fn package_suites_cannot_be_missing_skipped_or_removed_from_native_ci() {
+    let original = declaration();
+    let contract = Contract::parse(&toml::to_string(&original).unwrap()).unwrap();
+    contract.validate(&root()).unwrap();
+    let workflow: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root().join(&contract.native_ci)).unwrap())
+            .unwrap();
+    for suite in original["package_contract"]["required_tests"]
+        .as_array()
+        .unwrap()
+    {
+        let path = suite.as_str().unwrap();
+        let mut missing = original.clone();
+        missing["required_portable_tests"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|s| s != suite);
+        denied(&missing);
+        let (owner, _) = contract.owner(path).unwrap();
+        let command = format!("cargo test --locked -p {} --test packages", owner.name);
+        let mut changed = workflow.clone();
+        changed["jobs"]["rust"]["steps"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|step| step["run"].as_str() != Some(&command));
+        assert!(check_native_ci(&contract, &changed.to_string()).is_err());
+        check_portable_suite(&fs::read_to_string(root().join(path)).unwrap()).unwrap();
+    }
+    assert!(check_portable_suite("#[test] #[ignore] fn bypass() {}").is_err());
+    assert!(check_portable_suite("#[cfg(unix)] #[test] fn bypass() {}").is_err());
+}
+
+#[test]
+fn native_entropy_dependency_cannot_move_into_the_runtime_or_core() {
+    for name in [
+        "openwrt-mcp-runtime",
+        "openwrt-mcp-core",
+        "openwrt-mcp-transport",
+    ] {
+        let mut changed = declaration();
+        changed["crates"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|rule| rule["name"].as_str() == Some(name))
+            .unwrap()["dependencies"]
+            .as_array_mut()
+            .unwrap()
+            .push("getrandom".into());
+        denied(&changed);
+    }
+}

@@ -91,6 +91,26 @@
           "name": "Required portable bounded MCP results",
           "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp-transport --test bounded_results"
+        },
+        {
+          "name": "Required portable package records", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-core --test packages"
+        },
+        {
+          "name": "Required portable package definitions", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-features --test packages"
+        },
+        {
+          "name": "Required portable package lifecycle", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-runtime --test packages"
+        },
+        {
+          "name": "Required portable package codec", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-device-codec --test packages"
+        },
+        {
+          "name": "Required portable package protocol", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-transport --test packages"
         }
       ]
     }

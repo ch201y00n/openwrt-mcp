@@ -32,6 +32,8 @@ pub struct Contract {
     pub action_response_contract: Option<ActionResponseContract>,
     #[serde(default)]
     pub mcp_result_contract: Option<McpResultContract>,
+    #[serde(default)]
+    pub package_contract: Option<crate::packages::PackageContract>,
     pub crates: Vec<CrateRule>,
 }
 
@@ -107,6 +109,9 @@ impl Contract {
         }
         if self.version >= 6 {
             self.validate_projection()?;
+        }
+        if self.version >= 7 {
+            self.validate_packages()?;
         }
         Ok(())
     }

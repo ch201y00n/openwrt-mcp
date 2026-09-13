@@ -93,6 +93,8 @@ Full OpenWrt support is a product target, not the current implementation claim. 
 
 ## Mandatory architecture evolution
 
+Architecture v7 adds the purpose-specific package observation workflow in [ADR 0007](adr/0007-paged-package-observations.md). `core::packages` owns bounded records and pages; `runtime::packages` owns a single ephemeral snapshot and injected entropy port; `device-codec::packages` owns closed APK commands and supplied-byte parsing; `adapters::tokens` owns getrandom entropy. The existing local/SSH backends implement the same closed capture port. MCP does not own pagination or I/O. This extends Action/CapabilityRequirement without enabling generic Process, widening v6 projections, or adding any mutation. Every page uses Dispatcher authorization, admission and audit. Its APK-visible non-atomic scope is not whole-device completeness.
+
 When a requirement cannot fit this design, feature implementation pauses: update acceptance requirements, record an ADR, revise this document and the versioned contract, then add harness rejection/regression tests. Migrate the affected layers and pass the architecture gate BEFORE implementing new behavior. Convenience imports, command escape hatches, ignored checks and temporary exceptions are prohibited.
 
 The repository gate validates architecture and negative fixtures first, then formatting, strict linting, behavioral tests and release compilation. CI checks evolution against the pull request base; local verification compares with HEAD unless supplied another baseline. Static analysis cannot prove all semantic properties of approved dependencies or macros; review remains required.

@@ -1,6 +1,6 @@
 # Package inventory design work
 
-Status: proposed, not an accepted architecture revision or implemented MCP operation. Architecture v6 and its limits remain unchanged. A separately validated requirements/ADR/spec/harness checkpoint must precede pagination or a new capture port.
+Status: historical proposal, superseded for the first APK-visible observation by [ADR 0007](adr/0007-paged-package-observations.md). The candidates below are not the accepted limits. Whole-manager discovery, opkg and mutation baselines remain future work. Architecture v7 must be validated and committed before its implementation.
 
 The reference inventory recorded 281 package lines, beyond the existing global 256-item projection budget. Raising that shared budget or returning the first 256 entries would not meet bounded, complete enumeration. The proposed solution is one private, immutable, validated observation with small pages, not repeated reads that can skip or duplicate entries as the device changes.
 

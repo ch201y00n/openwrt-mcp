@@ -1,11 +1,35 @@
-version = 6
-decision = "docs/adr/0006-bounded-read-projections.md"
+version = 7
+decision = "docs/adr/0007-paged-package-observations.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
-required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs"]
+required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
 native_ci = ".github/workflows/ci.yml"
+
+[package_contract]
+domain_owner = "openwrt-mcp-core"
+workflow_owner = "openwrt-mcp-runtime"
+codec_owner = "openwrt-mcp-device-codec"
+entropy_owner = "openwrt-mcp-adapters"
+profile = "apk_3_0_5_visible_v1"
+admission = "same_backend_version_and_complete_query"
+permission = "packages_read"
+snapshot = "single_private_immutable"
+continuation = "nonce_operation_epoch_absolute_ttl"
+refresh = "invalidate_before_attempt"
+capability_status = "unknown_capture_required"
+whole_device_complete = false
+max_source_bytes = 4194304
+max_records = 4096
+max_retained_bytes = 2097152
+page_records = 16
+ttl_seconds = 120
+nonce_bytes = 16
+max_name_bytes = 256
+max_version_bytes = 256
+max_arch_bytes = 64
+required_tests = ["crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
 
 [capability_contract]
 probe_registry = "architecture/capability-probes.toml"
@@ -89,7 +113,7 @@ allowed_macros = ["json", "matches", "vec", "format", "write", "assert", "assert
 name = "openwrt-mcp-adapters"
 path = "crates/adapters"
 layer = "infrastructure"
-dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "openwrt-mcp-device-codec", "openwrt-mcp-host-platform", "serde", "serde_json", "thiserror", "tokio", "async-trait", "libc"]
+dependencies = ["openwrt-mcp-core", "openwrt-mcp-runtime", "openwrt-mcp-device-codec", "openwrt-mcp-host-platform", "serde", "serde_json", "thiserror", "tokio", "async-trait", "libc", "getrandom"]
 dev_dependencies = []
 build_dependencies = []
 forbidden_paths = []

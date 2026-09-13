@@ -3,6 +3,7 @@
 mod capability;
 mod change;
 mod metadata;
+mod packages;
 mod portability;
 mod projection;
 mod source;

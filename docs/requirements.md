@@ -57,6 +57,8 @@ Default call deadline 10 seconds, stdout/stderr cap 64 KiB each, two in-flight o
 
 ## Delivery sequence
 
+Architecture v7 acceptance: enumerate a complete bounded captured APK query response across immutable 16-record pages, including inventories larger than 256 records. Preserve exact names/versions/architectures and declared layer. Authorize and audit every page; no hidden truncation, client-selected command, generic execution exception or continuation recapture. Fail closed on unreviewed versions, invalid/oversized responses, missing entropy, stale/foreign cursor or epoch changes. A 120-second absolute snapshot lifetime and 4-MiB source/4,096-record/2-MiB retained-field ceilings bound resources. Declare APK-visible, non-atomic scope and whole-device completeness false on every response; opkg, hidden layers and package mutations are separate work. See ADR 0007 for the authoritative recipe, ownership, limits and portable negative/behavior suites.
+
 1. v0.1 foundation: stdio MCP, policy engine, strict catalog, selected ubus reads, privileged fixed-action extensions, audit outputs, fake-device tests and local benchmarks. The initial three-crate split is historical.
 2. Architecture-first prerequisite: migrate to the version-2 six-layer workspace plus xtask, enforce dependencies/source ownership/evolution and pass regression tests before adding device features. Then capability inventory, core read adapters, response schemas and OpenWrt emulator matrix.
 3. Transactional UCI mutation, encrypted backup, durable device-side rollback and protected-resource rules.
