@@ -17,6 +17,14 @@ const MCP_SUITE: &str = "crates/mcp/tests/bounded_results.rs";
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionContract {
+    #[serde(default)]
+    pub observation_rows: Option<String>,
+    #[serde(default)]
+    pub scalar_union: Option<String>,
+    #[serde(default)]
+    pub root_guards: Option<String>,
+    #[serde(default)]
+    pub max_root_guards: Option<u64>,
     pub owner: String,
     pub profile: String,
     pub prepared_invocation: String,
@@ -81,14 +89,45 @@ impl Contract {
             .as_ref()
             .ok_or("v6 requires a bounded MCP result contract")?;
 
-        if projection.owner != "openwrt-mcp-core"
-            || projection.profile != "typed_collections_v1"
-            || projection.prepared_invocation != "private_core"
-            || projection.finite_schema != "two_collection_levels"
-            || !exact(
-                &projection.node_forms,
+        let (profile, forms): (&str, &[&str]) = if self.version >= 10 {
+            if projection.observation_rows.as_deref()
+                != Some("ordered_duplicates_preserved_no_selection")
+                || projection.scalar_union.as_deref() != Some("false_or_safe_integer_no_coercion")
+                || projection.root_guards.as_deref() != Some("absent_pointers_before_projection")
+                || projection.max_root_guards != Some(4)
+            {
+                return Err(
+                    "v10 requires bounded observation rows, scalar union and root guards".into(),
+                );
+            }
+            (
+                "typed_collections_v2",
+                &[
+                    "Record",
+                    "ObjectArray",
+                    "ObjectEntries",
+                    "ScalarArray",
+                    "RowArray",
+                ],
+            )
+        } else {
+            if projection.observation_rows.is_some()
+                || projection.scalar_union.is_some()
+                || projection.root_guards.is_some()
+                || projection.max_root_guards.is_some()
+            {
+                return Err("observation response expansion requires architecture v10".into());
+            }
+            (
+                "typed_collections_v1",
                 &["Record", "ObjectArray", "ObjectEntries", "ScalarArray"],
             )
+        };
+        if projection.owner != "openwrt-mcp-core"
+            || projection.profile != profile
+            || projection.prepared_invocation != "private_core"
+            || projection.finite_schema != "two_collection_levels"
+            || !exact(&projection.node_forms, forms)
             || projection.root_selection != "exact_parameter_equality"
             || projection.map_keys != "explicit_bounded_field"
             || projection.builtin_raw_subtrees != "forbidden"

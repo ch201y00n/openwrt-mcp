@@ -132,8 +132,25 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9));
+        assert!(matches!(version, 5 | 6 | 8 | 9 | 10));
         spec["version"] = (version as i64).into();
+        if version < 10 {
+            let projection = spec["projection_contract"].as_table_mut().unwrap();
+            for field in [
+                "observation_rows",
+                "scalar_union",
+                "root_guards",
+                "max_root_guards",
+            ] {
+                projection.remove(field);
+            }
+            projection.insert("profile".into(), "typed_collections_v1".into());
+            projection["node_forms"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|form| form.as_str() != Some("RowArray"));
+            spec["decision"] = "docs/adr/0009-reviewed-luci-observations.md".into();
+        }
         if version < 9 {
             spec["capability_contract"]
                 .as_table_mut()
@@ -707,4 +724,28 @@ fn assembled_v9_gate_rejects_unreviewed_profile_and_luci_call_probe() {
     );
     fixture.write(path, &toml::to_string(&registry).unwrap());
     fixture.denied("exact reviewed read-only");
+}
+
+#[test]
+fn assembled_v10_gate_requires_finite_observation_and_guard_contracts() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(10);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let source = fs::read_to_string(fixture.root.join(path)).unwrap();
+    fixture.write(
+        path,
+        &source.replace("ordered_duplicates_preserved_no_selection", "deduplicate"),
+    );
+    fixture.denied("v10 requires bounded observation");
+    fixture.write(
+        path,
+        &source.replace("absent_pointers_before_projection", "ignore_errors"),
+    );
+    fixture.denied("v10 requires bounded observation");
+    fixture.write(
+        path,
+        &source.replace("max_root_guards = 4", "max_root_guards = 400"),
+    );
+    fixture.denied("v10 requires bounded observation");
 }

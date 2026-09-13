@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 9 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0009](adr/0009-reviewed-luci-observations.md), Windows reads [ADR 0008](adr/0008-windows-protected-reads.md), package observations [ADR 0007](adr/0007-paged-package-observations.md), typed reads [ADR 0006](adr/0006-bounded-read-projections.md), capabilities [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
+Contract: version 10 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0010](adr/0010-typed-observation-rows.md), LuCI probes [ADR 0009](adr/0009-reviewed-luci-observations.md), Windows reads [ADR 0008](adr/0008-windows-protected-reads.md), package observations [ADR 0007](adr/0007-paged-package-observations.md), typed reads [ADR 0006](adr/0006-bounded-read-projections.md), capabilities [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -92,6 +92,8 @@ The [coverage matrix](coverage.md) distinguishes configured operations, fixture 
 Full OpenWrt support is a product target, not the current implementation claim. UCI transactions, encrypted backup streaming, verification/rollback, protected resources, package/firmware workflows, native ubus and package-specific coverage need explicit contracts and acceptance tests before being advertised. A generic action template does not constitute a tested workflow.
 
 ## Mandatory architecture evolution
+
+Architecture v10 extends only pure finite projection: RowArray preserves ordered observations without invented identity/selection, FalseOrSafeInteger preserves the exact finite sentinel union, and up to four operator-owned root absence guards reject explicit error payloads before projection. Existing resource identity rules, owners, two-level schemas, budgets and dispatcher/MCP paths stay unchanged. DHCP leases are first consumers; storage adopts stricter error guards with v2 response IDs. The validated architecture-only checkpoint precedes projector/feature implementation. See ADR 0010.
 
 Architecture v9 admits exactly two more LuCI object descriptions under the versioned `base_luci_v2` profile. Registry schema 2 requires v9 and all nine exact objects; schema 1 is the closed pre-migration subset. No runtime owner, response form, authority or dependency changes. Storage reads remain finite typed projections in their category, and DHCP unions/composite identities must not be forced into v6. The architecture-only checkpoint precedes production enum/registry migration and feature implementations. See ADR 0009.
 

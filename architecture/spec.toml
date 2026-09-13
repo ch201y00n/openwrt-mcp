@@ -1,5 +1,5 @@
-version = 9
-decision = "docs/adr/0009-reviewed-luci-observations.md"
+version = 10
+decision = "docs/adr/0010-typed-observation-rows.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
@@ -59,9 +59,13 @@ required_tests = ["crates/features/tests/capability_contracts.rs", "crates/runti
 
 [projection_contract]
 owner = "openwrt-mcp-core"
-profile = "typed_collections_v1"
+profile = "typed_collections_v2"
+observation_rows = "ordered_duplicates_preserved_no_selection"
+scalar_union = "false_or_safe_integer_no_coercion"
+root_guards = "absent_pointers_before_projection"
+max_root_guards = 4
 prepared_invocation = "private_core"
-node_forms = ["Record", "ObjectArray", "ObjectEntries", "ScalarArray"]
+node_forms = ["Record", "ObjectArray", "ObjectEntries", "ScalarArray", "RowArray"]
 finite_schema = "two_collection_levels"
 root_selection = "exact_parameter_equality"
 map_keys = "explicit_bounded_field"

@@ -59,6 +59,35 @@ fn v6_requires_every_response_table_and_every_field_without_unknown_metadata() {
 }
 
 #[test]
+fn observation_rows_cannot_gain_selection_deduplication_raw_unions_or_unbounded_guards() {
+    let source = declaration();
+    for (field, values) in [
+        (
+            "observation_rows",
+            vec!["deduplicate", "select_first", "caller_identity"],
+        ),
+        (
+            "scalar_union",
+            vec!["any_json", "coerce_false_to_zero", "boolean_or_integer"],
+        ),
+        (
+            "root_guards",
+            vec!["after_success_audit", "ignore_errors", "caller_paths"],
+        ),
+        ("profile", vec!["typed_collections_v1", "unbounded"]),
+    ] {
+        for value in values {
+            let mut bad = source.clone();
+            bad["projection_contract"][field] = value.into();
+            denied(&bad);
+        }
+    }
+    let mut before = source;
+    before["version"] = 9.into();
+    denied(&before);
+}
+
+#[test]
 fn every_response_hard_ceiling_rejects_unbounded_zero_wrong_type_and_weaker_values() {
     for table in TABLES {
         for (field, original) in declaration()[table].as_table().unwrap() {

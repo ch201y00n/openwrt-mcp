@@ -31,6 +31,8 @@ Add the acceptance requirement and classify the feature's category/effects. Reus
 
 ## Gates
 
+Architecture v10 adds bounded RowArray, FalseOrSafeInteger and root absence guards inside the existing projection owner, with no new production dependency or I/O authority. Validate/commit the declaration and negative harness checkpoint before implementing; afterward replace no existing unique-resource rule with guessed identity or a raw subtree. Extend actual core/feature/runtime/MCP behavior suites and bump storage response IDs for stricter mixed-error rejection. See ADR 0010.
+
 Architecture v9 extends only the closed probe surface to `luci`/`luci-rpc`. Architecture-only `acf6532` passed native Windows GNU and Linux-on-WSL gates with registry schema 1 and unchanged production behavior; the exact schema 2 registry, core enum and encoding fixtures migrated afterward. The assembled gate rejects unreviewed profiles and method-call probes. New typed consumers need actual catalog/negative/runtime/MCP fixtures, not an architecture scaffold counted as device acceptance.
 
 Architecture v8 adds a narrowly scoped Windows SDK boundary and a mandatory Windows-only protected-read suite (not a portable zero-test success claim). Architecture-only `9c0117f` passed native Windows and Linux gates before behavior. The source gate rejects unsafe expressions and SDK access outside its exact owned file, all manual FFI/unsafe items, widened lint allowances and dependency-target changes. Safe policy code must not acquire native APIs. Synthetic Windows fixtures belong in a private, non-synced directory with a trusted ancestor chain; do not modify existing directory ACLs to make tests pass. The actual interface remains exact even with rustfmt's trailing parameter comma.
