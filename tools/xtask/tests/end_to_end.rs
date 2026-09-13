@@ -179,8 +179,29 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11));
+        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11 | 12));
         spec["version"] = (version as i64).into();
+        if version < 12 {
+            spec["uci_read_contract"]
+                .as_table_mut()
+                .unwrap()
+                .remove("option_collections");
+            let projection = spec["projection_contract"].as_table_mut().unwrap();
+            for field in [
+                "text_options",
+                "text_option_output",
+                "text_option_budget",
+                "max_text_option_items",
+            ] {
+                projection.remove(field);
+            }
+            projection.insert("profile".into(), "typed_collections_v3".into());
+            projection["node_forms"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|f| f.as_str() != Some("TextOption"));
+            spec["decision"] = "docs/adr/0011-closed-uci-observations.md".into();
+        }
         if version < 11 {
             spec.as_table_mut().unwrap().remove("uci_read_contract");
             spec["projection_contract"]
@@ -832,6 +853,51 @@ fn assembled_v10_gate_requires_finite_observation_and_guard_contracts() {
         &source.replace("max_root_guards = 4", "max_root_guards = 400"),
     );
     fixture.denied("v10 requires bounded observation");
+}
+
+#[test]
+fn assembled_v12_gate_requires_finite_nested_option_admission_and_shared_limits() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(12);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let source = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        (
+            "nested_string_or_list_no_selection",
+            "root_and_selection",
+            "v12 requires bounded nested",
+        ),
+        (
+            "kind_and_values_preserve_representation",
+            "list_only",
+            "v12 requires bounded nested",
+        ),
+        (
+            "shared_scan_emit_bytes",
+            "per_option_budget",
+            "v12 requires bounded nested",
+        ),
+        (
+            "max_text_option_items = 128",
+            "max_text_option_items = 129",
+            "v12 requires bounded nested",
+        ),
+        (
+            "text_option_only",
+            "any_collection",
+            "v12 UCI nested collections",
+        ),
+        (
+            "max_total_items = 256",
+            "max_total_items = 4096",
+            "projection hard ceilings",
+        ),
+    ] {
+        assert!(source.contains(from));
+        fixture.write(path, &source.replace(from, to));
+        fixture.denied(expected);
+    }
 }
 
 #[test]

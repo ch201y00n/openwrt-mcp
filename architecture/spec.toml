@@ -1,5 +1,5 @@
-version = 11
-decision = "docs/adr/0011-closed-uci-observations.md"
+version = 12
+decision = "docs/adr/0012-bounded-text-options.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
@@ -59,7 +59,11 @@ required_tests = ["crates/features/tests/capability_contracts.rs", "crates/runti
 
 [projection_contract]
 owner = "openwrt-mcp-core"
-profile = "typed_collections_v3"
+profile = "typed_collections_v4"
+text_options = "nested_string_or_list_no_selection"
+text_option_output = "kind_and_values_preserve_representation"
+text_option_budget = "shared_scan_emit_bytes"
+max_text_option_items = 128
 text_enums = "exact_finite_no_coercion"
 max_text_enum_values = 16
 observation_rows = "ordered_duplicates_preserved_no_selection"
@@ -67,7 +71,7 @@ scalar_union = "false_or_safe_integer_no_coercion"
 root_guards = "absent_pointers_before_projection"
 max_root_guards = 4
 prepared_invocation = "private_core"
-node_forms = ["Record", "ObjectArray", "ObjectEntries", "ScalarArray", "RowArray"]
+node_forms = ["Record", "ObjectArray", "ObjectEntries", "ScalarArray", "RowArray", "TextOption"]
 finite_schema = "two_collection_levels"
 root_selection = "exact_parameter_equality"
 map_keys = "explicit_bounded_field"
@@ -89,6 +93,7 @@ max_normalized_bytes = 65536
 required_tests = ["crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs"]
 
 [uci_read_contract]
+option_collections = "text_option_only"
 domain_owner = "openwrt-mcp-core"
 definitions_owner = "openwrt-mcp-features"
 invocation = "existing_authorized_audited_dispatcher"

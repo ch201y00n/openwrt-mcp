@@ -22,6 +22,8 @@ const SUITES: [&str; 5] = [
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct UciReadContract {
+    #[serde(default)]
+    pub option_collections: Option<String>,
     pub domain_owner: String,
     pub definitions_owner: String,
     pub invocation: String,
@@ -53,6 +55,13 @@ impl Contract {
             .uci_read_contract
             .as_ref()
             .ok_or("v11 requires a closed UCI read contract")?;
+        if self.version >= 12 {
+            if uci.option_collections.as_deref() != Some("text_option_only") {
+                return Err("v12 UCI nested collections require only bounded text options".into());
+            }
+        } else if uci.option_collections.is_some() {
+            return Err("nested UCI options require architecture v12".into());
+        }
         if uci.domain_owner != "openwrt-mcp-core"
             || uci.definitions_owner != "openwrt-mcp-features"
             || uci.invocation != "existing_authorized_audited_dispatcher"

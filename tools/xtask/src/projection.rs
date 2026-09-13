@@ -18,6 +18,14 @@ const MCP_SUITE: &str = "crates/mcp/tests/bounded_results.rs";
 #[serde(deny_unknown_fields)]
 pub struct ProjectionContract {
     #[serde(default)]
+    pub text_options: Option<String>,
+    #[serde(default)]
+    pub text_option_output: Option<String>,
+    #[serde(default)]
+    pub text_option_budget: Option<String>,
+    #[serde(default)]
+    pub max_text_option_items: Option<u64>,
+    #[serde(default)]
     pub text_enums: Option<String>,
     #[serde(default)]
     pub max_text_enum_values: Option<u64>,
@@ -93,6 +101,24 @@ impl Contract {
             .as_ref()
             .ok_or("v6 requires a bounded MCP result contract")?;
 
+        if self.version >= 12 {
+            if projection.text_options.as_deref() != Some("nested_string_or_list_no_selection")
+                || projection.text_option_output.as_deref()
+                    != Some("kind_and_values_preserve_representation")
+                || projection.text_option_budget.as_deref() != Some("shared_scan_emit_bytes")
+                || projection.max_text_option_items != Some(128)
+            {
+                return Err(
+                    "v12 requires bounded nested representation-preserving text options".into(),
+                );
+            }
+        } else if projection.text_options.is_some()
+            || projection.text_option_output.is_some()
+            || projection.text_option_budget.is_some()
+            || projection.max_text_option_items.is_some()
+        {
+            return Err("text option expansion requires architecture v12".into());
+        }
         if self.version >= 11 {
             if projection.text_enums.as_deref() != Some("exact_finite_no_coercion")
                 || projection.max_text_enum_values != Some(16)
@@ -114,18 +140,31 @@ impl Contract {
                 );
             }
             (
-                if self.version >= 11 {
+                if self.version >= 12 {
+                    "typed_collections_v4"
+                } else if self.version >= 11 {
                     "typed_collections_v3"
                 } else {
                     "typed_collections_v2"
                 },
-                &[
-                    "Record",
-                    "ObjectArray",
-                    "ObjectEntries",
-                    "ScalarArray",
-                    "RowArray",
-                ],
+                if self.version >= 12 {
+                    &[
+                        "Record",
+                        "ObjectArray",
+                        "ObjectEntries",
+                        "ScalarArray",
+                        "RowArray",
+                        "TextOption",
+                    ]
+                } else {
+                    &[
+                        "Record",
+                        "ObjectArray",
+                        "ObjectEntries",
+                        "ScalarArray",
+                        "RowArray",
+                    ]
+                },
             )
         } else {
             if projection.observation_rows.is_some()
