@@ -8,6 +8,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
 repository = "https://github.com/ch201y00n/openwrt-mcp"
+license = "MIT"
 publish = false
 
 [workspace.dependencies]

@@ -1,5 +1,10 @@
 # OpenWrt MCP
 
+> [!WARNING]
+> **Work in progress — experimental v0.1 foundation, not production-ready.**
+> Full OpenWrt management is the goal, not the current capability. Built-in device tools currently provide a subset of read-only observations; configuration changes, firmware upgrades and end-to-end encrypted backup/restore are not implemented.
+> Tool interfaces and configuration formats may change. Physical BPI-R4 and full Windows/Linux/macOS acceptance remain incomplete. See [current coverage](docs/coverage.md) and the [implementation plan](docs/implementation-plan.md).
+
 A lightweight Rust MCP server for OpenWrt management, with category-based permissions and configurable audit logging.
 
 [한국어 안내](README.ko.md)
@@ -8,7 +13,7 @@ Planning documents (Korean): [full management feature specification](docs/manage
 and [staged implementation plan](docs/implementation-plan.md). These distinguish
 current coverage from the complete management target; they are not a completion claim.
 
-**Status: v0.1 foundation, under development.** Independent community project; not affiliated with or endorsed by OpenWrt. Full OpenWrt feature coverage is the product goal, not a claim about this initial implementation. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [coverage](docs/coverage.md).
+Independent community project; not affiliated with or endorsed by OpenWrt. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [license](LICENSE).
 
 ## What works in this foundation
 
@@ -108,4 +113,10 @@ Or on Linux/macOS with the toolchain installed:
 sh tools/test.sh
 ```
 
-Verification uses fake backends and synthetic data. It never accesses a live router. Results and unmeasured device targets are tracked in [validation](docs/validation.md). The repository does not yet declare a redistribution license; choose one before the first public code release.
+Verification uses fake backends and synthetic data. It never accesses a live router. Results and unmeasured device targets are tracked in [validation](docs/validation.md).
+
+## License
+
+Project-owned code is licensed under the [MIT License](LICENSE). Commercial use, modification, redistribution and inclusion in proprietary products are permitted without requiring disclosure of your source code. Keep the copyright notice and the complete license notice in copies or substantial portions of the software; a source link alone is not sufficient. The software is provided without warranty.
+
+Dependencies and OpenWrt itself remain under their respective licenses; this project's MIT license does not replace their terms.

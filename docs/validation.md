@@ -217,6 +217,6 @@ Append `60` to the footprint invocation for the current 60-second idle CPU/RSS o
 - Verify built-in field schemas against declared OpenWrt releases and report unavailable interfaces accurately.
 - Expand capability families beyond closed ubus signatures; implement mutation/backup/rollback workflows from the requirements.
 - Test Unix syslog against OpenWrt logd, rotation under disk pressure, cancellation and transport flood behavior.
-- Select a redistribution license and complete release review before publishing code.
+- The project now uses the [MIT License](../LICENSE); dependency-license compliance and release review remain outstanding before distributing release artifacts.
 
 Historical fixture setups above did not query or change a real router. Subsequent narrowly scoped read-only reference observations are documented separately at the top of this record. No code was pushed to GitHub and no package release was published.

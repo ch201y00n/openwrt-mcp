@@ -8,4 +8,4 @@ Use synthetic fixtures. Repository work does not authorize live router changes, 
 
 Run `tools/Test-Repository.ps1` or `sh tools/test.sh` before committing. The gate checks architecture/evolution, negative cases, formatting, strict linting, behavior and a release build. CI uses the same gate. Include coverage and performance impacts where relevant, and do not describe a host binary as an OpenWrt release artifact.
 
-The project has not yet selected a redistribution license. Resolve licensing before public code release or third-party contributions; do not assume an unspecified license grants reuse rights.
+Project-owned code and contributions are licensed under the [MIT License](LICENSE). Submit only material you have the right to contribute under these terms. Preserve existing copyright and license notices; third-party dependencies retain their own licenses and must be reviewed before redistribution.
