@@ -69,6 +69,14 @@ impl Backend for RecordingBackend {
             },
         )]);
         if object == ReviewedObject::Iwinfo {
+            for method in ["assoclist", "countrylist"] {
+                methods.insert(
+                    method.into(),
+                    MethodSignature {
+                        arguments: [("device".into(), UbusArgumentType::String)].into(),
+                    },
+                );
+            }
             methods.insert(
                 "devices".into(),
                 MethodSignature {
@@ -310,7 +318,7 @@ async fn wireless_read_mcp_contract_is_isolated_and_secret_free() {
     check_read_contract(ReadContract {
         name: "wireless_radio_info",
         category: Category::Wireless,
-        visible: vec!["wireless_radio_info", "wireless_devices"],
+        visible: wireless_tools(),
         arguments: json!({"device": device}),
         action: PreparedAction::Ubus {
             object: "iwinfo".into(),
@@ -558,7 +566,7 @@ async fn wireless_device_list_mcp_preserves_empty_observation_and_rejects_duplic
     check_read_contract(ReadContract {
         name: "wireless_devices",
         category: Category::Wireless,
-        visible: vec!["wireless_radio_info", "wireless_devices"],
+        visible: wireless_tools(),
         arguments: json!({}),
         action: PreparedAction::Ubus {
             object: "iwinfo".into(),
@@ -587,6 +595,148 @@ fn raw_service() -> Value {
     json!({"data": {"password": PRIVATE}, "instances": {
         "primary": {"running": true, "pid": 42, "command": [PRIVATE], "env": {"TOKEN": PRIVATE}},
         "stopped": {"running": false, "exit_code": 1, "errors": [PRIVATE]}}})
+}
+
+fn wireless_tools() -> Vec<&'static str> {
+    vec![
+        "wireless_radio_info",
+        "wireless_devices",
+        "wireless_stations",
+        "wireless_station_status",
+        "wireless_countries",
+    ]
+}
+
+fn station_source(mac: &str) -> Value {
+    json!({"mac":mac,"signal":-48,"noise":-95,"authorized":true,
+        "rx":{"bytes":9007199254740993_u64,"rate":866700,"mhz":80,"drop_misc":2,"secret":PRIVATE},
+        "tx":{"bytes":42,"rate":144400,"mhz":20},
+        "ssid":PRIVATE,"bssid":PRIVATE,"key":PRIVATE,"mesh local PS":PRIVATE})
+}
+
+fn station_result(mac: &str) -> Value {
+    json!({"mac":mac,"signal_dbm":-48,"noise_dbm":-95,"authorized":true,
+        "rx_bytes":"9007199254740993","rx_rate_kbps":866700,"rx_bandwidth_mhz":80,"rx_dropped":"2",
+        "tx_bytes":"42","tx_rate_kbps":144400,"tx_bandwidth_mhz":20})
+}
+
+#[tokio::test]
+async fn passive_station_list_mcp_preserves_counters_without_configuration_or_raw_audit() {
+    let device = format!("phy0; {PRIVATE} $(not-a-command)");
+    let mac = "02:00:00:00:00:01";
+    let clean = station_result(mac);
+    let mut malformed = station_source(mac);
+    malformed["rx"]["bytes"] = json!(-1);
+    check_read_contract(ReadContract {
+        name: "wireless_stations",
+        category: Category::Wireless,
+        visible: wireless_tools(),
+        arguments: json!({"device":device}),
+        action: PreparedAction::Ubus {
+            object: "iwinfo".into(),
+            method: "assoclist".into(),
+            arguments: json!({"device":device}),
+        },
+        invalid_arguments: vec![
+            json!({}),
+            json!({"device":true}),
+            json!({"device":"phy0","mac":mac}),
+            json!({"device":"phy0","method":"scan"}),
+        ],
+        responses: vec![
+            (
+                json!({"results":[station_source(mac)]}),
+                json!({"items":[clean]}),
+            ),
+            (json!({"results":[]}), json!({"items":[]})),
+        ],
+        invalid_outputs: vec![
+            (json!({}), "invalid_output"),
+            (json!({"results":[malformed]}), "invalid_output"),
+            (
+                json!({"results":[station_source(mac),station_source(mac)]}),
+                "invalid_output",
+            ),
+        ],
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn station_exact_mcp_validates_other_rows_and_never_transmits_the_mac_selector() {
+    let mac = "02:00:00:00:00:AB";
+    let mut malformed = station_source("02:00:00:00:00:02");
+    malformed["noise"] = json!(PRIVATE);
+    check_read_contract(ReadContract {
+        name: "wireless_station_status",
+        category: Category::Wireless,
+        visible: wireless_tools(),
+        arguments: json!({"device":"phy0-ap0","mac":mac}),
+        action: PreparedAction::Ubus {
+            object: "iwinfo".into(),
+            method: "assoclist".into(),
+            arguments: json!({"device":"phy0-ap0"}),
+        },
+        invalid_arguments: vec![
+            json!({"device":"phy0"}),
+            json!({"device":"phy0","mac":""}),
+            json!({"device":"phy0","mac":"x".repeat(18)}),
+            json!({"device":"phy0","mac":mac,"disconnect":true}),
+        ],
+        responses: vec![(
+            json!({"results":[station_source("02:00:00:00:00:02"),station_source(mac)]}),
+            station_result(mac),
+        )],
+        invalid_outputs: vec![
+            (json!({"results":[]}), "selection_not_observed"),
+            (
+                json!({"results":[station_source("02:00:00:00:00:ab")]}),
+                "selection_not_observed",
+            ),
+            (
+                json!({"results":[station_source(mac),malformed]}),
+                "invalid_output",
+            ),
+        ],
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn country_list_mcp_is_a_passive_metadata_read_not_a_regulatory_setter() {
+    let clean = json!({"iso3166":"KR","code":"KR","country":"South Korea","active":true});
+    let mut raw = clean.clone();
+    raw["config"] = json!({"key":PRIVATE});
+    check_read_contract(ReadContract {
+        name: "wireless_countries",
+        category: Category::Wireless,
+        visible: wireless_tools(),
+        arguments: json!({"device":"phy0"}),
+        action: PreparedAction::Ubus {
+            object: "iwinfo".into(),
+            method: "countrylist".into(),
+            arguments: json!({"device":"phy0"}),
+        },
+        invalid_arguments: vec![
+            json!({}),
+            json!({"device":null}),
+            json!({"device":"phy0","country":"KR"}),
+            json!({"device":"phy0","execute":true}),
+        ],
+        responses: vec![
+            (json!({"results":[raw]}), json!({"items":[clean.clone()]})),
+            (json!({"results":[]}), json!({"items":[]})),
+        ],
+        invalid_outputs: vec![
+            (json!({}), "invalid_output"),
+            (json!({"results":[clean.clone(),clean]}), "invalid_output"),
+            (
+                json!({"results":[{"iso3166":"KR","code":"KR","country":PRIVATE,"active":1}]}),
+                "invalid_output",
+            ),
+        ],
+    })
+    .await;
 }
 
 fn clean_service(name: &str) -> Value {

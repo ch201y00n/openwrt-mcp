@@ -16,6 +16,8 @@ Version 5 requires fresh input-signature observations on the same immutable back
 
 Audit logs omit argument values, responses, configuration text, backend stderr and parse error excerpts at all verbosity levels. Known operation names are sanitized/validated; unknown names are logged as a constant. Output projection is separate from auditing. Recursive sensitive-key redaction is defense-in-depth, not a guarantee for arbitrary operator-defined output schemas. Operators must review custom result fields.
 
+Wireless.Read permits station MAC identities in `wireless_stations` and `wireless_station_status`. This is intentional passive metadata disclosure, not raw configuration access. Deny both operations to keep client identities hidden while retaining radio/device/country reads. Station identifiers, device arguments and returned metrics remain excluded from audit logs. No wireless read authorizes scanning, disconnecting clients or changing a regulatory setting.
+
 ## Audit behavior
 
 When enabled, an unavailable audit sink prevents a device operation from starting. A completion audit failure is reported separately: it does not mean the operation was rolled back. A start record without a finish means interrupted or uncertain completion, including process crash/cancellation. There is no automatic mutation retry.

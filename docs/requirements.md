@@ -29,6 +29,8 @@ Full coverage is a product target, not a v0.1 completion claim. OpenWrt packages
 
 Categories: system, network, wireless, firewall, dhcp_dns, services, packages, storage, vpn, firmware, diagnostics, extensions. Operations can require multiple categories. The catalog is the source of truth for parameters, required permissions and exposed output. Unknown operations, missing grants and unknown config keys fail closed.
 
+The next passive wireless increment follows [wireless-observation-contracts.md](wireless-observation-contracts.md) within architecture v6: reviewed station/country metadata, explicit station-identity disclosure under Wireless.Read, no active scan or mutation, exact local selection and unchanged shared bounds. Package inventory pagination remains a [separate proposed design](package-inventory-design.md), not an exception to the current projection or capability contract.
+
 ## Security invariants
 
 - Permission metadata is operator-owned and immutable during a client session.

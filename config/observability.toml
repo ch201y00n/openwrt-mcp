@@ -1,5 +1,7 @@
 # Opt-in example for all currently implemented built-in read categories.
 # No write or execute grants; missing categories remain denied.
+# Wireless.Read includes station MAC identities and passive link metrics.
+# Deny wireless_stations and wireless_station_status to hide client identities.
 # Services.Read includes generic service/instance names and running/PID metadata,
 # including VPN/firewall-related daemons, but not configuration or command lines.
 # For narrower service visibility, deny service_status and service_status_list

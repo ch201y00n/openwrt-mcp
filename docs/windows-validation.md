@@ -4,6 +4,8 @@ Date: 2026-09-13. This is local Windows GNU host/fixture acceptance, not WSL, MS
 
 ## Executed gate and scope
 
+Subsequent passive wireless increment: the same native full gate passed at **2026-09-13T06:30:30Z–06:31:19Z**, with **325 distinct tests**, zero ignored, after adding seven feature and three MCP regressions. Source baseline `979029803271c81386118699b2669e372604ef15` plus the wireless changes; seventeen reads/eight typed contracts. This extends synthetic host acceptance only, not real-radio or emulator evidence. The original 315-test result and artifact below remain historical and are not silently relabeled as this build. See [overall validation](validation.md).
+
 The unmodified `tools/Test-Repository.ps1` native branch passed architecture/evolution checks, all 51 harness regressions, formatting, strict all-target Clippy, workspace tests and release compilation. The recorded evidence run was **2026-09-13T06:08:47Z–06:09:03Z**, following an earlier successful full run. **315 distinct tests** passed with zero ignored; the harness is executed twice by the gate and counted once. Existing Linux-only local-process, protected-file and audit fixtures are not Windows tests. All required portable suites execute on this host, including all five actual-binary stdio cases and eighteen loopback SSH integration cases.
 
 The production baseline is commit `8f6c09587cf34d627522b7da31c97df461e175c0`, plus the test-only environment fix described below. No production code, dependency, architecture contract, CI requirement or repository gate was changed to obtain this result. A separate Linux-on-WSL full gate also passed after the fix; its 347-test inventory is separate, not added to the native count.

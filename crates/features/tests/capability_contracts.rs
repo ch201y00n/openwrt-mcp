@@ -19,6 +19,24 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
         ("system_board", ReviewedObject::System, "board", vec![]),
         ("system_info", ReviewedObject::System, "info", vec![]),
         (
+            "wireless_stations",
+            ReviewedObject::Iwinfo,
+            "assoclist",
+            vec![("device", ParameterKind::String)],
+        ),
+        (
+            "wireless_station_status",
+            ReviewedObject::Iwinfo,
+            "assoclist",
+            vec![("device", ParameterKind::String)],
+        ),
+        (
+            "wireless_countries",
+            ReviewedObject::Iwinfo,
+            "countrylist",
+            vec![("device", ParameterKind::String)],
+        ),
+        (
             "network_device_status",
             ReviewedObject::NetworkDevice,
             "status",
@@ -147,7 +165,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 14);
+    assert_eq!(operations.len(), 17);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         let Action::Ubus { object, .. } = &operation.action else {

@@ -60,7 +60,9 @@ Generic Process extensions are now explicitly unverified and blocked, even with 
 
 ## Response validation is separate from capability discovery
 
-V6 implements finite typed collection responses for five contracts. After a compatible method executes, the prepared projection still checks required fields, exact scalar types/ranges, nonempty identities, uniqueness and bounded collection sizes, including unselected rows. A compatible signature cannot turn malformed output into success.
+V6 implements finite typed collection responses for eight contracts, including three [passive wireless views](wireless-observation-contracts.md) added after the first five. After a compatible method executes, the prepared projection still checks required fields, exact scalar types/ranges, nonempty identities, uniqueness and bounded collection sizes, including unselected rows. A compatible signature cannot turn malformed output into success.
+
+`wireless_station_status` transmits only `device` to `iwinfo.assoclist`; its MAC selector stays local and does not require or use rpcd's optional MAC filter. `assoclist` and `countrylist` still require a fresh observed String `device` signature. Empty arrays may reflect driver failures upstream and do not establish absence or health.
 
 Typed shape/type failures use `invalid_output`; an exact selector with no observed match uses `selection_not_observed`; exceeded byte or item budgets use `output_limit`. None returns a partial list, chooses the first duplicate or retries the device operation. Optional fields/instances stay omitted, while a valid empty list is only an observation of returned entries, not proof of complete visibility or absent hardware.
 

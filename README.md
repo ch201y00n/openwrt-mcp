@@ -11,8 +11,8 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Fourteen conservative ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
-- Five typed response contracts for bounded interface, wireless-device and service collections, including exact local interface/service selection. [Read contracts](docs/collection-read-contracts.md).
+- Seventeen conservative ubus read operations across system, network, wireless, services and diagnostics; fixed-action operator extensions.
+- Eight typed response contracts for bounded interface, wireless and service observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md) and [passive wireless contracts](docs/wireless-observation-contracts.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
@@ -23,7 +23,7 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-Full gates pass 347 distinct tests on Linux-on-WSL and 315 on [native Windows GNU](docs/windows-validation.md). A separate actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including five typed contracts, and two explicit unavailable/error cases. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
+Full gates pass 357 distinct tests on Linux-on-WSL and 325 on [native Windows GNU](docs/windows-validation.md). The earlier actual MCP/SSH run against isolated official OpenWrt 25.12.5 ARM64 QEMU validated twelve reads, including the first five typed contracts, and two explicit unavailable/error cases; it does not validate the later station/country additions. See [scoped v6 emulated acceptance](docs/emulator-validation-v6.md) and [verification and measurements](docs/validation.md). BPI-R4 hardware, MSVC and macOS acceptance remain pending.
 
 ## Build and check
 
@@ -66,6 +66,8 @@ This grants system reads and network read/write capability, but no execution. It
 Start from [read-only.toml](config/read-only.toml) for system/network only, [observability.toml](config/observability.toml) to opt into all currently implemented read categories, or [deny-all.toml](config/deny-all.toml). No example grants execute permission. See [security](docs/security.md) for authority boundaries and [configuration](docs/configuration.md) for audit settings and extensions.
 
 Generic Services.Read exposes service/instance names and running/PID/exit metadata across service categories, never command lines, environment or settings. To retain only the fixed logd/sysntpd views, deny `service_status` and `service_status_list` through the operation denylist.
+
+Wireless.Read includes station MAC identities and passive link metrics. Deny `wireless_stations` and `wireless_station_status` to withhold client identities. No wireless read scans, disconnects clients or changes a country; an empty driver-reported list is not proof of absence or health.
 
 `network_interface_status` now always uses `network.interface.dump {}` and exact local selection. Its development-stage response contract is v2: ordinary field names, including `interface`, replace the former slash-prefixed keys. It does not retry or bypass an incomplete `status` signature.
 

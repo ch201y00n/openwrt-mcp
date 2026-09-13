@@ -1,6 +1,6 @@
 # First typed collection read contracts
 
-Status: implemented after the validated architecture-only ADR 0006 checkpoint, with synthetic behavioral tests and [v6 actual MCP/SSH emulator acceptance](emulator-validation-v6.md) for all five typed contracts. These contracts are part of fourteen built-in reads. [Native Windows GNU host fixtures](windows-validation.md) also pass; MSVC, macOS and physical-device acceptance remain pending. Historical v5 evidence is scoped to the v5 executable, not these new or changed response contracts. All source responses are untrusted and may include sensitive fields that must not reach the result or audit.
+Status: implemented after the validated architecture-only ADR 0006 checkpoint, with synthetic behavioral tests and [v6 actual MCP/SSH emulator acceptance](emulator-validation-v6.md) for the first five typed contracts documented here. The later [three passive wireless contracts](wireless-observation-contracts.md) bring the catalog to seventeen reads/eight typed contracts; the earlier emulator run does not validate those additions. [Native Windows GNU host fixtures](windows-validation.md) also pass; MSVC, macOS and physical-device acceptance remain pending. Historical v5 evidence is scoped to the v5 executable, not these new or changed response contracts. All source responses are untrusted and may include sensitive fields that must not reach the result or audit.
 
 | Operation | Fixed action / input | Permission | Response contract |
 | --- | --- | --- | --- |

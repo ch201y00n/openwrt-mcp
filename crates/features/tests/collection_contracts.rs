@@ -65,6 +65,39 @@ fn fixtures() -> Vec<Fixture> {
     let service = json!({"name":"fixture","instances":[{"name":"one","running":true,"pid":42,"exit_code":0},{"name":"two","running":false}]});
     vec![
         Fixture {
+            name: "wireless_stations",
+            response: "wireless_stations.v1",
+            category: Category::Wireless,
+            input: json!({"device":"phy0-ap0"}),
+            object: "iwinfo",
+            method: "assoclist",
+            arguments: json!({"device":"phy0-ap0"}),
+            source: json!({"results":[{"mac":"02:00:00:00:00:01","signal":-48,"noise":-95,"ssid":"synthetic-secret","rx":{"bytes":9007199254740993_u64,"key":"synthetic-secret"}}]}),
+            expected: json!({"items":[{"mac":"02:00:00:00:00:01","signal_dbm":-48,"noise_dbm":-95,"rx_bytes":"9007199254740993"}]}),
+        },
+        Fixture {
+            name: "wireless_station_status",
+            response: "wireless_station_status.v1",
+            category: Category::Wireless,
+            input: json!({"device":"phy0-ap0","mac":"02:00:00:00:00:01"}),
+            object: "iwinfo",
+            method: "assoclist",
+            arguments: json!({"device":"phy0-ap0"}),
+            source: json!({"results":[{"mac":"02:00:00:00:00:02","signal":-55,"noise":-95},{"mac":"02:00:00:00:00:01","signal":-48,"noise":-95,"key":"synthetic-secret"}]}),
+            expected: json!({"mac":"02:00:00:00:00:01","signal_dbm":-48,"noise_dbm":-95}),
+        },
+        Fixture {
+            name: "wireless_countries",
+            response: "wireless_countries.v1",
+            category: Category::Wireless,
+            input: json!({"device":"phy0"}),
+            object: "iwinfo",
+            method: "countrylist",
+            arguments: json!({"device":"phy0"}),
+            source: json!({"results":[{"iso3166":"KR","code":"KR","country":"South Korea","active":true,"config":{"key":"synthetic-secret"}}]}),
+            expected: json!({"items":[{"iso3166":"KR","code":"KR","country":"South Korea","active":true}]}),
+        },
+        Fixture {
             name: "network_interfaces",
             response: "network_interfaces.v1",
             category: Category::Network,
@@ -809,4 +842,353 @@ fn the_actual_network_contract_accepts_exact_normalized_bytes_and_rejects_escape
         project("network_interfaces", &json!({}), &json!({"interface":rows})),
         Err(CoreError::OutputLimit)
     );
+}
+
+fn station(mac: &str) -> Value {
+    json!({"mac":mac,"signal":-48,"noise":-95})
+}
+
+#[test]
+fn station_identity_disclosure_can_be_denied_without_hiding_basic_wireless_reads() {
+    let policy = Policy {
+        categories: [(
+            Category::Wireless,
+            Grant {
+                access: Access::Read,
+                execute: false,
+            },
+        )]
+        .into(),
+        deny_operations: ["wireless_stations".into(), "wireless_station_status".into()].into(),
+        ..Policy::default()
+    };
+    for name in ["wireless_stations", "wireless_station_status"] {
+        assert!(policy.authorize(&operation(name)).is_err());
+    }
+    for name in [
+        "wireless_devices",
+        "wireless_radio_info",
+        "wireless_countries",
+    ] {
+        assert!(policy.authorize(&operation(name)).is_ok());
+    }
+}
+
+#[test]
+fn passive_wireless_inputs_never_accept_actions_or_send_the_local_mac_selector() {
+    for name in [
+        "wireless_stations",
+        "wireless_station_status",
+        "wireless_countries",
+    ] {
+        let operation = operation(name);
+        let mut input = json!({"device":"phy'; $(not-a-command)\n--scan"});
+        if name == "wireless_station_status" {
+            input["mac"] = json!("02:00:00:00:00:01");
+            for invalid in [
+                json!(""),
+                json!("x".repeat(18)),
+                json!("\0"),
+                json!(1),
+                json!(null),
+            ] {
+                let mut bad = input.clone();
+                bad["mac"] = invalid;
+                assert!(operation.prepare_invocation(&bad).is_err());
+            }
+            let mut missing = input.clone();
+            missing.as_object_mut().unwrap().remove("mac");
+            assert!(operation.prepare_invocation(&missing).is_err());
+        }
+        let invocation = operation.prepare_invocation(&input).unwrap();
+        let PreparedAction::Ubus {
+            object,
+            method,
+            arguments,
+        } = invocation.action()
+        else {
+            panic!("not an ubus read")
+        };
+        assert_eq!(object, "iwinfo");
+        assert_eq!(
+            method,
+            if name == "wireless_countries" {
+                "countrylist"
+            } else {
+                "assoclist"
+            }
+        );
+        assert_eq!(arguments, &json!({"device":input["device"]}));
+        for forbidden in [
+            "scan",
+            "disconnect",
+            "country",
+            "method",
+            "execute",
+            "profile",
+        ] {
+            let mut invalid = input.clone();
+            invalid[forbidden] = json!(true);
+            assert!(operation.prepare_invocation(&invalid).is_err());
+        }
+        for invalid in [
+            json!({}),
+            json!({"device":true}),
+            json!({"device":"x".repeat(1025)}),
+        ] {
+            assert!(operation.prepare_invocation(&invalid).is_err());
+        }
+    }
+}
+
+#[test]
+fn station_exact_selection_checks_every_identity_and_unselected_required_field() {
+    let mac = "02:00:00:00:00:AB";
+    let input = json!({"device":"phy0-ap0","mac":mac});
+    assert_eq!(
+        project(
+            "wireless_station_status",
+            &input,
+            &json!({"results":[station("02:00:00:00:00:ab")]})
+        ),
+        Err(CoreError::SelectionNotObserved)
+    );
+    for bad in [
+        json!({}),
+        json!(null),
+        json!([]),
+        station(""),
+        station(&"x".repeat(18)),
+        json!({"mac":"other","signal":-48,"noise":null}),
+    ] {
+        assert_eq!(
+            project(
+                "wireless_station_status",
+                &input,
+                &json!({"results":[station(mac),bad]})
+            ),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+    for rows in [
+        json!([station(mac), station(mac)]),
+        json!([station(mac), station("other"), station("other")]),
+    ] {
+        assert_eq!(
+            project("wireless_station_status", &input, &json!({"results":rows})),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+}
+
+#[test]
+fn station_types_ranges_and_large_counters_are_not_coerced_or_rounded() {
+    let input = json!({"device":"phy0-ap0"});
+    for (source, min, max) in [
+        ("signal", -128, 127),
+        ("noise", -128, 127),
+        ("signal_avg", -128, 127),
+        ("inactive", 0, i32::MAX as i64),
+        ("connected_time", 0, i32::MAX as i64),
+        ("thr", 0, i32::MAX as i64),
+    ] {
+        for (value, valid) in [
+            (json!(min), true),
+            (json!(max), true),
+            (json!(min - 1), false),
+            (json!(max + 1), false),
+            (json!(1.0), false),
+            (json!("1"), false),
+            (json!(null), false),
+            (json!({}), false),
+        ] {
+            let mut row = station("02:00:00:00:00:01");
+            row[source] = value;
+            assert_eq!(
+                project("wireless_stations", &input, &json!({"results":[row]})).is_ok(),
+                valid,
+                "{source}"
+            );
+        }
+    }
+    for source in ["authorized", "authenticated", "wme", "mfp"] {
+        for (value, valid) in [
+            (json!(false), true),
+            (json!(true), true),
+            (json!(0), false),
+            (json!("false"), false),
+            (json!(null), false),
+        ] {
+            let mut row = station("02:00:00:00:00:01");
+            row[source] = value;
+            assert_eq!(
+                project("wireless_stations", &input, &json!({"results":[row]})).is_ok(),
+                valid
+            );
+        }
+    }
+    for (direction, source, output) in [
+        ("rx", "bytes", "rx_bytes"),
+        ("tx", "bytes", "tx_bytes"),
+        ("rx", "drop_misc", "rx_dropped"),
+    ] {
+        for (value, valid) in [
+            (json!(0), true),
+            (json!(9_007_199_254_740_993_u64), true),
+            (json!(i64::MAX), true),
+            (json!(-1), false),
+            (json!(1.5), false),
+            (json!("100"), false),
+            (json!(null), false),
+        ] {
+            let mut row = station("02:00:00:00:00:01");
+            row[direction] = json!({(source):value});
+            let result = project("wireless_stations", &input, &json!({"results":[row]}));
+            assert_eq!(result.is_ok(), valid);
+            if valid {
+                assert_eq!(
+                    result.unwrap()["items"][0][output],
+                    json!(value.to_string())
+                );
+            }
+        }
+    }
+    for direction in ["rx", "tx"] {
+        for source in ["rate", "mhz"] {
+            for value in [
+                json!(-1),
+                json!(i64::from(i32::MAX) + 1),
+                json!(1.0),
+                json!(null),
+            ] {
+                let mut row = station("02:00:00:00:00:01");
+                row[direction] = json!({(source):value});
+                assert_eq!(
+                    project("wireless_stations", &input, &json!({"results":[row]})),
+                    Err(CoreError::InvalidOutput)
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn country_observations_require_typed_metadata_and_unique_bounded_identity() {
+    let input = json!({"device":"phy0"});
+    let clean = json!({"iso3166":"KR","code":"KR","country":"South Korea"});
+    for field in ["iso3166", "code", "country"] {
+        let mut row = clean.clone();
+        row.as_object_mut().unwrap().remove(field);
+        assert_eq!(
+            project("wireless_countries", &input, &json!({"results":[row]})),
+            Err(CoreError::InvalidOutput)
+        );
+        for invalid in [json!(null), json!(true), json!([]), json!({}), json!("x\0")] {
+            let mut row = clean.clone();
+            row[field] = invalid;
+            assert_eq!(
+                project("wireless_countries", &input, &json!({"results":[row]})),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+    }
+    for (field, limit) in [("iso3166", 2), ("code", 4), ("country", 256)] {
+        for (size, valid) in [(limit, true), (limit + 1, false)] {
+            let mut row = clean.clone();
+            row[field] = json!("x".repeat(size));
+            assert_eq!(
+                project("wireless_countries", &input, &json!({"results":[row]})).is_ok(),
+                valid
+            );
+        }
+    }
+    let mut empty = clean.clone();
+    empty["iso3166"] = json!("");
+    let mut wrong = clean.clone();
+    wrong["active"] = json!(1);
+    for rows in [
+        json!([clean.clone(), clean]),
+        json!([empty]),
+        json!([wrong]),
+    ] {
+        assert_eq!(
+            project("wireless_countries", &input, &json!({"results":rows})),
+            Err(CoreError::InvalidOutput)
+        );
+    }
+}
+
+#[test]
+fn passive_wireless_empty_observations_are_not_synthesized_from_missing_results() {
+    for name in [
+        "wireless_stations",
+        "wireless_station_status",
+        "wireless_countries",
+    ] {
+        let input = if name == "wireless_station_status" {
+            json!({"device":"phy0","mac":"02:00:00:00:00:01"})
+        } else {
+            json!({"device":"phy0"})
+        };
+        for malformed in [
+            json!({}),
+            json!(null),
+            json!([]),
+            json!({"results":null}),
+            json!({"results":{}}),
+        ] {
+            assert_eq!(
+                project(name, &input, &malformed),
+                Err(CoreError::InvalidOutput)
+            );
+        }
+        let empty = project(name, &input, &json!({"results":[]}));
+        if name == "wireless_station_status" {
+            assert_eq!(empty, Err(CoreError::SelectionNotObserved));
+        } else {
+            assert_eq!(empty.unwrap(), json!({"items":[]}));
+        }
+    }
+}
+
+#[test]
+fn passive_wireless_cardinality_limits_apply_before_selecting_or_truncating() {
+    for size in [128, 129] {
+        let rows: Vec<_> = (0..size)
+            .map(|index| station(&format!("02:00:00:00:00:{index:02X}")))
+            .collect();
+        for name in ["wireless_stations", "wireless_station_status"] {
+            let input = if name == "wireless_station_status" {
+                json!({"device":"phy0","mac":"02:00:00:00:00:00"})
+            } else {
+                json!({"device":"phy0"})
+            };
+            let result = project(name, &input, &json!({"results":rows}));
+            assert_eq!(result.is_ok(), size == 128);
+            if size == 129 {
+                assert_eq!(result, Err(CoreError::OutputLimit));
+            }
+        }
+    }
+    for size in [256, 257] {
+        let rows: Vec<_> = (0..size)
+            .map(|index| {
+                let code = format!(
+                    "{}{}",
+                    char::from(b'A' + (index / 26) as u8),
+                    char::from(b'A' + (index % 26) as u8)
+                );
+                json!({"iso3166":code,"code":code,"country":"Fixture"})
+            })
+            .collect();
+        let result = project(
+            "wireless_countries",
+            &json!({"device":"phy0"}),
+            &json!({"results":rows}),
+        );
+        assert_eq!(result.is_ok(), size == 256);
+        if size == 257 {
+            assert_eq!(result, Err(CoreError::OutputLimit));
+        }
+    }
 }

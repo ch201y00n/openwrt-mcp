@@ -1,3 +1,5 @@
+mod observations;
+
 use crate::definition::{argument, read};
 use openwrt_mcp_core::{
     Category, Collection, Operation, OutputMode, Parameter, ParameterKind, ScalarKind, Selection,
@@ -61,5 +63,7 @@ pub(crate) fn operations() -> Vec<Operation> {
         },
         selection: Selection::All {},
     }));
-    vec![radio, devices]
+    let mut operations = vec![radio, devices];
+    operations.extend(observations::operations());
+    operations
 }
