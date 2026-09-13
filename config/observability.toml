@@ -4,7 +4,9 @@
 # Network and DHCP/DNS also expose selected text/list address/resolver/path options.
 # These are sessionless shared-delta observations, not committed/effective state.
 # Also discloses selected firewall policy, DHCP reservations, NTP and disk identifiers.
-# Use exact operation denials to narrow these 24 closed UCI reads; no writes are enabled.
+# System.Read includes LED device names, SSH access flags and web listen endpoints.
+# DhcpDns.Read includes odhcpd mode/log settings and selected runtime path strings.
+# Use exact operation denials to narrow these 28 closed UCI reads; no writes are enabled.
 # Wireless.Read includes station MAC identities and passive link metrics.
 # Deny wireless_stations and wireless_station_status to hide client identities.
 # Services.Read includes generic service/instance names and running/PID metadata,

@@ -1,5 +1,6 @@
 //! Independent exact UCI field contracts; synthetic inputs only.
 mod base;
+mod system_services;
 use super::{Fixture, operation, project};
 use openwrt_mcp_core::{
     Category, Collection, CoreError, OutputMode, Presence, ScalarKind, TypedProjection,
@@ -120,6 +121,7 @@ fn recipes() -> Vec<Recipe> {
     ]
     .into_iter()
     .chain(base::recipes())
+    .chain(system_services::recipes())
     .collect()
 }
 
@@ -143,6 +145,9 @@ fn text_options(name: &str) -> &'static [(&'static str, usize)] {
             ("rebind_domain", 1024),
             ("addnhosts", 1024),
         ],
+        "system_led_configuration" | "system_uhttpd_configuration" => {
+            system_services::text_options(name)
+        }
         _ => base::text_options(name),
     }
 }

@@ -75,8 +75,10 @@ fn sd(user: &[u8], other_mask: Option<u32>, inherited: bool) -> Vec<u32> {
     let length = bytes.len() - acl_at;
     bytes[acl_at + 2..acl_at + 4].copy_from_slice(&(length as u16).to_le_bytes());
     bytes
-        .chunks_exact(4)
-        .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b))
         .collect()
 }
 fn wide(path: &Path) -> Vec<u16> {

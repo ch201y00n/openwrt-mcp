@@ -12,6 +12,15 @@ Updated: 2026-09-14 (Asia/Seoul). This records host/fixture validation and separ
 
 ## Verification
 
+The **P1/v20 system-service read and inventory increment** adds four fixed UCI
+reads (LED, Dropbear, uHTTPd, odhcpd) within the already committed `a711593`
+architecture. Full gates pass **581 native Windows GNU / 585 Linux-on-WSL tests**,
+zero ignored, including **110 harness regressions** counted once. Both release
+executables' offline read-only catalogs exactly match the 55-operation feature
+mapping. [P1 verification](p1-validation.md) records artifacts, independent tests,
+inventory/risk/provenance checks, resolved failures and the separate remote-CI
+scope. There is no new live router, Vault/key, backup/restore or mutation acceptance.
+
 The **v19 Windows private-log increment** follows architecture-only
 `f3059d3d308309153d793e6235a98f029d900adc` (formerly `15dae37`), validated before
 behavior with 551 native Windows GNU / 572 Linux-on-WSL tests. Full implementation

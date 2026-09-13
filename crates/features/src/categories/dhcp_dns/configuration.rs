@@ -1,9 +1,24 @@
-//! Fixed category-owned UCI declarations; see docs/base-uci-observations.md.
+//! Fixed UCI definitions; see base-uci- and system-service-uci-observations.md.
 use crate::definition::uci_read_with_options;
 use openwrt_mcp_core::{Operation, uci::UciReadProfile};
 
 pub(super) fn operations() -> Vec<Operation> {
     vec![
+        uci_read_with_options(
+            "dhcp_odhcpd_configuration",
+            1,
+            UciReadProfile::Odhcpd,
+            &[
+                ("maindhcp", 8),
+                ("loglevel", 32),
+                ("leasefile", 1024),
+                ("hostsdir", 1024),
+                ("hostsfile", 1024),
+                ("piodir", 1024),
+                ("piofolder", 1024),
+            ],
+            &[],
+        ),
         uci_read_with_options(
             "dhcp_pool_configuration",
             1,

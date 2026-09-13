@@ -1,10 +1,15 @@
 # Capability coverage
 
 The [full feature specification](management-feature-spec.md) records the target
-backlog and maps all 51 current built-in reads to stable feature IDs. Use the
-[staged plan](implementation-plan.md) for future work. The current v20 checkpoint
-adds only architecture/harness for four more UCI recipes; those four operations
-are not implemented. The milestones below retain their scoped implementation evidence.
+backlog and maps all 55 current built-in reads to stable feature IDs. Use the
+[staged plan](implementation-plan.md) for future work. P1 implements the four
+[v20 system-service UCI reads](system-service-uci-observations.md) after their
+architecture checkpoint: LED, Dropbear, uHTTPd and odhcpd selected settings.
+There are now 28 closed UCI recipes and 44 typed response contracts. These are
+not mutations or effective-state/physical-device acceptance. The development
+[management inventory](management-inventory.md) tracks recorded profiles, all
+current tools and explicit unknowns; [P1 verification](p1-validation.md) records
+actual evidence. The milestones below retain their historical scoped evidence.
 
 The v19 [Windows private log profile](windows-private-logs.md) implements protected
 append/rotation through the existing audit configuration. Native synthetic files

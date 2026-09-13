@@ -1,6 +1,6 @@
 # 전체 OpenWrt 관리 기능 명세
 
-문서 버전: 1. 작성: 2026-09-14 (Asia/Seoul). 구현 기준 커밋: `a711593`.
+문서 버전: 2. 갱신: 2026-09-14 (Asia/Seoul). 최초 기준 `a711593`, P1/v20 조회 증분 반영.
 상태: **개발 목표 명세**. 기능 구현 완료, 신규 아키텍처 승인, 라우터 변경 또는 배포 승인이 아니다.
 현재 허용 경계는 [architecture/spec.toml](../architecture/spec.toml)의 v20이다.
 아래 미래 기능이 그 경계를 넘으면 ADR·명세·하네스를 먼저 확장하고 검증·커밋한다.
@@ -33,10 +33,10 @@
 
 ### 기준선
 
-- 현재 기본 관리 조회 51개: 형식화된 응답 40개, 기존 스칼라 응답 9개, 패키지 조회 2개. 이 중 UCI 조회 24개.
-- `operation_capability`는 별도의 지원 상태 메타데이터 도구이며 관리 기능 51개에 포함하지 않는다.
+- 현재 기본 관리 조회 55개: 형식화된 응답 44개, 기존 스칼라 응답 9개, 패키지 조회 2개. 이 중 UCI 조회 28개.
+- `operation_capability`는 별도의 지원 상태 메타데이터 도구이며 관리 기능 55개에 포함하지 않는다.
 - 기본 변경/실행 관리 도구는 아직 없다. 암호화·아카이브·영향 그래프는 내부 기반이지 실제 백업/복구 기능이 아니다.
-- v20의 LED·Dropbear·uHTTPd·odhcpd 조회 4종은 아키텍처/하네스만 준비됐다.
+- v20의 LED·Dropbear·uHTTPd·odhcpd 조회 4종을 구현했다. [정확한 필드 계약](system-service-uci-observations.md)과 [P1 대장](management-inventory.md)을 따른다. 해당 기능군의 변경/실행 완료가 아니다.
 - 호스트 테스트, 에뮬레이터 사용자 공간, 실기기 증거는 별도로 유지한다. 테스트 개수로 기능 완성률을 계산하지 않는다.
 
 ## 2. 모든 기능에 적용할 계약
@@ -83,7 +83,7 @@
 
 ## 3. 기능 목록
 
-표의 `현황`은 기준 커밋의 상태다: `R일부`=명시된 일부 조회만 구현, `기반`=내부 기반/공통 기능 일부,
+표의 `현황`은 P1 증분까지의 상태다: `R일부`=명시된 일부 조회만 구현, `기반`=내부 기반/공통 기능 일부,
 `설계`=아키텍처 체크포인트만 존재, `미구현`=관리 기능 없음. 어느 상태도 행 전체 완료를 의미하지 않는다.
 `단계`는 [계획](implementation-plan.md)의 주 납품 단계다. 앞 단계에서 필요한 조회/내부 공통부를 먼저 만들 수 있다.
 
@@ -151,10 +151,10 @@ MCP를 통한 자기 설정 변경 없이 운영자가 설정한다. OS별 기�
 | SYS-01 | 보드·릴리스·커널·가동시간·CPU/메모리·부하 R | 하드웨어 정체성과 실행 상태 분리, 선택된 비민감 정보 | R일부 | P5 |
 | SYS-02 | 호스트 이름·시간대·시스템 기본 설정 R/W/V/B | 검토된 단일 설정을 첫 변경 후보로 사용, 재시작 전체 영향 검사 | R일부 | P4 |
 | SYS-03 | NTP 서버·시간 동기 정책·수동 동기 R/W/X/V/B | 설정/동기 성공 구분, 시스템 시간 변경 영향 | R일부 | P5 |
-| SYS-04 | LED 트리거·밝기·장치 매핑·버튼 역할 R/W/X/V/B | sysfs 원시 쓰기 금지, 메시지/스크립트는 승인 템플릿만 | 설계 | P5 |
+| SYS-04 | LED 트리거·밝기·장치 매핑·버튼 역할 R/W/X/V/B | sysfs 원시 쓰기 금지, 메시지/스크립트는 승인 템플릿만 | R일부 | P5 |
 | SYS-05 | 사용자·그룹·로그인 권한·암호 교체 R/W/V/B | shadow/암호 미노출, 계정 참조·복구 접속 보존 | 미구현 | P8 |
-| SYS-06 | Dropbear/지원 SSH 서버 접속·인증·포워딩 정책 R/W/X/V/B | 키는 참조, 관리 경로 단절 방지, 실제 새 연결로 확인 | 설계 | P5 |
-| SYS-07 | uHTTPd·LuCI·rpcd 관리 리스너/인증/ACL R/W/X/V/B | 인증서 비밀 제외, MCP 자신의 신뢰 경계/정책 변경 불가 | 설계 | P5 |
+| SYS-06 | Dropbear/지원 SSH 서버 접속·인증·포워딩 정책 R/W/X/V/B | 키는 참조, 관리 경로 단절 방지, 실제 새 연결로 확인 | R일부 | P5 |
+| SYS-07 | uHTTPd·LuCI·rpcd 관리 리스너/인증/ACL R/W/X/V/B | 인증서 비밀 제외, MCP 자신의 신뢰 경계/정책 변경 불가 | R일부 | P5 |
 | SYS-08 | 공개키 등록/삭제·인증서 상태·접속 키 교체 R/W/V/B | 대상 계정 정확 매핑, 비밀 키/QR 반환 금지, 이전 접속 복구 | 미구현 | P8 |
 | SYS-09 | 재부팅·안전 종료 R/X/V | boot ID로 새 부팅 확인, 불명 응답 재실행 금지 | 미구현 | P10 |
 | SYS-10 | watchdog·온도·팬·전원/성능 정책 R/W/X/V/B | 보드별 센서·안전 범위, 존재하지 않는 하드웨어 값 합성 금지 | R일부 | P10 |
@@ -228,7 +228,7 @@ MCP를 통한 자기 설정 변경 없이 운영자가 설정한다. OS별 기�
 | DNS-03 | DHCPv6·RA·SLAAC·NDP relay/proxy R/W/X/V/B | 모드·prefix·수명·downstream 실제 IPv6 연결 확인 | R일부 | P6 |
 | DNS-04 | A/AAAA·도메인·CNAME·SRV·TXT·검색 도메인 R/W/V/B | 레코드별 타입/범위·루프·공개 범위, 옵션 추가는 개별 검토 | R일부 | P6 |
 | DNS-05 | lease/예약/할당 상태·정확 대상·제한된 해제 R/X/V | 관찰된 lease와 현재 접속 구분, 식별자 노출·해제 영향 | R일부 | P6 |
-| DNS-06 | odhcpd 자체 설정·저장 경로·로그 정책 R/W/X/V/B | 설정 존재≠실행 증거, 파일 내용/lease-trigger 미노출 | 설계 | P5 |
+| DNS-06 | odhcpd 자체 설정·저장 경로·로그 정책 R/W/X/V/B | 설정 존재≠실행 증거, 파일 내용/lease-trigger 미노출 | R일부 | P5 |
 | DNS-07 | DNS upstream·split DNS·구역별 응답·rebinding/DNSSEC R/W/X/V/B | 구역별 허용/차단 질의, DNSSEC/도메인 누출 확인 | R일부 | P6 |
 | DNS-08 | 정적 option/tag/class·PXE/TFTP·boot 설정 R/W/X/V/B | 바이너리 option 타입/길이, 승인된 파일 참조, 임의 명령 차단 | 미구현 | P8 |
 | DNS-09 | 캐시·서비스 건강 상태·갱신/flush/reload R/X/V/B | 외부 질의/캐시 변경은 실행, 시간·응답 크기 제한 | 미구현 | P6 |
@@ -357,7 +357,7 @@ MCP를 통한 자기 설정 변경 없이 운영자가 설정한다. OS별 기�
 
 ## 4. 기존 도구와 기능 ID의 기준선 대응
 
-현재 51개 도구를 중복 없이 연결한 기준선이다. 이 대응은 행 전체의 완료나 향후 쓰기 권한을 의미하지 않는다.
+현재 55개 도구를 중복 없이 연결한 대응표다. 최초 51개에 P1 조회 4개를 추가했다. 이 대응은 행 전체의 완료나 향후 쓰기 권한을 의미하지 않는다.
 도구 명칭/권한의 최종 근거는 실행 파일의 오프라인 catalog와 features/core 계약이다.
 예를 들어 기존 watchdog 조회의 실제 카테고리는 diagnostics다. 아래 SYS 연결만으로 system으로 재분류하지 않는다.
 
@@ -366,6 +366,9 @@ MCP를 통한 자기 설정 변경 없이 운영자가 설정한다. OS별 기�
 | SYS-01 | `system_board`, `system_info` |
 | SYS-02 | `system_configuration` |
 | SYS-03 | `system_timeserver_configuration` |
+| SYS-04 | `system_led_configuration` |
+| SYS-06 | `system_dropbear_configuration` |
+| SYS-07 | `system_uhttpd_configuration` |
 | SYS-10 | `diagnostics_watchdog_status` |
 | NET-01 | `network_device_status`, `network_lan_status`, `network_wan_status`, `network_interface_status`, `network_interfaces` |
 | NET-02 | `network_interface_configuration` |
@@ -385,6 +388,7 @@ MCP를 통한 자기 설정 변경 없이 운영자가 설정한다. OS별 기�
 | DNS-02 | `dhcp_pool_configuration`, `dhcp_host_configuration` |
 | DNS-04 | `dhcp_domain_configuration`, `dhcp_cname_configuration` |
 | DNS-05 | `dhcp_v4_leases`, `dhcp_v6_leases` |
+| DNS-06 | `dhcp_odhcpd_configuration` |
 | DNS-07 | `dhcp_interface_dns` |
 | SVC-01 | `service_logd_status`, `service_sysntpd_status`, `service_status`, `service_status_list` |
 | PKG-01 | `packages_apk_installed`, `packages_opkg_status` |

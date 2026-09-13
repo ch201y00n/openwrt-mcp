@@ -1,0 +1,880 @@
+# P1 development traceability only; never runtime policy or live device state.
+schema_version = 1
+snapshot = "p1-v20"
+scope = "recorded_not_live"
+whole_device_complete = false
+
+[[profiles]]
+id = "bpi-r4-openwrt-25.12.5-reference"
+scope = "historical"
+evidence = ["docs/reference-target.md"]
+
+[[profiles]]
+id = "qemu-arm64-openwrt-25.12.5"
+scope = "historical"
+evidence = ["docs/emulator-environment.md"]
+
+[[profiles]]
+id = "qemu-arm64-openwrt-24.10.4"
+scope = "historical"
+evidence = ["docs/emulator-environment-v14.md"]
+
+[[surfaces]]
+feature = "SYS-01"
+risk = "Discloses board/software identity and selected memory/uptime; not a durable boot or mutation baseline."
+operations = ["system_board","system_info"]
+selectors = ["system.board/info"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/collection-read-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-02"
+risk = "Discloses selected system text and shared pending delta; does not prove committed or effective hostname."
+operations = ["system_configuration"]
+selectors = ["uci system:system"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-03"
+risk = "Discloses NTP endpoints/interfaces and shared pending delta; does not establish time synchronization."
+operations = ["system_timeserver_configuration"]
+selectors = ["uci system:timeserver"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-04"
+risk = "Discloses LED device/trigger names and shared pending delta; does not establish physical LED state."
+operations = ["system_led_configuration"]
+selectors = ["uci system:led"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/system-service-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-06"
+risk = "Discloses SSH authentication flags/interfaces and shared pending delta; not effective login policy."
+operations = ["system_dropbear_configuration"]
+selectors = ["uci dropbear:dropbear"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/system-service-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-07"
+risk = "Discloses web listeners/security flags and shared pending delta; not live reachability or access control."
+operations = ["system_uhttpd_configuration"]
+selectors = ["uci uhttpd:uhttpd"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/system-service-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SYS-10"
+risk = "Reads only the empty-argument watchdog observation; setters or guessed healthy state would change the risk."
+operations = ["diagnostics_watchdog_status"]
+selectors = ["system.watchdog (empty arguments only)"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/read-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-01"
+risk = "Discloses interface/device topology metadata; partial observations cannot certify protected IPTV dependencies."
+operations = ["network_device_status","network_lan_status","network_wan_status","network_interface_status","network_interfaces"]
+selectors = ["network.device.status; network.interface.dump; fixed lan/wan status"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/collection-read-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-02"
+risk = "Discloses selected addressing and interface configuration including pending delta; secrets remain excluded."
+operations = ["network_interface_configuration"]
+selectors = ["uci network:interface"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-03"
+risk = "Discloses IP addresses and lifetimes; not an atomic topology or proof of reachability."
+operations = ["network_interface_addresses"]
+selectors = ["network.interface.dump selected addresses"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/interface-ip-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-04"
+risk = "Discloses device identities/relationships and pending delta; does not prove driver capabilities."
+operations = ["network_device_configuration"]
+selectors = ["uci network:device"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-05"
+risk = "Discloses bridge/VLAN port membership and pending delta; does not certify lan3 isolation."
+operations = ["network_bridge_vlan_configuration"]
+selectors = ["uci network:bridge-vlan"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-06"
+risk = "Discloses selected routes/rules and pending delta; not a complete effective kernel policy."
+operations = ["network_route_v4_configuration","network_route_v6_configuration","network_rule_v4_configuration","network_rule_v6_configuration","network_interface_routes"]
+selectors = ["uci network:route/route6/rule/rule6; netifd routes"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "NET-09"
+risk = "Discloses managed neighbor IP/MAC identities; not a complete neighbor table or connectivity proof."
+operations = ["network_interface_neighbors"]
+selectors = ["network.interface.dump managed neighbors"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/interface-ip-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "WIFI-01"
+risk = "Discloses selected radio/regulatory metadata and pending delta; no active scan or hardware acceptance."
+operations = ["wireless_radio_info","wireless_devices","wireless_radio_configuration","wireless_countries"]
+selectors = ["iwinfo.info/devices/countrylist; uci wireless:wifi-device"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/wireless-observation-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "WIFI-06"
+risk = "Discloses client MAC identities and passive link metrics; does not authorize active radio operations."
+operations = ["wireless_stations","wireless_station_status"]
+selectors = ["iwinfo.assoclist selected metrics"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/wireless-observation-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "FW-01"
+risk = "Discloses default firewall policy flags and pending delta; not effective protection."
+operations = ["firewall_defaults_configuration"]
+selectors = ["uci firewall:defaults"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "FW-02"
+risk = "Discloses firewall zones/forwarding relationships and pending delta; not compiled kernel rules."
+operations = ["firewall_zone_configuration","firewall_forwarding_configuration"]
+selectors = ["uci firewall:zone/forwarding"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "FW-03"
+risk = "Discloses selected firewall rule policy and pending delta; arbitrary includes and effective rules remain excluded."
+operations = ["firewall_rule_configuration"]
+selectors = ["uci firewall:rule"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "FW-04"
+risk = "Discloses NAT redirect endpoints and pending delta; not live forwarding behavior."
+operations = ["firewall_redirect_configuration"]
+selectors = ["uci firewall:redirect"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "FW-05"
+risk = "Discloses selected NAT rules and pending delta; not effective kernel translation state."
+operations = ["firewall_nat_configuration"]
+selectors = ["uci firewall:nat"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-01"
+risk = "Discloses resolver/interface/path options and pending delta; not DNS answers or effective service state."
+operations = ["dhcp_dnsmasq_configuration"]
+selectors = ["uci dhcp:dnsmasq"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-02"
+risk = "Discloses DHCP reservations and MAC/DUID/address identifiers including pending delta; not active clients."
+operations = ["dhcp_pool_configuration","dhcp_host_configuration"]
+selectors = ["uci dhcp:dhcp/host"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-04"
+risk = "Discloses configured names/addresses and pending delta; not live DNS resolution."
+operations = ["dhcp_domain_configuration","dhcp_cname_configuration"]
+selectors = ["uci dhcp:domain/cname"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-05"
+risk = "Discloses client IP/MAC/DUID/hostname leases; non-atomic and not proof of connectivity."
+operations = ["dhcp_v4_leases","dhcp_v6_leases"]
+selectors = ["luci-rpc.getDHCPLeases families 4/6"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/dhcp-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-06"
+risk = "Discloses odhcpd modes and runtime path text including pending delta; never opens those paths."
+operations = ["dhcp_odhcpd_configuration"]
+selectors = ["uci dhcp:odhcpd"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/system-service-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "DNS-07"
+risk = "Discloses interface DNS servers/search names; not query results or resolver health."
+operations = ["dhcp_interface_dns"]
+selectors = ["network.interface.dump selected DNS"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/interface-ip-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "SVC-01"
+risk = "Discloses generic daemon/instance names and PID/running metadata across feature families, not commands/secrets."
+operations = ["service_logd_status","service_sysntpd_status","service_status","service_status_list"]
+selectors = ["service.list selected state; excludes argv/env"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/collection-read-contracts.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "PKG-01"
+risk = "Discloses package names/versions/architectures from one reviewed manager; not a complete atomic installation inventory."
+operations = ["packages_apk_installed","packages_opkg_status"]
+selectors = ["fixed APK visible query; fixed opkg root status capture"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/opkg-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "STO-01"
+risk = "Discloses paths/labels/UUID/capacity; probes may read disk signatures or contact mounted network filesystems."
+operations = ["storage_mounts","storage_block_devices"]
+selectors = ["luci.getMountPoints/getBlockDevices"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/storage-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[surfaces]]
+feature = "STO-02"
+risk = "Discloses mount/device identifiers and pending delta; does not establish actual mounts or safe recovery."
+operations = ["storage_mount_configuration","storage_global_configuration","storage_swap_configuration"]
+selectors = ["uci fstab:mount/global/swap"]
+actions = ["R"]
+status = "partial"
+evidence = ["docs/base-uci-observations.md"]
+gap = "Only the selected read contract is implemented; full feature actions/options and per-profile acceptance remain open."
+
+[[observations]]
+id = "package-1"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["ubus / libubus"]
+features = ["CTL-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Extra object methods require reviewed contracts."
+
+[[observations]]
+id = "package-2"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["rpcd, file/iwinfo/rpcsys/ucode modules"]
+features = ["CTL-04","SYS-07"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Module inventory is not authorization; file/exec and session mutation remain unavailable."
+
+[[observations]]
+id = "package-3"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["uci / libuci"]
+features = ["CTL-04","TXN-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "No committed-only baseline or delta ownership."
+
+[[observations]]
+id = "package-4"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["netifd"]
+features = ["NET-01","NET-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only selected fields; complete protocol/driver dependency extraction unknown."
+
+[[observations]]
+id = "package-5"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["procd"]
+features = ["SVC-01","SVC-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "State projection does not implement lifecycle/effects."
+
+[[observations]]
+id = "package-6"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["firewall4"]
+features = ["FW-01","FW-02","FW-03"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "No complete rule compilation/application or include contract."
+
+[[observations]]
+id = "package-7"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["nftables-json"]
+features = ["FW-06","FW-09"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Kernel rule/counter and dynamic set contracts incomplete."
+
+[[observations]]
+id = "package-8"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["dnsmasq"]
+features = ["DNS-01","DNS-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Full options, effective DNS and application/restore missing."
+
+[[observations]]
+id = "package-9"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["odhcpd-ipv6only"]
+features = ["DNS-06"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Selected configuration only; daemon/lease and mutation validation missing."
+
+[[observations]]
+id = "package-10"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["dropbear"]
+features = ["SYS-06"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Selected configuration only; keys, effective login and safe changes missing."
+
+[[observations]]
+id = "package-11"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["wpad-basic-mbedtls / hostapd-common"]
+features = ["WIFI-02","WIFI-03","WIFI-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Driver/MLO/security variation and secret provisioning unknown."
+
+[[observations]]
+id = "package-12"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["iw"]
+features = ["WIFI-01","DIAG-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "No generic CLI/active scan or driver completeness."
+
+[[observations]]
+id = "package-13"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["uhttpd / uhttpd-mod-ubus"]
+features = ["SYS-07"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Selected configuration only; rpcd ACL and authentication workflows missing."
+
+[[observations]]
+id = "package-14"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["wireguard-tools"]
+features = ["VPN-01"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Typed peer/secret/configuration and recovery workflow missing."
+
+[[observations]]
+id = "package-15"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["tailscale"]
+features = ["VPN-02","ADD-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Router config and external control-plane authority separate; not implemented."
+
+[[observations]]
+id = "package-16"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["samba4-server"]
+features = ["STO-09","ADD-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Shares/accounts/ACL and service recovery missing."
+
+[[observations]]
+id = "package-17"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["nginx-ssl"]
+features = ["ADD-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Non-UCI includes/templates/credentials remain unreviewed."
+
+[[observations]]
+id = "package-18"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["avahi-dbus-daemon"]
+features = ["ADD-03"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Reflector/interface disclosure and service effect contract missing."
+
+[[observations]]
+id = "package-19"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["adblock"]
+features = ["ADD-01"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Feed trust/update and DNS recovery missing."
+
+[[observations]]
+id = "package-20"
+risk = "Package metadata is not execution authority; configuration secrets, hooks and cross-service effects require per-feature review."
+kind = "package"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["acme-acmesh / DNS API"]
+features = ["ADD-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "External DNS/CA credentials and issue/deploy workflow missing."
+
+[[observations]]
+id = "object-system"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["system"]
+features = ["SYS-01","SYS-09","SYS-10"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-service"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["service"]
+features = ["SVC-01","SVC-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-uci"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["uci"]
+features = ["CTL-04","TXN-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-file"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["file"]
+features = ["STO-06","SYS-08"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-iwinfo"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["iwinfo"]
+features = ["WIFI-01","DIAG-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-luci"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["luci"]
+features = ["STO-01","CTL-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-luci-rpc"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["luci-rpc"]
+features = ["DNS-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-network"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["network"]
+features = ["NET-01","NET-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-network.device"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["network.device"]
+features = ["NET-01","NET-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-network.interface"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["network.interface"]
+features = ["NET-01","NET-03","NET-06"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-network.wireless"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["network.wireless"]
+features = ["WIFI-01","WIFI-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-rc"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["rc"]
+features = ["SVC-01","SVC-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-rpc-sys"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["rpc-sys"]
+features = ["PKG-01","FIRM-03"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "object-dhcp"
+risk = "Object presence does not prove read-only methods, current availability or authorization; unreviewed calls remain blocked."
+kind = "object"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["dhcp"]
+features = ["DNS-01","DNS-06"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Visible object metadata is not permission or tested behavior; unretained methods remain unknown."
+
+[[observations]]
+id = "methods-1"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["uci apply/confirm/rollback/reload_config"]
+features = ["TXN-02","TXN-08"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-2"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["rc list/init"]
+features = ["SVC-01","SVC-02"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-3"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["iwinfo devices/info/freqlist/countrylist/survey"]
+features = ["WIFI-01","DIAG-05"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-4"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["network.interface dump/status"]
+features = ["NET-01","NET-03"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-5"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["luci getMountPoints/getBlockDevices/getFeatures"]
+features = ["STO-01","CTL-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-6"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["rpc-sys packagelist/upgrade_test"]
+features = ["PKG-01","FIRM-03"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "methods-7"
+risk = "Recorded method names include unimplemented or effectful actions; historical metadata never admits execution."
+kind = "methods"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["system validate_firmware_image/sysupgrade"]
+features = ["FIRM-03","FIRM-04"]
+state = "recorded"
+evidence = ["docs/reference-target.md"]
+gap = "Only retained method names are recorded; signatures/effects and unavailable operations require separate review."
+
+[[observations]]
+id = "unretained-object-headers"
+risk = "Undocumented methods could expose secrets or mutate the router; never infer safe invocation from object presence."
+kind = "unknown"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["60 visible objects; only selected names retained"]
+features = ["CTL-04"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "Unretained names and methods cannot be reconstructed from the total."
+
+[[observations]]
+id = "complete-package-manifest"
+risk = "Unrecorded packages and hooks can change effects and dependency closure; version strings alone cannot admit operations."
+kind = "unknown"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["remaining installed packages and revisions"]
+features = ["PKG-01","ADD-09"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "Selected package table is not a complete manifest."
+
+[[observations]]
+id = "all-uci-options"
+risk = "Unreviewed options can contain secrets, executable text or shared effects; never expose or mutate them automatically."
+kind = "unknown"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["all UCI section/option kinds and downstream additions"]
+features = ["CTL-04","CTL-05"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "Closed read fields are not a full schema; raw values are not needed."
+
+[[observations]]
+id = "non-uci-cli"
+risk = "Commands, cron/hotplug and package hooks can execute arbitrary code or expose credentials; no generic file/shell fallback."
+kind = "cli"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["CLI-only services, non-UCI files, cron/hotplug and package hooks"]
+features = ["CTL-04","SYS-08","SVC-08","STO-06"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "No generic shell/file escape; inspect templates and effects in later reviewed profiles."
+
+[[observations]]
+id = "network-hardware"
+risk = "Unknown DSA/SFP/VLAN dependencies can disrupt management access or protected lan3 IPTV even without direct port references."
+kind = "hardware"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["DSA, SFP, bridge/VLAN parents and protected IPTV dependencies"]
+features = ["NET-01","NET-05","NET-10","QUAL-08"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "Fresh safe topology and physical acceptance needed; lan3 string matching insufficient."
+
+[[observations]]
+id = "wireless-driver"
+risk = "Unknown driver/regulatory/MLO behavior can affect radio availability and lawful operation; emulator evidence is insufficient."
+kind = "hardware"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["radio firmware/driver, MLO and regulatory capabilities"]
+features = ["WIFI-01","WIFI-04","WIFI-10"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "QEMU and countrylist alone do not prove radio capabilities."
+
+[[observations]]
+id = "boot-storage"
+risk = "Partition/boot/extroot changes can destroy user data or prevent boot; configuration backup alone is insufficient recovery."
+kind = "hardware"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["boot media, partitions, extroot and recovery layout"]
+features = ["STO-01","STO-04","FIRM-06","QUAL-08"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "No real disk/flash observation or out-of-band recovery acceptance."
+
+[[observations]]
+id = "first-change-effects"
+risk = "Shared pending state and reload consumers can broaden a small change or overwrite another writer; fail closed until resolved."
+kind = "unknown"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["system hostname consumers, foreign pending state and reload effects"]
+features = ["SYS-02","TXN-02","TXN-03"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "See first-mutation-readiness; selected reads are not a mutation baseline."
+
+[[observations]]
+id = "external-authority"
+risk = "Router permissions do not authorize external DNS/CA/Tailscale/store actions; separate credentials and approval are required."
+kind = "unknown"
+profile = "bpi-r4-openwrt-25.12.5-reference"
+tokens = ["DNS API, CA, Tailscale control plane and remote stores"]
+features = ["ADD-02","VPN-02","SEC-12"]
+state = "unknown"
+evidence = ["docs/management-inventory.md","docs/first-mutation-readiness.md"]
+gap = "Router credentials do not authorize external account actions."

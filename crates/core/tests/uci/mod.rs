@@ -57,6 +57,10 @@ fn all_closed_uci_profiles_bind_exact_arguments_and_reject_even_privileged_custo
         ("dhcp", "cname"),
         ("fstab", "global"),
         ("fstab", "swap"),
+        ("system", "led"),
+        ("dropbear", "dropbear"),
+        ("uhttpd", "uhttpd"),
+        ("dhcp", "odhcpd"),
     ];
     assert_eq!(
         UciReadProfile::ALL.map(|p| (p.config(), p.section_type())),
@@ -64,7 +68,7 @@ fn all_closed_uci_profiles_bind_exact_arguments_and_reject_even_privileged_custo
     );
     for profile in UciReadProfile::ALL {
         let category = match profile.config() {
-            "system" => Category::System,
+            "system" | "dropbear" | "uhttpd" => Category::System,
             "network" => Category::Network,
             "wireless" => Category::Wireless,
             "firewall" => Category::Firewall,

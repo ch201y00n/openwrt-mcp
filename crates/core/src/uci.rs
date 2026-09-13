@@ -30,10 +30,14 @@ pub enum UciReadProfile {
     DnsCnames,
     StorageGlobals,
     Swaps,
+    Leds,
+    Dropbear,
+    Uhttpd,
+    Odhcpd,
 }
 
 impl UciReadProfile {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 28] = [
         Self::System,
         Self::NetworkInterfaces,
         Self::WirelessRadios,
@@ -58,11 +62,17 @@ impl UciReadProfile {
         Self::DnsCnames,
         Self::StorageGlobals,
         Self::Swaps,
+        Self::Leds,
+        Self::Dropbear,
+        Self::Uhttpd,
+        Self::Odhcpd,
     ];
 
     pub const fn config(self) -> &'static str {
         match self {
-            Self::System | Self::Timeservers => "system",
+            Self::System | Self::Timeservers | Self::Leds => "system",
+            Self::Dropbear => "dropbear",
+            Self::Uhttpd => "uhttpd",
             Self::NetworkInterfaces
             | Self::NetworkDevices
             | Self::BridgeVlans
@@ -81,7 +91,8 @@ impl UciReadProfile {
             | Self::DhcpPools
             | Self::DhcpHosts
             | Self::DnsDomains
-            | Self::DnsCnames => "dhcp",
+            | Self::DnsCnames
+            | Self::Odhcpd => "dhcp",
             Self::Mounts | Self::StorageGlobals | Self::Swaps => "fstab",
         }
     }
@@ -111,12 +122,18 @@ impl UciReadProfile {
             Self::DnsCnames => "cname",
             Self::StorageGlobals => "global",
             Self::Swaps => "swap",
+            Self::Leds => "led",
+            Self::Dropbear => "dropbear",
+            Self::Uhttpd => "uhttpd",
+            Self::Odhcpd => "odhcpd",
         }
     }
 
     pub const fn category(self) -> Category {
         match self {
-            Self::System | Self::Timeservers => Category::System,
+            Self::System | Self::Timeservers | Self::Leds | Self::Dropbear | Self::Uhttpd => {
+                Category::System
+            }
             Self::NetworkInterfaces
             | Self::NetworkDevices
             | Self::BridgeVlans
@@ -135,7 +152,8 @@ impl UciReadProfile {
             | Self::DhcpPools
             | Self::DhcpHosts
             | Self::DnsDomains
-            | Self::DnsCnames => Category::DhcpDns,
+            | Self::DnsCnames
+            | Self::Odhcpd => Category::DhcpDns,
             Self::Mounts | Self::StorageGlobals | Self::Swaps => Category::Storage,
         }
     }

@@ -1,4 +1,5 @@
 //! Synthetic metadata contracts, not proof of target availability or acceptance.
+mod inventory;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -240,6 +241,10 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
             "dhcp_cname_configuration",
             "storage_global_configuration",
             "storage_swap_configuration",
+            "system_led_configuration",
+            "system_dropbear_configuration",
+            "system_uhttpd_configuration",
+            "dhcp_odhcpd_configuration",
         ]
         .into_iter()
         .map(|name| {
@@ -336,7 +341,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 51);
+    assert_eq!(operations.len(), 55);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::OpkgStatusPage {}) {

@@ -109,8 +109,10 @@ pub(super) fn log_descriptor(user: &[u8]) -> Result<Vec<u32>, HostError> {
     bytes.extend_from_slice(user);
     descriptor(&bytes, user, false, false, true)?;
     Ok(bytes
-        .chunks_exact(4)
-        .map(|part| u32::from_le_bytes([part[0], part[1], part[2], part[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|part| u32::from_le_bytes(*part))
         .collect())
 }
 
@@ -118,9 +120,11 @@ fn is_sid(bytes: &[u8], subauthorities: &[u32]) -> bool {
     bytes.len() == 8 + subauthorities.len() * 4
         && bytes[..8] == [1, subauthorities.len() as u8, 0, 0, 0, 0, 0, 5]
         && bytes[8..]
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .zip(subauthorities)
-            .all(|(a, b)| a == b.to_le_bytes())
+            .all(|(a, b)| *a == b.to_le_bytes())
 }
 
 fn trusted(bytes: &[u8], user: &[u8], root: bool) -> bool {

@@ -1,18 +1,85 @@
-//! Fixed category-owned UCI declarations; see docs/base-uci-observations.md.
+//! Fixed UCI definitions; see base-uci- and system-service-uci-observations.md.
 use crate::definition::uci_read_with_options;
 use openwrt_mcp_core::{Operation, uci::UciReadProfile};
 
 pub(super) fn operations() -> Vec<Operation> {
-    vec![uci_read_with_options(
-        "system_timeserver_configuration",
-        1,
-        UciReadProfile::Timeservers,
-        &[
-            ("enabled", 8),
-            ("enable_server", 8),
-            ("use_dhcp", 8),
-            ("interface", 256),
-        ],
-        &[("server", 1024), ("dhcp_interface", 256)],
-    )]
+    vec![
+        uci_read_with_options(
+            "system_timeserver_configuration",
+            1,
+            UciReadProfile::Timeservers,
+            &[
+                ("enabled", 8),
+                ("enable_server", 8),
+                ("use_dhcp", 8),
+                ("interface", 256),
+            ],
+            &[("server", 1024), ("dhcp_interface", 256)],
+        ),
+        uci_read_with_options(
+            "system_led_configuration",
+            1,
+            UciReadProfile::Leds,
+            &[
+                ("name", 256),
+                ("sysfs", 256),
+                ("trigger", 64),
+                ("dev", 256),
+                ("default", 8),
+                ("inverted", 8),
+                ("brightness", 32),
+                ("delayon", 32),
+                ("delayoff", 32),
+                ("interval", 32),
+                ("port_state", 32),
+                ("delay", 32),
+                ("gpio", 32),
+                ("port_mask", 32),
+                ("speed_mask", 32),
+            ],
+            &[("mode", 256), ("port", 256)],
+        ),
+        uci_read_with_options(
+            "system_dropbear_configuration",
+            1,
+            UciReadProfile::Dropbear,
+            &[
+                ("enable", 8),
+                ("PasswordAuth", 8),
+                ("RootPasswordAuth", 8),
+                ("RootLogin", 8),
+                ("GatewayPorts", 8),
+                ("LocalPortForward", 8),
+                ("RemotePortForward", 8),
+                ("Port", 32),
+                ("Interface", 256),
+                ("DirectInterface", 256),
+                ("SSHKeepAlive", 32),
+                ("IdleTimeout", 32),
+                ("MaxAuthTries", 32),
+                ("RecvWindowSize", 32),
+                ("mdns", 8),
+            ],
+            &[],
+        ),
+        uci_read_with_options(
+            "system_uhttpd_configuration",
+            1,
+            UciReadProfile::Uhttpd,
+            &[
+                ("redirect_https", 8),
+                ("rfc1918_filter", 8),
+                ("max_requests", 32),
+                ("max_connections", 32),
+                ("script_timeout", 32),
+                ("network_timeout", 32),
+                ("http_keepalive", 32),
+                ("tcp_keepalive", 32),
+                ("no_symlinks", 8),
+                ("no_dirlists", 8),
+                ("no_ubusauth", 8),
+            ],
+            &[("listen_http", 256), ("listen_https", 256)],
+        ),
+    ]
 }

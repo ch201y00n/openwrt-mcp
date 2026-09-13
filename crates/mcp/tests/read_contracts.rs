@@ -525,6 +525,7 @@ fn network_tools() -> Vec<&'static str> {
 
 fn dhcp_tools() -> Vec<&'static str> {
     vec![
+        "dhcp_odhcpd_configuration",
         "dhcp_pool_configuration",
         "dhcp_host_configuration",
         "dhcp_domain_configuration",
@@ -548,6 +549,9 @@ fn storage_tools() -> Vec<&'static str> {
 
 fn system_tools() -> Vec<&'static str> {
     vec![
+        "system_led_configuration",
+        "system_dropbear_configuration",
+        "system_uhttpd_configuration",
         "system_board",
         "system_info",
         "system_configuration",

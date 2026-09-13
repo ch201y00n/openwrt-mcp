@@ -13,6 +13,11 @@ Planning documents (Korean): [full management feature specification](docs/manage
 and [staged implementation plan](docs/implementation-plan.md). These distinguish
 current coverage from the complete management target; they are not a completion claim.
 
+P1 adds a checked [management inventory](docs/management-inventory.md) and four
+[system-service configuration reads](docs/system-service-uci-observations.md).
+See [P1 verification and limits](docs/p1-validation.md); next is P2's mutation
+architecture, not unrestricted configuration access.
+
 Independent community project; not affiliated with or endorsed by OpenWrt. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [license](LICENSE).
 
 ## What works in this foundation
@@ -24,9 +29,9 @@ The internal [sealing flow](docs/validated-archive-sealing.md) now sequences val
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Forty-nine conservative ubus read operations across system, network, wireless, firewall, DHCP/DNS, services, storage and diagnostics; fixed-action operator extensions excluding raw UCI.
+- Fifty-three conservative ubus read operations across system, network, wireless, firewall, DHCP/DNS, services, storage and diagnostics; fixed-action operator extensions excluding raw UCI.
 - Two additional package observations: [APK-installed query](docs/package-observations.md) and [opkg root status file](docs/opkg-observations.md). Complete bounded captures, 16-record pages, per-page authorization/audit and one shared expiring private snapshot. Explicit source-specific non-atomic scope, not whole-device completeness or package mutation; no automatic manager fallback.
-- Forty typed response contracts, including twenty-four closed UCI observations: [initial six](docs/uci-observations.md) and [eighteen base-service additions](docs/base-uci-observations.md). Other contracts cover [initial reads](docs/collection-read-contracts.md), [interface IP](docs/interface-ip-observations.md), [passive wireless](docs/wireless-observation-contracts.md), [DHCP leases](docs/dhcp-observations.md) and [scoped storage](docs/storage-observations.md). UCI reads are non-atomic shared-delta views, not committed-only or effective state.
+- Forty-four typed response contracts, including twenty-eight closed UCI observations: [initial six](docs/uci-observations.md), [eighteen base-service additions](docs/base-uci-observations.md) and [four system-service additions](docs/system-service-uci-observations.md). Other contracts cover [initial reads](docs/collection-read-contracts.md), [interface IP](docs/interface-ip-observations.md), [passive wireless](docs/wireless-observation-contracts.md), [DHCP leases](docs/dhcp-observations.md) and [scoped storage](docs/storage-observations.md). UCI reads are non-atomic shared-delta views, not committed-only or effective state.
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Network/dnsmasq configuration v2 preserves selected string/list options with fixed kind/values output, including empty forms and duplicate values. No splitting/coercion or increased global limits; [exact fields](docs/uci-observations.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
@@ -69,7 +74,7 @@ Run the binary on a Windows/Linux/macOS workstation with an explicit SSH target,
 openwrt-mcp serve --config-env OPENWRT_MCP_CONFIG
 ```
 
-The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Windows GNU common-path/protected-read fixtures pass; MSVC/macOS acceptance, macOS protection, Vault and OpenWrt hardware acceptance remain pending. The required three-host CI has not been run remotely.
+The built-in SSH backend uses a pinned Ed25519 host key, a separate Ed25519 authentication source, and one reused connection. It never invokes a host SSH executable or falls back to local execution. A configuration without a target cannot execute any device program. Alternatively deploy a matching binary on OpenWrt and explicitly select `[target] kind = "openwrt_local"`; the constructor verifies the host before local execution. No router deployment has been performed. Native Windows GNU and Linux-on-WSL checks are distinct from the [three-host CI runs](https://github.com/ch201y00n/openwrt-mcp/actions/workflows/ci.yml); see the [P1 verification record](docs/p1-validation.md) for scoped results. macOS protection, Vault and OpenWrt hardware acceptance remain pending. Passing host fixture tests does not imply router or production acceptance.
 
 Only JSON-RPC goes to stdout. Audit and operational messages use their configured destination (stderr by default). One process/config represents one principal; client metadata never selects privileges. On-device builds require the correct OpenWrt SDK/musl target and linker. The host verification binary is not an OpenWrt release artifact.
 
@@ -101,7 +106,7 @@ Network.Read includes scoped address, route and netifd-managed neighbor observat
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v19](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded projections and package observations, Windows protected reads/private logs, isolated effect analysis, bounded archive/sealing prerequisites and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only. New commits use Conventional Commits.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v20](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded projections and package observations, Windows protected reads/private logs, isolated effect analysis, bounded archive/sealing prerequisites and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only. New commits use Conventional Commits.
 
 ```powershell
 ./tools/Test-Repository.ps1

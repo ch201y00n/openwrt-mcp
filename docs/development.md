@@ -47,6 +47,11 @@ profile and read/configure/execute/verify/recover slice being delivered. Keep ta
 scope, current catalog coverage and actual acceptance evidence separate. Planning
 IDs are not client-selected permissions or a second executable tool inventory.
 
+P1's development-only [management inventory](management-inventory.md) is checked
+against the actual catalog and retained reference metadata inside the existing
+mandatory feature capability suite. No new production owner, dependency or
+runtime registry is admitted; preserve explicit unknowns and evidence scope.
+
 Use Conventional Commits: `type(optional-scope): concise description`. Prefer
 `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
 or `revert`; architecture-only checkpoints use `docs(architecture)`. Describe
