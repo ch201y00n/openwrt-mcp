@@ -1,5 +1,6 @@
 //! Pure strict action JSON fixtures, required on every supported host.
 mod archive;
+mod gzip;
 use openwrt_mcp_device_codec::{
     CodecError, MAX_ACTION_BYTES, MAX_ACTION_DEPTH, MAX_ACTION_NODES, parse_action_response,
 };

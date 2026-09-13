@@ -17,7 +17,7 @@ fn checksum(header: &mut [u8; 512]) {
     let value = header.iter().map(|b| u64::from(*b)).sum();
     octal(&mut header[148..156], value);
 }
-fn header(name: &str, size: u64, gnu: bool) -> [u8; 512] {
+pub(super) fn header(name: &str, size: u64, gnu: bool) -> [u8; 512] {
     assert!(name.len() <= 100);
     let mut h = [0; 512];
     h[..name.len()].copy_from_slice(name.as_bytes());
@@ -37,13 +37,13 @@ fn header(name: &str, size: u64, gnu: bool) -> [u8; 512] {
     checksum(&mut h);
     h
 }
-fn member(name: &str, body: &[u8], gnu: bool) -> Vec<u8> {
+pub(super) fn member(name: &str, body: &[u8], gnu: bool) -> Vec<u8> {
     let mut data = header(name, body.len() as u64, gnu).to_vec();
     data.extend_from_slice(body);
     data.resize(data.len().next_multiple_of(512), 0);
     data
 }
-fn terminated(mut members: Vec<u8>) -> Vec<u8> {
+pub(super) fn terminated(mut members: Vec<u8>) -> Vec<u8> {
     members.resize(members.len() + 1024, 0);
     members
 }

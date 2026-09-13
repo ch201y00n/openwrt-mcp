@@ -8,6 +8,8 @@ Implementation must first update the requirements, ADR, architecture and version
 
 ## Reference baseline and evidence
 
+[ADR 0017](adr/0017-bounded-gzip-archive-validation.md) now adds a separate [gzip validator](gzip-archive-validation.md) as v16's sole internal consumer. Application/device consumers remain blocked. Its backend history is not guaranteed scrubbed; sensitive workflow integration must address that memory-residue limitation. This still supplies none of the capture, publication, restoration or recovery authority below.
+
 Archive structure is now a second separately accepted prerequisite: [ADR 0016](adr/0016-bounded-backup-archive-validation.md) and [bounded supplied-archive validation](backup-archive-validation.md). It does not implement any capture, crypto/publication, restore or guardian workflow described below; all production consumers remain blocked.
 
 The reference-device inventory reported during development on 2026-09-13 was BPI-R4, OpenWrt 25.12.5 r33051-f5dae5ece4, kernel 6.12.94, mediatek/filogic, with apk 3.0.5 on aarch64. This is a dated observation, not a statement of current device state or proof of mutation support. Fresh device inventory is required before acceptance or execution.

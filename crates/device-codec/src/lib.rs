@@ -4,6 +4,7 @@
 pub mod archive;
 mod command;
 mod describe;
+pub mod gzip;
 pub mod packages;
 mod response;
 

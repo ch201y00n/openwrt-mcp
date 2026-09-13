@@ -1,5 +1,6 @@
 //! Supplied tar structure only: no source attestation, extraction or permission.
-//! No production consumer is admitted before a separate integration checkpoint.
+//! The gzip wrapper is its only admitted internal production consumer.
+//! No application consumer exists before a separate integration checkpoint.
 mod header;
 mod manifest;
 mod stream;

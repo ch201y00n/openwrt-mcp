@@ -76,8 +76,9 @@ No latency, allocation-count, peak-RSS or ARM-device performance measurement.
 
 ## What remains outside this codec
 
-All production consumers are still blocked by the harness. Capture commands,
-trusted/fresh complete manifest discovery, compression validation, same-target
+The [v17 gzip wrapper](gzip-archive-validation.md) is now the only admitted internal
+consumer; all application/device consumers remain blocked by the harness. Capture
+commands, trusted/fresh complete manifest discovery, same-target
 producer success, authenticated transport/provenance, age orchestration, completed
 ciphertext publication, restricted staging, extraction, guardian recovery and
 mutations require separate accepted integration. Same-size body substitution is

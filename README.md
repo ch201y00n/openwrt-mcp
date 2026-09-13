@@ -8,6 +8,8 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 
 ## What works in this foundation
 
+Internal [regular-tar](docs/backup-archive-validation.md) and [single-gzip archive validators](docs/gzip-archive-validation.md) now check supplied streams against bounded manifests. These are prerequisites, not capture, encrypted backup publication, restoration or additional MCP tools.
+
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.

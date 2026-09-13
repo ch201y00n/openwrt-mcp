@@ -1,5 +1,7 @@
 # Capability coverage
 
+The v17 [gzip wrapper](gzip-archive-validation.md) extends supplied archive validation only. It is the sole internal consumer of v16, without application/device integration. Complete single-member corruption/size checks and independent host fixtures pass; no new MCP operation, actual OpenWrt backup, encryption/publication or restore workflow is covered.
+
 The v16 [archive validator](backup-archive-validation.md) is another internal prerequisite, not backup capture, publication or restoration. It checks bounded supplied regular-file tar bytes against every expected name/size, without retaining payloads or exposing paths. Synthetic tests and eight independent Windows/Linux producer-validator combinations pass; no actual OpenWrt archive or production consumer is covered.
 
 V14 adds the separate [opkg root-status view](opkg-observations.md), using an exact version/file recipe without ordinary opkg initialization writes. The [24.10.4 emulator run](emulator-validation-v14.md) enumerated 196 records in 13 pages and checked shared-slot invalidation and 50 safe audit events. APK absence on this image is recorded as a failure, not fallback or merged inventory.
