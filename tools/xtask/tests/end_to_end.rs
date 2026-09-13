@@ -10,6 +10,53 @@ use std::{
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
+#[test]
+fn cargo_roots_resolve_test_and_example_modules_without_exempting_production_descendants() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "crates/pure/tests/read_rows.rs",
+        "mod supplied; #[test] fn rows() { supplied::check(); }\n",
+    );
+    fixture.write("crates/pure/tests/supplied/mod.rs", "pub fn check() {}\n");
+    fixture.write(
+        "crates/pure/examples/inspect.rs",
+        "mod data; fn main() { data::check(); }\n",
+    );
+    fixture.write("crates/pure/examples/data/mod.rs", "pub fn check() {}\n");
+    fixture.write("crates/pure/src/lib.rs", "mod nested;\n");
+    fixture.write("crates/pure/src/nested.rs", "mod leaf;\n");
+    fixture.write("crates/pure/src/nested/leaf.rs", "fn harmless() {}\n");
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/pure/src/nested/leaf.rs",
+        "fn forbidden() { std::process::Command::new(\"fixture\"); }\n",
+    );
+    fixture.denied("forbidden API");
+}
+
+#[test]
+fn cargo_root_resolution_rejects_wrong_missing_and_ambiguous_module_locations() {
+    let wrong = Fixture::new();
+    wrong.write("crates/pure/tests/read_rows.rs", "mod supplied;\n");
+    wrong.write(
+        "crates/pure/tests/read_rows/supplied.rs",
+        "fn fixture() {}\n",
+    );
+    wrong.denied("external module must resolve to exactly one owned Rust file");
+    let missing = Fixture::new();
+    missing.write("crates/pure/tests/read_rows.rs", "mod supplied;\n");
+    missing.denied("external module must resolve to exactly one owned Rust file");
+    let ambiguous = Fixture::new();
+    ambiguous.write("crates/pure/tests/read_rows.rs", "mod supplied;\n");
+    ambiguous.write("crates/pure/tests/supplied.rs", "fn fixture() {}\n");
+    ambiguous.write("crates/pure/tests/supplied/mod.rs", "fn fixture() {}\n");
+    ambiguous.denied("external module must resolve to exactly one owned Rust file");
+    let fake_root = Fixture::new();
+    fake_root.write("crates/pure/src/nested/main.rs", "mod leaf;\n");
+    fake_root.write("crates/pure/src/nested/leaf.rs", "fn fixture() {}\n");
+    fake_root.denied("external module must resolve to exactly one owned Rust file");
+}
+
 struct Fixture {
     root: PathBuf,
 }

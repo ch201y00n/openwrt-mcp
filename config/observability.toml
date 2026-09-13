@@ -11,6 +11,7 @@ access = "read"
 execute = false
 
 [policy.categories.network]
+# Includes scoped interface addresses/routes and netifd-managed neighbor identities.
 access = "read"
 execute = false
 
@@ -38,6 +39,7 @@ access = "read"
 execute = false
 
 # Non-atomic leases disclose client addresses/MAC/DUID/hostnames, not connectivity.
+# Also includes selected-interface netifd DNS server/search observations, not queries.
 [policy.categories.dhcp_dns]
 access = "read"
 execute = false

@@ -4,7 +4,7 @@ use serde_json::json;
 #[test]
 fn builtins_are_unique_read_only_and_deny_by_default() {
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
-    assert_eq!(catalog.operations().len(), 22);
+    assert_eq!(catalog.operations().len(), 26);
     for operation in catalog.operations() {
         assert!(
             operation

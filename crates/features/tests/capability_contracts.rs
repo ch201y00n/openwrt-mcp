@@ -17,6 +17,30 @@ fn every_builtin_declares_the_exact_reviewed_input_and_versioned_response_contra
     let catalog = openwrt_mcp_features::catalog(vec![]).unwrap();
     let expectations = [
         (
+            "network_interface_addresses",
+            ReviewedObject::NetworkInterface,
+            "dump",
+            vec![],
+        ),
+        (
+            "network_interface_routes",
+            ReviewedObject::NetworkInterface,
+            "dump",
+            vec![],
+        ),
+        (
+            "network_interface_neighbors",
+            ReviewedObject::NetworkInterface,
+            "dump",
+            vec![],
+        ),
+        (
+            "dhcp_interface_dns",
+            ReviewedObject::NetworkInterface,
+            "dump",
+            vec![],
+        ),
+        (
             "dhcp_v4_leases",
             ReviewedObject::LuciRpc,
             "getDHCPLeases",
@@ -196,7 +220,7 @@ fn actual_builtin_objects_and_closed_probe_enum_match_the_architecture_registry(
     )
     .unwrap();
     let operations = openwrt_mcp_features::builtins();
-    assert_eq!(operations.len(), 22);
+    assert_eq!(operations.len(), 26);
     let mut objects = BTreeSet::new();
     for operation in &operations {
         if matches!(operation.action, Action::ApkInstalledPage {}) {

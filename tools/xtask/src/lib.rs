@@ -93,6 +93,12 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
     .map_err(|_| "invalid Cargo metadata")?;
     check_metadata(&contract, &metadata)?;
 
+    // Cargo crate roots do not use the non-root file-stem module directory
+    // rule. This includes tests/examples named something other than main.rs.
+    // Ownership/kinds/paths were checked above; never infer roots from a folder
+    // name or exempt their descendants from the recursive source inventory.
+    let crate_roots = target_roots(&metadata)?;
+
     let mut files = Vec::new();
     walk(&root, &root, &mut files)?;
     for file in &files {
@@ -130,7 +136,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
             check_public_reexports(&source, &protected, &namespace_prefix)
                 .map_err(|error| format!("{file}: {error}"))?;
         }
-        validate_modules(&root, file, &source)?;
+        validate_modules(&root, file, &source, crate_roots.contains(file))
+            .map_err(|error| format!("{file}: {error}"))?;
     }
 
     let base = baseline.unwrap_or("HEAD");
@@ -202,18 +209,43 @@ fn dependency_aliases(
     Ok(aliases)
 }
 
-fn validate_modules(root: &Path, file: &str, source: &str) -> CheckResult {
+fn target_roots(metadata: &serde_json::Value) -> CheckResult<BTreeSet<String>> {
+    let workspace = metadata["workspace_root"]
+        .as_str()
+        .ok_or("missing workspace root")?
+        .replace('\\', "/");
+    let members = metadata["workspace_members"]
+        .as_array()
+        .ok_or("missing workspace members")?;
+    let mut roots = BTreeSet::new();
+    for package in metadata["packages"].as_array().ok_or("missing packages")? {
+        if !members.contains(&package["id"]) {
+            continue;
+        }
+        for target in package["targets"].as_array().ok_or("missing targets")? {
+            let source = target["src_path"]
+                .as_str()
+                .ok_or("missing target source")?
+                .replace('\\', "/");
+            let relative = source
+                .strip_prefix(&format!("{workspace}/"))
+                .ok_or("target source escaped workspace")?;
+            roots.insert(relative.to_owned());
+        }
+    }
+    Ok(roots)
+}
+
+fn validate_modules(root: &Path, file: &str, source: &str, crate_root: bool) -> CheckResult {
     let ast = syn::parse_file(source).map_err(|_| "invalid Rust source")?;
     let path = root.join(file);
     let parent = path.parent().ok_or("module has no directory")?;
-    let module_directory = if matches!(
-        path.file_name().and_then(|v| v.to_str()),
-        Some("lib.rs" | "main.rs" | "mod.rs")
-    ) {
-        parent.to_owned()
-    } else {
-        parent.join(path.file_stem().ok_or("module has no stem")?)
-    };
+    let module_directory =
+        if crate_root || matches!(path.file_name().and_then(|v| v.to_str()), Some("mod.rs")) {
+            parent.to_owned()
+        } else {
+            parent.join(path.file_stem().ok_or("module has no stem")?)
+        };
     fn items(items: &[syn::Item], directory: &Path) -> CheckResult {
         for item in items {
             if let syn::Item::Mod(module) = item {

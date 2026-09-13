@@ -11,9 +11,9 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
 - Authorization enforced on every call, with the same filtering for tool discovery.
-- Twenty-one conservative ubus read operations across system, network, wireless, DHCP, services, storage and diagnostics; fixed-action operator extensions.
+- Twenty-five conservative ubus read operations across system, network, wireless, DHCP/DNS, services, storage and diagnostics; fixed-action operator extensions.
 - One additional [paged APK-installed observation](docs/package-observations.md): complete bounded capture, 16-record pages, per-page authorization/audit and expiring private cursors. APK-visible non-atomic scope, not whole-device completeness or package mutation.
-- Twelve typed response contracts for bounded interface, wireless, DHCP, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [passive wireless contracts](docs/wireless-observation-contracts.md), [DHCP lease observations](docs/dhcp-observations.md) and [scoped storage observations](docs/storage-observations.md).
+- Sixteen typed response contracts for bounded interface, wireless, DHCP/DNS, service and storage observations, including exact local interface/service/station selection. [Initial read contracts](docs/collection-read-contracts.md), [interface IP observations](docs/interface-ip-observations.md), [passive wireless contracts](docs/wireless-observation-contracts.md), [DHCP lease observations](docs/dhcp-observations.md) and [scoped storage observations](docs/storage-observations.md).
 - Same-target input-signature discovery, fail-closed compatibility checks, 30-second bounded cache and an authorized `operation_capability` metadata tool. [Limits and version differences](docs/capabilities.md).
 - Audit attempts and outcomes without raw arguments, configuration or device payloads.
 - JSON/text audit output to stderr, or optional protected Linux rotating files/syslog.
@@ -26,6 +26,8 @@ A lightweight Rust MCP server for OpenWrt management, with category-based permis
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
 Full gates cover Linux-on-WSL and [native Windows GNU](docs/windows-validation.md); current counts and scope are in [verification and measurements](docs/validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. BPI-R4 hardware, MSVC and macOS acceptance remain pending.
+
+The [v10 emulator run](docs/emulator-validation-v10.md) adds scoped interface-IP and LuCI acceptance: IPv4 address rows, three mounts and valid empty route/neighbor/DNS/block/lease lists. Those empty cases are not populated-device acceptance.
 
 ## Build and check
 
@@ -72,6 +74,8 @@ Generic Services.Read exposes service/instance names and running/PID/exit metada
 Wireless.Read includes station MAC identities and passive link metrics. Deny `wireless_stations` and `wireless_station_status` to withhold client identities. No wireless read scans, disconnects clients or changes a country; an empty driver-reported list is not proof of absence or health.
 
 DhcpDns.Read includes LuCI-reported client IP/MAC/DUID/hostname data. Deny `dhcp_v4_leases` and `dhcp_v6_leases` to withhold these observations. Duplicate lease rows and false expiry sentinels are preserved; this is not complete lease/DNS inventory or proof of client connectivity. Storage response contracts are now v2: any present root error rejects even a mixed success/error payload; successful field shapes are unchanged.
+
+Network.Read includes scoped address, route and netifd-managed neighbor observations through `network_interface_addresses`, `network_interface_routes` and `network_interface_neighbors`. DhcpDns.Read also includes `dhcp_interface_dns`. All select one exact interface locally, preserve omitted lists/duplicate rows and exclude raw protocol/configuration data. These are not kernel FIB/neighbor-cache completeness or DNS query tools; deny individual operations for narrower disclosure.
 
 `network_interface_status` now always uses `network.interface.dump {}` and exact local selection. Its development-stage response contract is v2: ordinary field names, including `interface`, replace the former slash-prefixed keys. It does not retry or bypass an incomplete `status` signature.
 

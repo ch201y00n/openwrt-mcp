@@ -497,12 +497,103 @@ fn interface(name: &str) -> Value {
 
 fn network_tools() -> Vec<&'static str> {
     vec![
+        "network_interface_addresses",
+        "network_interface_routes",
+        "network_interface_neighbors",
         "network_device_status",
         "network_lan_status",
         "network_wan_status",
         "network_interface_status",
         "network_interfaces",
     ]
+}
+
+#[tokio::test]
+async fn interface_ip_mcp_preserves_scoped_rows_and_never_transmits_the_selector() {
+    let selected = "guest; $() / ' 한글";
+    for (name, category, path, output, item, expected_item) in [
+        (
+            "network_interface_addresses",
+            Category::Network,
+            "ipv4-address",
+            "ipv4_addresses",
+            json!({"address":"192.0.2.1","mask":24,"valid":0,"private":PRIVATE}),
+            json!({"address":"192.0.2.1","mask":24,"valid_seconds":0}),
+        ),
+        (
+            "network_interface_routes",
+            Category::Network,
+            "route",
+            "routes",
+            json!({"target":"::","mask":0,"nexthop":"::","source":"::/0","private":PRIVATE}),
+            json!({"target":"::","mask":0,"nexthop":"::","source":"::/0"}),
+        ),
+        (
+            "network_interface_neighbors",
+            Category::Network,
+            "neighbors",
+            "neighbors",
+            json!({"address":"192.0.2.2","mac":"02:00:00:00:00:01","proxy":1,"private":PRIVATE}),
+            json!({"address":"192.0.2.2","mac":"02:00:00:00:00:01","proxy":1}),
+        ),
+        (
+            "dhcp_interface_dns",
+            Category::DhcpDns,
+            "dns-server",
+            "servers",
+            json!("192.0.2.53"),
+            json!({"address":"192.0.2.53"}),
+        ),
+    ] {
+        let base = json!({"interface":selected,"up":false});
+        let mut row = base.clone();
+        row[path] = json!([item.clone(), item.clone()]);
+        row["data"] = json!({"password":PRIVATE});
+        let mut expected = base.clone();
+        expected[output] = json!([expected_item.clone(), expected_item]);
+        let mut malformed = json!({"interface":"other","up":false});
+        malformed[path] = json!([item.clone(), null]);
+        let mut oversized = base.clone();
+        oversized[path] = json!(vec![item; 129]);
+        check_read_contract(ReadContract {
+            name,
+            category,
+            visible: if category == Category::Network {
+                network_tools()
+            } else {
+                vec!["dhcp_v4_leases", "dhcp_v6_leases", "dhcp_interface_dns"]
+            },
+            arguments: json!({"interface":selected}),
+            action: PreparedAction::Ubus {
+                object: "network.interface".into(),
+                method: "dump".into(),
+                arguments: json!({}),
+            },
+            invalid_arguments: vec![
+                json!({}),
+                json!({"interface":""}),
+                json!({"interface":null}),
+                json!({"interface":"x".repeat(257)}),
+                json!({"interface":selected,"path":PRIVATE}),
+                json!({"interface":selected,"execute":true}),
+            ],
+            responses: vec![
+                (json!({"interface":[row.clone()]}), expected),
+                (json!({"interface":[base.clone()]}), base.clone()),
+            ],
+            invalid_outputs: vec![
+                (
+                    json!({"interface":[base.clone(),malformed]}),
+                    "invalid_output",
+                ),
+                (json!({"interface":[row],"error":PRIVATE}), "invalid_output"),
+                (json!({"interface":[base.clone(),base]}), "invalid_output"),
+                (json!({"interface":[]}), "selection_not_observed"),
+                (json!({"interface":[oversized]}), "output_limit"),
+            ],
+        })
+        .await;
+    }
 }
 
 fn service_tools() -> Vec<&'static str> {
@@ -817,7 +908,7 @@ async fn dhcp_mcp_preserves_duplicate_rows_and_false_expiry_without_leaking_priv
         check_read_contract(ReadContract {
             name,
             category: Category::DhcpDns,
-            visible: vec!["dhcp_v4_leases", "dhcp_v6_leases"],
+            visible: vec!["dhcp_v4_leases", "dhcp_v6_leases", "dhcp_interface_dns"],
             arguments: json!({}),
             action: PreparedAction::Ubus {
                 object: "luci-rpc".into(),

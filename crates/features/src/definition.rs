@@ -1,6 +1,7 @@
 use openwrt_mcp_core::{
-    Action, CapabilityRequirement, Category, Operation, OutputMode, ParameterKind, Permission,
-    Requirement,
+    Action, CapabilityRequirement, Category, Collection, CollectionField, InnerRecord, LeafRecord,
+    Operation, OutputMode, Parameter, ParameterKind, Permission, Presence, Requirement,
+    ScalarField, ScalarKind, Selection, TypedProjection,
 };
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -53,4 +54,60 @@ pub(crate) fn argument(operation: &mut Operation, name: &str, kind: ParameterKin
     };
     arguments.insert(name.to_owned(), value);
     required.insert(name.to_owned(), kind);
+}
+
+/// Fixed netifd read with an invocation-bound local interface selector. Category
+/// owners supply only their reviewed finite fields, not a device action template.
+pub(crate) fn interface_observation(
+    name: &str,
+    description: &str,
+    category: Category,
+    collections: Vec<CollectionField<Collection<LeafRecord>>>,
+) -> Operation {
+    let mut operation = read(
+        name,
+        description,
+        category,
+        "network.interface",
+        "dump",
+        &format!("{name}.v1"),
+        &[],
+    );
+    operation.parameters.insert(
+        "interface".into(),
+        Parameter {
+            kind: ParameterKind::String,
+            required: true,
+            allowed_values: Vec::new(),
+        },
+    );
+    operation.output_mode = OutputMode::Typed(Box::new(TypedProjection::Collection {
+        reject_if_present: vec!["/error".into()],
+        collection: Collection::ObjectArray {
+            source: "/interface".into(),
+            max_items: 128,
+            identity: "interface".into(),
+            record: InnerRecord {
+                fields: vec![
+                    ScalarField {
+                        name: "interface".into(),
+                        source: "/interface".into(),
+                        presence: Presence::Required,
+                        value: ScalarKind::Text { max_bytes: 256 },
+                    },
+                    ScalarField {
+                        name: "up".into(),
+                        source: "/up".into(),
+                        presence: Presence::Required,
+                        value: ScalarKind::Boolean {},
+                    },
+                ],
+                collections,
+            },
+        },
+        selection: Selection::ExactOne {
+            parameter: "interface".into(),
+        },
+    }));
+    operation
 }

@@ -1,3 +1,5 @@
+mod observations;
+
 use crate::definition::{argument, read};
 use openwrt_mcp_core::{
     Category, Collection, InnerRecord, Operation, OutputMode, Parameter, ParameterKind, Presence,
@@ -77,6 +79,9 @@ pub(crate) fn operations() -> Vec<Operation> {
         ),
         interface_status(),
         interfaces(),
+        observations::addresses(),
+        observations::routes(),
+        observations::neighbors(),
     ]
 }
 

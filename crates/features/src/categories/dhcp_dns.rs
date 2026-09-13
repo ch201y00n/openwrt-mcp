@@ -1,5 +1,5 @@
 //! Non-atomic LuCI lease-file observations; not active-client or DNS discovery.
-use crate::definition::{argument, read};
+use crate::definition::{argument, interface_observation, read};
 use openwrt_mcp_core::{
     Category, Collection, CollectionField, InnerRecord, Operation, OutputMode, ParameterKind,
     Presence, ScalarField, ScalarKind, Selection, TypedProjection,
@@ -7,7 +7,7 @@ use openwrt_mcp_core::{
 use serde_json::json;
 
 pub(crate) fn operations() -> Vec<Operation> {
-    vec![leases(false), leases(true)]
+    vec![leases(false), leases(true), interface_dns()]
 }
 
 fn text(name: &str, max_bytes: usize, presence: Presence) -> ScalarField {
@@ -17,6 +17,34 @@ fn text(name: &str, max_bytes: usize, presence: Presence) -> ScalarField {
         presence,
         value: ScalarKind::Text { max_bytes },
     }
+}
+
+fn interface_dns() -> Operation {
+    let mut collections = Vec::new();
+    for (name, source, field, max_bytes) in [
+        ("servers", "dns-server", "address", 45),
+        ("search_domains", "dns-search", "domain", 256),
+    ] {
+        for (prefix, path) in [("", "/"), ("inactive_", "/inactive/")] {
+            collections.push(CollectionField {
+                name: format!("{prefix}{name}"),
+                presence: Presence::Optional,
+                collection: Collection::ScalarArray {
+                    source: format!("{path}{source}"),
+                    max_items: 128,
+                    name: field.into(),
+                    value: ScalarKind::Text { max_bytes },
+                    unique: false,
+                },
+            });
+        }
+    }
+    interface_observation(
+        "dhcp_interface_dns",
+        "Read one exact interface's bounded netifd DNS servers/search domains plus interface/up metadata. Discloses addresses/domains; preserves duplicates and omitted lists. Not effective resolver/dnsmasq configuration, cache or reachability. No DNS query or mutation.",
+        Category::DhcpDns,
+        collections,
+    )
 }
 
 fn leases(ipv6: bool) -> Operation {

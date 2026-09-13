@@ -1,4 +1,6 @@
 //! Synthetic v6 response contracts, not device acceptance or complete visibility.
+mod interface_ip;
+
 use std::collections::BTreeSet;
 
 use openwrt_mcp_core::{
@@ -63,7 +65,7 @@ fn fixtures() -> Vec<Fixture> {
         "vpn-fixture":{"data":{"password":"synthetic-secret"}}
     });
     let service = json!({"name":"fixture","instances":[{"name":"one","running":true,"pid":42,"exit_code":0},{"name":"two","running":false}]});
-    vec![
+    let mut fixtures = vec![
         Fixture {
             name: "dhcp_v4_leases",
             response: "dhcp_v4_leases.v1",
@@ -196,7 +198,9 @@ fn fixtures() -> Vec<Fixture> {
             source: services,
             expected: json!({"items":[service,{"name":"vpn-fixture"}]}),
         },
-    ]
+    ];
+    fixtures.extend(interface_ip::fixtures());
+    fixtures
 }
 
 #[test]

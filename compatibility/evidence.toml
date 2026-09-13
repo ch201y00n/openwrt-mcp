@@ -74,6 +74,38 @@ environment = "wsl"
 
 # No successful WAN/radio observation is inferred from API presence.
 [[records]]
+id = "v10-qemu-interface-ip-scoped-observations"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["network_interface_addresses", "network_interface_routes", "network_interface_neighbors", "dhcp_interface_dns"]
+artifacts = ["docs/emulator-validation-v10.md"]
+observed_at = "2026-09-13T09:44:50Z"
+host = "linux"
+environment = "wsl"
+
+[[records]]
+id = "v10-qemu-luci-mounts-v2"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["storage_mounts"]
+artifacts = ["docs/emulator-validation-v10.md"]
+observed_at = "2026-09-13T09:44:50Z"
+host = "linux"
+environment = "wsl"
+
+# Empty contract acceptance only, not populated leases or real block devices.
+[[records]]
+id = "v10-qemu-luci-empty-lease-block-contracts"
+level = "emulated"
+target = "qemu-arm64-openwrt-25.12.5"
+operations = ["storage_block_devices", "dhcp_v4_leases", "dhcp_v6_leases"]
+artifacts = ["docs/emulator-validation-v10.md"]
+observed_at = "2026-09-13T09:44:50Z"
+host = "linux"
+environment = "wsl"
+
+# No successful WAN/radio observation is inferred from API presence.
+[[records]]
 id = "v6-qemu-unavailable-calls"
 level = "emulated"
 target = "qemu-arm64-openwrt-25.12.5"
