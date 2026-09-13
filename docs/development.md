@@ -31,6 +31,8 @@ Add the acceptance requirement and classify the feature's category/effects. Reus
 
 ## Gates
 
+Architecture v11 adds a closed UCI-read recipe contract and exact finite TextEnum without new I/O owners or dependencies. Validate and commit the declaration/harness before production UCI probing. Custom UCI definitions must be rejected before the new object becomes available; parameterless built-ins must validate config/type/category, guarded typed section maps and exact expected type. Native core capability and MCP read-contract suites are mandatory. Configuration lists, mutations and false committed/effective-state claims are not shortcuts around this boundary; see ADR 0011.
+
 Architecture v10 adds bounded RowArray, FalseOrSafeInteger and root absence guards inside the existing projection owner, with no new production dependency or I/O authority. Validate/commit the declaration and negative harness checkpoint before implementing; afterward replace no existing unique-resource rule with guessed identity or a raw subtree. Extend actual core/feature/runtime/MCP behavior suites and bump storage response IDs for stricter mixed-error rejection. See ADR 0010.
 
 Architecture v9 extends only the closed probe surface to `luci`/`luci-rpc`. Architecture-only `acf6532` passed native Windows GNU and Linux-on-WSL gates with registry schema 1 and unchanged production behavior; the exact schema 2 registry, core enum and encoding fixtures migrated afterward. The assembled gate rejects unreviewed profiles and method-call probes. New typed consumers need actual catalog/negative/runtime/MCP fixtures, not an architecture scaffold counted as device acceptance.

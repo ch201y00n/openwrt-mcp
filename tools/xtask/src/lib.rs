@@ -8,6 +8,7 @@ mod portability;
 mod projection;
 mod source;
 mod spec;
+mod uci_reads;
 mod windows_reads;
 
 pub use capability::{

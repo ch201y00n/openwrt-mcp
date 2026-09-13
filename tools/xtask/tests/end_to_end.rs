@@ -179,8 +179,34 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6 | 8 | 9 | 10));
+        assert!(matches!(version, 5 | 6 | 8 | 9 | 10 | 11));
         spec["version"] = (version as i64).into();
+        if version < 11 {
+            spec.as_table_mut().unwrap().remove("uci_read_contract");
+            spec["projection_contract"]
+                .as_table_mut()
+                .unwrap()
+                .remove("text_enums");
+            spec["projection_contract"]
+                .as_table_mut()
+                .unwrap()
+                .remove("max_text_enum_values");
+            spec["projection_contract"]["profile"] = "typed_collections_v2".into();
+            spec["capability_contract"]["probe_profile"] = "base_luci_v2".into();
+            spec["decision"] = "docs/adr/0010-typed-observation-rows.md".into();
+            spec["required_portable_tests"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|suite| {
+                    !matches!(
+                        suite.as_str(),
+                        Some(
+                            "crates/core/tests/capabilities.rs"
+                                | "crates/mcp/tests/read_contracts.rs"
+                        )
+                    )
+                });
+        }
         if version < 10 {
             let projection = spec["projection_contract"].as_table_mut().unwrap();
             for field in [
@@ -314,6 +340,17 @@ impl Fixture {
             ".github/workflows/ci.yml",
         ] {
             self.write(path, &fs::read_to_string(repository.join(path)).unwrap());
+        }
+        if version < 11 {
+            let path = "architecture/capability-probes.toml";
+            let mut registry: toml::Value =
+                toml::from_str(&fs::read_to_string(self.root.join(path)).unwrap()).unwrap();
+            registry["schema_version"] = 2.into();
+            registry["probes"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|probe| probe["object"].as_str() != Some("uci"));
+            self.write(path, &toml::to_string(&registry).unwrap());
         }
         if version < 9 {
             let path = "architecture/capability-probes.toml";
@@ -795,4 +832,56 @@ fn assembled_v10_gate_requires_finite_observation_and_guard_contracts() {
         &source.replace("max_root_guards = 4", "max_root_guards = 400"),
     );
     fixture.denied("v10 requires bounded observation");
+}
+
+#[test]
+fn assembled_v11_gate_requires_closed_uci_admission_and_exact_text_enums() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(11);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let source = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        (
+            "fixed_uci_get_config_type_no_parameters",
+            "arbitrary_uci",
+            "closed UCI reads",
+        ),
+        (
+            "custom_uci = \"deny\"",
+            "custom_uci = \"allow\"",
+            "closed UCI reads",
+        ),
+        (
+            "rpcd_sessionless_shared_delta_non_atomic",
+            "committed_only",
+            "closed UCI reads",
+        ),
+        (
+            "exact_finite_no_coercion",
+            "coerce",
+            "v11 requires bounded exact text enums",
+        ),
+        (
+            "max_text_enum_values = 16",
+            "max_text_enum_values = 17",
+            "v11 requires bounded exact text enums",
+        ),
+        ("base_luci_uci_v3", "base_luci_v2", "probe profile"),
+    ] {
+        fixture.write(path, &source.replace(from, to));
+        fixture.denied(expected);
+    }
+    fixture.write(path, &source);
+    let path = "architecture/capability-probes.toml";
+    let mut registry: toml::Value =
+        toml::from_str(&fs::read_to_string(fixture.root.join(path)).unwrap()).unwrap();
+    registry["schema_version"] = 3.into();
+    registry["probes"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|p| p["object"].as_str() != Some("uci"));
+    registry["probes"].as_array_mut().unwrap().push(toml::from_str("id='ubus.uci'\nobject='uci'\nprogram='/bin/ubus'\narguments=['call','uci','get','{}']\neffect='read'\n").unwrap());
+    fixture.write(path, &toml::to_string(&registry).unwrap());
+    fixture.denied("exact reviewed read-only");
 }

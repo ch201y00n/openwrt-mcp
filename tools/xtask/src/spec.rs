@@ -13,6 +13,8 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct Contract {
     #[serde(default)]
+    pub uci_read_contract: Option<crate::uci_reads::UciReadContract>,
+    #[serde(default)]
     pub windows_read_contract: Option<crate::windows_reads::WindowsReadContract>,
     pub version: u64,
     pub decision: String,
@@ -118,6 +120,7 @@ impl Contract {
         if self.version >= 8 {
             self.validate_windows_reads(root)?;
         }
+        self.validate_uci_reads()?;
         Ok(())
     }
 

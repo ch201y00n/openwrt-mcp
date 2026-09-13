@@ -1,10 +1,10 @@
-version = 10
-decision = "docs/adr/0010-typed-observation-rows.md"
+version = 11
+decision = "docs/adr/0011-closed-uci-observations.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
-required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
+required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs", "crates/core/tests/capabilities.rs", "crates/mcp/tests/read_contracts.rs"]
 native_ci = ".github/workflows/ci.yml"
 
 [windows_read_contract]
@@ -52,14 +52,16 @@ max_arch_bytes = 64
 required_tests = ["crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
 
 [capability_contract]
-probe_profile = "base_luci_v2"
+probe_profile = "base_luci_uci_v3"
 probe_registry = "architecture/capability-probes.toml"
 evidence_manifest = "compatibility/evidence.toml"
 required_tests = ["crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs"]
 
 [projection_contract]
 owner = "openwrt-mcp-core"
-profile = "typed_collections_v2"
+profile = "typed_collections_v3"
+text_enums = "exact_finite_no_coercion"
+max_text_enum_values = 16
 observation_rows = "ordered_duplicates_preserved_no_selection"
 scalar_union = "false_or_safe_integer_no_coercion"
 root_guards = "absent_pointers_before_projection"
@@ -85,6 +87,18 @@ max_output_name_bytes = 64
 max_string_bytes = 1024
 max_normalized_bytes = 65536
 required_tests = ["crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs"]
+
+[uci_read_contract]
+domain_owner = "openwrt-mcp-core"
+definitions_owner = "openwrt-mcp-features"
+invocation = "existing_authorized_audited_dispatcher"
+profiles = ["system:system", "network:interface", "wireless:wifi-device", "firewall:defaults", "dhcp:dnsmasq", "fstab:mount"]
+actions = "fixed_uci_get_config_type_no_parameters"
+custom_uci = "deny"
+requirement = "profile_category_read"
+projection = "typed_values_map_error_guard_exact_section_type"
+view = "rpcd_sessionless_shared_delta_non_atomic"
+required_tests = ["crates/core/tests/capabilities.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/mcp/tests/read_contracts.rs"]
 
 [action_response_contract]
 owner = "openwrt-mcp-device-codec"

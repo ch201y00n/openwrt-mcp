@@ -18,6 +18,10 @@ const MCP_SUITE: &str = "crates/mcp/tests/bounded_results.rs";
 #[serde(deny_unknown_fields)]
 pub struct ProjectionContract {
     #[serde(default)]
+    pub text_enums: Option<String>,
+    #[serde(default)]
+    pub max_text_enum_values: Option<u64>,
+    #[serde(default)]
     pub observation_rows: Option<String>,
     #[serde(default)]
     pub scalar_union: Option<String>,
@@ -89,6 +93,15 @@ impl Contract {
             .as_ref()
             .ok_or("v6 requires a bounded MCP result contract")?;
 
+        if self.version >= 11 {
+            if projection.text_enums.as_deref() != Some("exact_finite_no_coercion")
+                || projection.max_text_enum_values != Some(16)
+            {
+                return Err("v11 requires bounded exact text enums".into());
+            }
+        } else if projection.text_enums.is_some() || projection.max_text_enum_values.is_some() {
+            return Err("text enum expansion requires architecture v11".into());
+        }
         let (profile, forms): (&str, &[&str]) = if self.version >= 10 {
             if projection.observation_rows.as_deref()
                 != Some("ordered_duplicates_preserved_no_selection")
@@ -101,7 +114,11 @@ impl Contract {
                 );
             }
             (
-                "typed_collections_v2",
+                if self.version >= 11 {
+                    "typed_collections_v3"
+                } else {
+                    "typed_collections_v2"
+                },
                 &[
                     "Record",
                     "ObjectArray",

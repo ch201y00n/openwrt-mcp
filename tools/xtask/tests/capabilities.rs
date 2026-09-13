@@ -139,7 +139,7 @@ fn luci_registry_requires_v9_and_only_two_additional_exact_descriptions() {
     base["probes"]
         .as_array_mut()
         .unwrap()
-        .retain(|probe| !matches!(probe["object"].as_str(), Some("luci" | "luci-rpc")));
+        .retain(|probe| !matches!(probe["object"].as_str(), Some("luci" | "luci-rpc" | "uci")));
     let legacy = toml::to_string(&base).unwrap();
     xtask::check_capability_registry_for_version(&legacy, 8).unwrap();
     xtask::check_capability_registry_for_version(&legacy, 9).unwrap();

@@ -58,6 +58,14 @@
           "run": "cargo test --locked -p openwrt-mcp-transport --test protocol"
         },
         {
+          "name": "Required portable core capability admission", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-core --test capabilities"
+        },
+        {
+          "name": "Required portable MCP read contracts", "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-transport --test read_contracts"
+        },
+        {
           "name": "Required portable operation capability contract suite",
           "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp-features --test capability_contracts"

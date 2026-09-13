@@ -44,7 +44,12 @@ impl Contract {
             .capability_contract
             .as_ref()
             .ok_or("v5 requires a capability contract")?;
-        if (self.version >= 9 && capability.probe_profile.as_deref() != Some("base_luci_v2"))
+        let profile = if self.version >= 11 {
+            "base_luci_uci_v3"
+        } else {
+            "base_luci_v2"
+        };
+        if (self.version >= 9 && capability.probe_profile.as_deref() != Some(profile))
             || (self.version < 9 && capability.probe_profile.is_some())
         {
             return Err(
@@ -166,10 +171,10 @@ struct Probe {
 
 /// Reject any expansion of the reviewed probe surface or runtime trust contract.
 pub fn check_capability_registry(source: &str) -> CheckResult {
-    check_capability_registry_for_version(source, 9)
+    check_capability_registry_for_version(source, 11)
 }
 
-/// v1 is the closed pre-migration subset; v2 requires the v9 checkpoint.
+/// Prior schemas are closed checkpoint subsets; v3 requires the v11 checkpoint.
 pub fn check_capability_registry_for_version(
     source: &str,
     architecture_version: u64,
@@ -181,6 +186,9 @@ pub fn check_capability_registry_for_version(
         1 => {}
         2 if architecture_version >= 9 => {
             expected.extend(["luci", "luci-rpc"]);
+        }
+        3 if architecture_version >= 11 => {
+            expected.extend(["luci", "luci-rpc", "uci"]);
         }
         _ => {
             return Err(
