@@ -10,6 +10,8 @@ use std::{
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
+mod profiles;
+
 #[test]
 fn cargo_roots_resolve_test_and_example_modules_without_exempting_production_descendants() {
     let fixture = Fixture::new();
@@ -181,9 +183,13 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20
         ));
         spec["version"] = (version as i64).into();
+        if version < 20 {
+            profiles::before_v20(&mut spec);
+            spec["decision"] = "docs/adr/0019-windows-private-logs.md".into();
+        }
         if version < 19 {
             spec.as_table_mut().unwrap().remove("windows_log_contract");
             spec["decision"] = "docs/adr/0018-validated-archive-sealing.md".into();
@@ -1393,4 +1399,39 @@ fn assembled_v19_gate_confines_windows_log_port_and_rotation_guarantees() {
     fixture.write(native, &original_native);
     fixture.write("crates/host-platform/src/windows/log.rs", "pub(super) trait LogWriter: Send { fn write(&mut self, bytes: &[u8]) -> Result<(), HostError>; }\nuse std::fs::File;\n");
     fixture.denied("std::fs");
+}
+
+#[test]
+fn assembled_v20_gate_rejects_generic_service_access_and_version_bypass() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(20);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("version = 20", "version = 19", "requires architecture v20"),
+        ("dropbear:dropbear", "dropbear:*", "closed UCI profiles"),
+        ("dhcp:odhcpd", "uhttpd:uhttpd", "closed UCI profiles"),
+        (
+            "profile_category_read",
+            "client_permission",
+            "exact owners recipes denial",
+        ),
+        (
+            "rpcd_sessionless_shared_delta_non_atomic",
+            "effective_state",
+            "exact owners recipes denial",
+        ),
+        (
+            "max_text_option_items = 128",
+            "max_text_option_items = 129",
+            "representation-preserving text options",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied(expected);
+    }
+    fixture.write(path, &original);
+    xtask::architecture(&fixture.root, None).unwrap();
 }

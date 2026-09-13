@@ -5,6 +5,8 @@ use xtask::{Contract, check_native_ci, check_portable_suite};
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
+mod profiles;
 fn declaration() -> toml::Value {
     toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
 }
@@ -120,6 +122,7 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
         }
     }
     old["version"] = 13.into();
+    profiles::before_v20(&mut old);
     assert!(
         validate(&old)
             .unwrap_err()

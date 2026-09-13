@@ -5,6 +5,8 @@ use xtask::{Contract, check_native_ci, check_owned_source, check_windows_log_sou
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
+mod profiles;
 fn declaration() -> toml::Value {
     toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
 }
@@ -52,6 +54,7 @@ fn log_profile_requires_every_exact_field_limit_and_v19() {
     v.as_table_mut().unwrap().remove("windows_log_contract");
     denied(&v);
     v["version"] = 18.into();
+    profiles::before_v20(&mut v);
     parse(&v).validate(&root()).unwrap();
     v.as_table_mut().unwrap().insert(
         "windows_log_contract".into(),

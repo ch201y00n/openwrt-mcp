@@ -1,5 +1,11 @@
 # Architecture-first development workflow
 
+For v20, validate and commit the exact four-recipe UCI expansion and negative
+harness before changing the enum/catalog. Keep the old six/twenty-four recipe sets
+for earlier checkpoints, all category/dispatcher/projection/secret rules and all
+resource limits. Add independent behavior tests only after that checkpoint;
+selected stored options are not daemon or hardware acceptance. See ADR 0020.
+
 For v19, validate and commit the exact Windows private-log declaration and negative harness before adding the native factory, facade or write/rotation behavior. Preserve protected-read and SDK/unsafe limits; native handles never leave the bridge. Use only private synthetic files for append/rotation/ACL/link/sharing/failure tests in the existing mandatory Windows suite. Logs are not ciphertext stores or durable journals; no real log, directory ACL or Vault may be changed during development. See ADR 0019.
 
 For v18, commit the exact provided-stream sealing contract and negative harness before adding runtime::sealing or the server fixture dependency. No production consumers, real source/store access or MCP behavior are admitted. Test independent counts/EOF, producer/validator/cipher failures, deadlines, cleanup, publication uncertainty and complete synthetic age/gzip composition. Neither a mock durability capability nor a supplied-stream result is real backup acceptance. See ADR 0018.

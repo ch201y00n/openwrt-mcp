@@ -5,6 +5,8 @@ use xtask::{Contract, check_gzip_dependency, check_gzip_source, check_owned_sour
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
+mod profiles;
 fn declaration() -> toml::Value {
     toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
 }
@@ -60,6 +62,7 @@ fn gzip_requires_exact_profile_bounds_and_v17() {
     denied(&v);
     let mut v = original.clone();
     v["version"] = 16.into();
+    profiles::before_v20(&mut v);
     denied(&v);
     v.as_table_mut().unwrap().remove("gzip_archive_contract");
     v.as_table_mut().unwrap().remove("archive_sealing_contract");

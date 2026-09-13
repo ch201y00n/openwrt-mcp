@@ -56,6 +56,10 @@ fn base_profiles_are_exact_complete_distinct_and_not_dynamic() {
         "dhcp:cname",
         "fstab:global",
         "fstab:swap",
+        "system:led",
+        "dropbear:dropbear",
+        "uhttpd:uhttpd",
+        "dhcp:odhcpd",
     ];
     let profiles = original["uci_read_contract"]["profiles"]
         .as_array()

@@ -45,6 +45,13 @@ const SUITES: [&str; 5] = [
     "crates/mcp/tests/read_contracts.rs",
 ];
 
+const SYSTEM_SERVICE_PROFILES: [&str; 4] = [
+    "system:led",
+    "dropbear:dropbear",
+    "uhttpd:uhttpd",
+    "dhcp:odhcpd",
+];
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct UciReadContract {
@@ -88,13 +95,18 @@ impl Contract {
         } else if uci.option_collections.is_some() {
             return Err("nested UCI options require architecture v12".into());
         }
-        let profiles: &[&str] = if self.version >= 13 {
-            &BASE_PROFILES
+        let profiles: Vec<&str> = if self.version >= 20 {
+            BASE_PROFILES
+                .into_iter()
+                .chain(SYSTEM_SERVICE_PROFILES)
+                .collect()
+        } else if self.version >= 13 {
+            BASE_PROFILES.to_vec()
         } else {
-            &INITIAL_PROFILES
+            INITIAL_PROFILES.to_vec()
         };
-        if !exact(&uci.profiles, profiles) {
-            return Err("closed UCI profiles require the exact versioned recipe set; base family expansion requires architecture v13".into());
+        if !exact(&uci.profiles, &profiles) {
+            return Err("closed UCI profiles require the exact versioned recipe set; base family expansion requires architecture v13; system-service expansion requires architecture v20".into());
         }
         if uci.domain_owner != "openwrt-mcp-core"
             || uci.definitions_owner != "openwrt-mcp-features"

@@ -7,6 +7,8 @@ use xtask::{
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
+mod profiles;
 fn declaration() -> toml::Value {
     toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
 }
@@ -27,6 +29,7 @@ fn every_effect_field_and_budget_requires_exact_versioned_non_authorizing_contra
     parse(&original).validate(&root()).unwrap();
     let mut old = original.clone();
     old["version"] = 14.into();
+    profiles::before_v20(&mut old);
     old.as_table_mut()
         .unwrap()
         .remove("backup_archive_contract");

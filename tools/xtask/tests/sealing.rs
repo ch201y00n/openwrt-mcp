@@ -5,6 +5,8 @@ use xtask::{Contract, check_native_ci, check_owned_source, check_sealing_source}
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
+mod profiles;
 fn declaration() -> toml::Value {
     toml::from_str(&fs::read_to_string(root().join("architecture/spec.toml")).unwrap()).unwrap()
 }
@@ -50,6 +52,7 @@ fn sealing_requires_every_exact_field_bound_and_version() {
     v.as_table_mut().unwrap().remove("windows_log_contract");
     denied(&v);
     v["version"] = 17.into();
+    profiles::before_v20(&mut v);
     denied(&v); // New fixture edge is not retroactive.
     for r in v["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {

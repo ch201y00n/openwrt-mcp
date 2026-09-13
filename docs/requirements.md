@@ -1,5 +1,13 @@
 # Product requirements
 
+Architecture v20 requires four additional parameterless closed UCI observations:
+system/led, dropbear/dropbear and uhttpd/uhttpd under System.Read, dhcp/odhcpd under
+DhcpDns.Read. Select only reviewed bounded scalar/text-list configuration fields;
+never return keys, commands, handlers or raw configuration. Preserve shared-delta,
+non-atomic scope, all prior limits/owners/denials and version-specific recipe sets.
+Configuration presence is not installation/running/effective-state proof. Commit
+the validated architecture/harness before production expansion; see ADR 0020.
+
 Architecture v19 requires protected Windows NTFS audit append/rotation through the existing host-platform API, with creation-time current-user private DACL, held trusted ancestors, metadata/name/size revalidation, bounded record/generation handling and no-replacement handle-relative rotation. Existing insecure files are rejected, never repaired; partial failures latch without reopening. Keep SDK/unsafe inside the existing native bridge and expose only an exact opaque write-only port. No durability/atomic-rotation/Vault/syslog/backup-store claim follows. Native fixture evidence and a validated architecture-only checkpoint precede support; see ADR 0019.
 
 Architecture v18 requires independent full-input/EOF accounting, complete supplied archive validation, producer completion, cipher byte-count agreement and one-shot ciphertext publication before a provided-stream seal result succeeds. Require private staging, atomic visibility and durability from trusted stage ports; distinguish missing/uncertain/late acknowledgements and failed cleanup without retry or deleting published artifacts. Keep the portable runtime orchestration internal and handle-free, with no identity/decryption/policy/MCP or real store/capture authority. Preserve codec/custody boundaries; only synthetic age/gzip composition may add a server development dependency. Commit validated architecture and negative harness before behavior; see ADR 0018.
