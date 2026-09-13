@@ -1,11 +1,34 @@
-version = 18
-decision = "docs/adr/0018-validated-archive-sealing.md"
+version = 19
+decision = "docs/adr/0019-windows-private-logs.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
 required_portable_tests = ["crates/server/tests/protection_composition.rs", "crates/core/tests/security.rs", "crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs", "crates/core/tests/capabilities.rs", "crates/mcp/tests/read_contracts.rs"]
 native_ci = ".github/workflows/ci.yml"
+
+[windows_log_contract]
+owner = "openwrt-mcp-host-platform"
+facade = "crates/host-platform/src/windows/log.rs"
+native_file = "crates/host-platform/src/windows/native.rs"
+profile = "local_ntfs_private_audit_v1"
+port = "opaque_parent_send_write_only_no_native_types"
+entry = "open_log_exact_parent_box_log_writer"
+creation = "current_user_protected_dacl_noinherit_create_nooverwrite"
+append = "only_append_no_write_data_no_delete_share"
+rotation = "preflight_held_generations_oldest_delete_descending_no_replace_create_new"
+validation = "held_ancestors_owner_dacl_single_link_name_size_before_after"
+failure = "terminal_latch_no_reopen_no_cleanup_unvalidated"
+capabilities = "private_log_only_not_vault_syslog_or_ciphertext_store"
+durability = "no_fsync_no_atomic_rotation_no_hard_cancellation"
+max_bytes = 1073741824
+max_retained = 100
+max_chunk_bytes = 65536
+max_path_units = 4096
+max_component_units = 255
+max_components = 128
+max_descriptor_bytes = 65536
+required_test = "crates/host-platform/tests/windows.rs"
 
 [archive_sealing_contract]
 owner = "openwrt-mcp-runtime"

@@ -193,12 +193,14 @@ pub fn check_owned_source(
                         signature.inputs.pop_punct();
                     }
                     let approved: syn::Signature = syn::parse_str("fn read(path: &Path, max_bytes: usize, secret: bool) -> Result<Zeroizing<Vec<u8>>, HostError>").map_err(|_| "invalid native interface profile")?;
-                    if quote::quote!(#signature).to_string() != quote::quote!(#approved).to_string()
+                    let log: syn::Signature = syn::parse_str("fn open_log(path: &Path, max_bytes: u64, retained: usize) -> Result<Box<dyn super::log::LogWriter>, HostError>").map_err(|_| "invalid log interface profile")?;
+                    let exact = quote::quote!(#signature).to_string();
+                    if (exact != quote::quote!(#approved).to_string()
+                        && (contract.version < 19 || exact != quote::quote!(#log).to_string()))
                         || quote::quote!(#visibility).to_string() != "pub (super)"
                     {
                         return Err(
-                            "native boundary only exposes the parent protected-read function"
-                                .into(),
+                            "native boundary only exposes exact reviewed parent functions".into(),
                         );
                     }
                 }
@@ -221,6 +223,12 @@ pub fn check_owned_source(
                 }
                 syn::Item::Static(item) if !matches!(item.vis, syn::Visibility::Inherited) => {
                     return Err("native values cannot be exported".into());
+                }
+                syn::Item::Trait(item) if !matches!(item.vis, syn::Visibility::Inherited) => {
+                    return Err("native traits cannot be exported".into());
+                }
+                syn::Item::Union(item) if !matches!(item.vis, syn::Visibility::Inherited) => {
+                    return Err("native unions cannot be exported".into());
                 }
                 _ => {}
             }

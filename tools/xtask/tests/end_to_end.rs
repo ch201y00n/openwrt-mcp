@@ -181,9 +181,13 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19
         ));
         spec["version"] = (version as i64).into();
+        if version < 19 {
+            spec.as_table_mut().unwrap().remove("windows_log_contract");
+            spec["decision"] = "docs/adr/0018-validated-archive-sealing.md".into();
+        }
         if version < 18 {
             spec.as_table_mut()
                 .unwrap()
@@ -1348,4 +1352,45 @@ fn assembled_v18_gate_keeps_stream_sealing_out_of_device_authority() {
         "use openwrt_mcp_runtime::sealing::Sealer;\n",
     );
     fixture.denied("sealing");
+}
+
+#[test]
+fn assembled_v19_gate_confines_windows_log_port_and_rotation_guarantees() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(19);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to) in [
+        (
+            "preflight_held_generations_oldest_delete_descending_no_replace_create_new",
+            "replace_by_path",
+        ),
+        (
+            "terminal_latch_no_reopen_no_cleanup_unvalidated",
+            "retry_reopen",
+        ),
+        ("max_component_units = 255", "max_component_units = 256"),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied("exact bounded NTFS profile");
+    }
+    fixture.write(path, &original);
+    let native = "crates/host-platform/src/windows/native.rs";
+    let original_native = fs::read_to_string(fixture.root.join(native)).unwrap();
+    let entry = "pub(super) fn open_log(path: &Path, max_bytes: u64, retained: usize) -> Result<Box<dyn super::log::LogWriter>, HostError> {}";
+    fixture.write(native, &format!("{original_native}\n{entry}"));
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        native,
+        &format!(
+            "{original_native}\n{}",
+            entry.replace("Box<dyn super::log::LogWriter>", "OwnedHandle")
+        ),
+    );
+    fixture.denied("exact reviewed parent functions");
+    fixture.write(native, &original_native);
+    fixture.write("crates/host-platform/src/windows/log.rs", "pub(super) trait LogWriter: Send { fn write(&mut self, bytes: &[u8]) -> Result<(), HostError>; }\nuse std::fs::File;\n");
+    fixture.denied("std::fs");
 }

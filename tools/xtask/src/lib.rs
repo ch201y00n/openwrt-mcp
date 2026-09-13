@@ -14,6 +14,7 @@ mod sealing;
 mod source;
 mod spec;
 mod uci_reads;
+mod windows_logs;
 mod windows_reads;
 
 pub use backup_archives::check_archive_source;
@@ -30,6 +31,7 @@ pub use projection::{ActionResponseContract, McpResultContract, ProjectionContra
 pub use sealing::check_sealing_source;
 pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
+pub use windows_logs::check_windows_log_source;
 pub use windows_reads::{
     check_owned_source, check_windows_dependency, check_windows_lints, check_windows_suite,
 };
@@ -131,6 +133,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         }
         let aliases = dependency_aliases(&metadata, &rule.name)?;
         check_owned_source(&contract, file, &source, &aliases)
+            .map_err(|error| format!("{file}: {error}"))?;
+        check_windows_log_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         check_management_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;

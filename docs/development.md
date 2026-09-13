@@ -1,5 +1,7 @@
 # Architecture-first development workflow
 
+For v19, validate and commit the exact Windows private-log declaration and negative harness before adding the native factory, facade or write/rotation behavior. Preserve protected-read and SDK/unsafe limits; native handles never leave the bridge. Use only private synthetic files for append/rotation/ACL/link/sharing/failure tests in the existing mandatory Windows suite. Logs are not ciphertext stores or durable journals; no real log, directory ACL or Vault may be changed during development. See ADR 0019.
+
 For v18, commit the exact provided-stream sealing contract and negative harness before adding runtime::sealing or the server fixture dependency. No production consumers, real source/store access or MCP behavior are admitted. Test independent counts/EOF, producer/validator/cipher failures, deadlines, cleanup, publication uncertainty and complete synthetic age/gzip composition. Neither a mock durability capability nor a supplied-stream result is real backup acceptance. See ADR 0018.
 
 For v17, validate and commit the separate gzip codec declaration before dependency/behavior changes. Preserve v16 regular-tar rules and all external archive bans, allow only the gzip wrapper as an internal consumer, and confine pinned low-level flate2 use to its owned module. Native malformed/completeness/resource tests must precede a gzip acceptance claim. A correct CRC is not authentication and decompressor reset/free is not guaranteed scrubbing. No workflow integration is implied; see ADR 0017.

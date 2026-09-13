@@ -48,6 +48,7 @@ fn gzip_requires_exact_profile_bounds_and_v17() {
     let mut v = original.clone();
     v.as_table_mut().unwrap().remove("gzip_archive_contract");
     v.as_table_mut().unwrap().remove("archive_sealing_contract");
+    v.as_table_mut().unwrap().remove("windows_log_contract");
     for r in v["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]
@@ -62,6 +63,7 @@ fn gzip_requires_exact_profile_bounds_and_v17() {
     denied(&v);
     v.as_table_mut().unwrap().remove("gzip_archive_contract");
     v.as_table_mut().unwrap().remove("archive_sealing_contract");
+    v.as_table_mut().unwrap().remove("windows_log_contract");
     for r in v["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]

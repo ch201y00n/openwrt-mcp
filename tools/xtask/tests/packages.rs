@@ -136,6 +136,7 @@ fn opkg_status_requires_its_complete_exact_v14_contract() {
     old.as_table_mut()
         .unwrap()
         .remove("archive_sealing_contract");
+    old.as_table_mut().unwrap().remove("windows_log_contract");
     for r in old["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]

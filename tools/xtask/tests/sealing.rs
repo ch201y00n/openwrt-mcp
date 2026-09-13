@@ -47,6 +47,7 @@ fn sealing_requires_every_exact_field_bound_and_version() {
     denied(&v);
     let mut v = original.clone();
     v.as_table_mut().unwrap().remove("archive_sealing_contract");
+    v.as_table_mut().unwrap().remove("windows_log_contract");
     denied(&v);
     v["version"] = 17.into();
     denied(&v); // New fixture edge is not retroactive.

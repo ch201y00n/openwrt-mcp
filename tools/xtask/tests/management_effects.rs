@@ -34,6 +34,7 @@ fn every_effect_field_and_budget_requires_exact_versioned_non_authorizing_contra
     old.as_table_mut()
         .unwrap()
         .remove("archive_sealing_contract");
+    old.as_table_mut().unwrap().remove("windows_log_contract");
     for r in old["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]
