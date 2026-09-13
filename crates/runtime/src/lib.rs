@@ -7,6 +7,7 @@ mod dispatcher;
 mod error;
 pub mod packages;
 pub mod protection;
+pub mod sealing;
 
 pub use audit::{AuditEvent, AuditKind, AuditOutcome, AuditPhase, AuditSink, safe_operation_name};
 pub use backend::{Backend, Limits};

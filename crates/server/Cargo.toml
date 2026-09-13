@@ -23,6 +23,7 @@ toml.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+openwrt-mcp-device-codec = { path = "../device-codec" }
 async-trait.workspace = true
 age.workspace = true
 zip.workspace = true

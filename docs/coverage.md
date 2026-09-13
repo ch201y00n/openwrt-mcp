@@ -1,5 +1,7 @@
 # Capability coverage
 
+The v18 [provided-stream sealing flow](validated-archive-sealing.md) adds internal orchestration and synthetic age/gzip composition, not a callable backup tool. It requires complete input, validated counts, producer completion and acknowledged one-shot publication with explicit uncertainty. Real capture/storage, production consumers and mutation/recovery authority remain absent.
+
 The v17 [gzip wrapper](gzip-archive-validation.md) extends supplied archive validation only. It is the sole internal consumer of v16, without application/device integration. Complete single-member corruption/size checks and independent host fixtures pass; no new MCP operation, actual OpenWrt backup, encryption/publication or restore workflow is covered.
 
 The v16 [archive validator](backup-archive-validation.md) is another internal prerequisite, not backup capture, publication or restoration. It checks bounded supplied regular-file tar bytes against every expected name/size, without retaining payloads or exposing paths. Synthetic tests and eight independent Windows/Linux producer-validator combinations pass; no actual OpenWrt archive or production consumer is covered.

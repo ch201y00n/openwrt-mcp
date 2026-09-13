@@ -8,6 +8,8 @@ Implementation must first update the requirements, ADR, architecture and version
 
 ## Reference baseline and evidence
 
+[ADR 0018](adr/0018-validated-archive-sealing.md) now separately admits the [provided-stream sealing flow](validated-archive-sealing.md). This internal runtime module checks full-input and producer completion, validation, encryption counts and one-shot publication outcomes over trusted ports. Actual age/gzip composition uses synthetic memory fixtures only. It does not bind a live target/boot/plan, implement private storage or capture, satisfy the backup receipt below, or authorize a mutation. External production consumers remain blocked.
+
 [ADR 0017](adr/0017-bounded-gzip-archive-validation.md) now adds a separate [gzip validator](gzip-archive-validation.md) as v16's sole internal consumer. Application/device consumers remain blocked. Its backend history is not guaranteed scrubbed; sensitive workflow integration must address that memory-residue limitation. This still supplies none of the capture, publication, restoration or recovery authority below.
 
 Archive structure is now a second separately accepted prerequisite: [ADR 0016](adr/0016-bounded-backup-archive-validation.md) and [bounded supplied-archive validation](backup-archive-validation.md). It does not implement any capture, crypto/publication, restore or guardian workflow described below; all production consumers remain blocked.

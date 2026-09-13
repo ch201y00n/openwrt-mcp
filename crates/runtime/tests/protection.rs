@@ -1,5 +1,6 @@
 //! Synthetic application-port tests. No key provider, archive, cipher algorithm,
 //! filesystem, environment secret or router is used by these fixtures.
+mod sealing;
 use std::{
     error::Error,
     io::{Cursor, Read, Write},

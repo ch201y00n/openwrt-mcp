@@ -1358,6 +1358,7 @@ dependencies = [
  "openwrt-mcp-backend-ssh",
  "openwrt-mcp-core",
  "openwrt-mcp-crypto-age",
+ "openwrt-mcp-device-codec",
  "openwrt-mcp-features",
  "openwrt-mcp-host-platform",
  "openwrt-mcp-key-sources",

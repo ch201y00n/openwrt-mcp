@@ -1,4 +1,5 @@
 use age::secrecy::ExposeSecret;
+mod sealing_composition;
 use openwrt_mcp_crypto_age::AgeX25519;
 use openwrt_mcp_key_sources::{
     ContainerFormat, FileProtection, ProtectedFileAccess, SourceConfig, SourceRegistry,
