@@ -12,6 +12,8 @@ use std::{
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Contract {
+    #[serde(default)]
+    pub windows_read_contract: Option<crate::windows_reads::WindowsReadContract>,
     pub version: u64,
     pub decision: String,
     pub requirements: String,
@@ -112,6 +114,9 @@ impl Contract {
         }
         if self.version >= 7 {
             self.validate_packages()?;
+        }
+        if self.version >= 8 {
+            self.validate_windows_reads(root)?;
         }
         Ok(())
     }

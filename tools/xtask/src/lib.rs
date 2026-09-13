@@ -8,6 +8,7 @@ mod portability;
 mod projection;
 mod source;
 mod spec;
+mod windows_reads;
 
 pub use capability::{CapabilityContract, check_capability_registry, check_compatibility_evidence};
 pub use change::validate_evolution;
@@ -16,6 +17,9 @@ pub use portability::{check_native_ci, check_portable_source, check_portable_sui
 pub use projection::{ActionResponseContract, McpResultContract, ProjectionContract};
 pub use source::{check_public_reexports, check_source, check_source_with_aliases};
 pub use spec::{Contract, CrateRule};
+pub use windows_reads::{
+    check_owned_source, check_windows_dependency, check_windows_lints, check_windows_suite,
+};
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -107,7 +111,7 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
             check_portable_source(&source).map_err(|error| format!("{file}: {error}"))?;
         }
         let aliases = dependency_aliases(&metadata, &rule.name)?;
-        check_source_with_aliases(rule, &source, development, &aliases)
+        check_owned_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         if !development {
             // A consumer's private-namespace ban must survive producer-side

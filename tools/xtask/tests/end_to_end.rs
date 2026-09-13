@@ -132,7 +132,24 @@ impl Fixture {
         let mut spec: toml::Value =
             toml::from_str(&fs::read_to_string(repository.join("architecture/spec.toml")).unwrap())
                 .unwrap();
-        assert!(matches!(version, 5 | 6));
+        assert!(matches!(version, 5 | 6 | 8));
+        spec["version"] = (version as i64).into();
+        if version < 8 {
+            spec.as_table_mut().unwrap().remove("windows_read_contract");
+            if let Some(package) = spec.as_table_mut().unwrap().remove("package_contract") {
+                let suites = package["required_tests"].as_array().unwrap();
+                spec["required_portable_tests"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|suite| !suites.contains(suite));
+            }
+            spec["decision"] = if version == 5 {
+                "docs/adr/0005-capability-observations.md"
+            } else {
+                "docs/adr/0006-bounded-read-projections.md"
+            }
+            .into();
+        }
         if version == 5 {
             // Keep the v5 regression on its own contract rather than silently
             // inheriting every future architecture field from the working tree.
@@ -164,9 +181,18 @@ impl Fixture {
             members.push(path.into());
             // Real Cargo metadata from inert standalone fixture packages; no production
             // code, downloaded dependencies, or device commands are used by this fixture.
+            let lint = if version >= 8 {
+                if name == "openwrt-mcp-host-platform" {
+                    "[lints.rust]\nunsafe_code='deny'\n"
+                } else {
+                    "[lints]\nworkspace=true\n"
+                }
+            } else {
+                ""
+            };
             self.write(
                 &format!("{path}/Cargo.toml"),
-                &format!("[package]\nname='{name}'\nversion='0.1.0'\nedition='2024'\n"),
+                &format!("[package]\nname='{name}'\nversion='0.1.0'\nedition='2024'\n{lint}"),
             );
             self.write(
                 &format!("{path}/src/lib.rs"),
@@ -190,11 +216,27 @@ impl Fixture {
         self.write(
             "Cargo.toml",
             &format!(
-                "[workspace]\nresolver='3'\nmembers={}\n",
+                "[workspace]\nresolver='3'\nmembers={}\n[workspace.lints.rust]\nunsafe_code='forbid'\n",
                 toml::Value::Array(members.into_iter().map(Into::into).collect())
             ),
         );
         self.write("Cargo.lock", &lock);
+        if version >= 8 {
+            for path in ["crates/pure/Cargo.toml", "crates/tokio/Cargo.toml"] {
+                let original = fs::read_to_string(self.root.join(path)).unwrap();
+                self.write(path, &format!("{original}\n[lints]\nworkspace=true\n"));
+            }
+            for file in [
+                "crates/host-platform/src/windows/native.rs",
+                "crates/host-platform/src/windows/policy.rs",
+            ] {
+                self.write(file, "//! Inert native boundary fixture.\n");
+            }
+            self.write(
+                "crates/host-platform/tests/windows.rs",
+                "#![cfg(target_os = \"windows\")]\n#[test] fn synthetic() { assert_eq!(1, 1); }\n",
+            );
+        }
         for path in [
             "architecture/capability-probes.toml",
             "compatibility/evidence.toml",
@@ -576,4 +618,38 @@ fn assembled_v6_gate_requires_reviewed_evolution_and_non_skipped_response_suites
         "#![cfg(unix)] #[test] fn synthetic_only_on_one_host() { assert_eq!(1,1); }\n",
     );
     fixture.denied("required portable suite");
+}
+
+#[test]
+fn assembled_v8_gate_confines_native_unsafe_and_lint_authority() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(8);
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/host-platform/src/windows/policy.rs",
+        "fn escape() { unsafe {} }\n",
+    );
+    fixture.denied("unsafe expressions");
+    fixture.write(
+        "crates/host-platform/src/windows/policy.rs",
+        "use windows_sys::Win32::Foundation::HANDLE;\n",
+    );
+    fixture.denied("forbidden API");
+    fixture.write(
+        "crates/host-platform/src/windows/policy.rs",
+        "//! safe boundary\n",
+    );
+    fixture.write(
+        "crates/host-platform/src/windows/native.rs",
+        "#![allow(unsafe_code)] pub(super) fn read(path: &Path, max_bytes: usize, secret: bool) -> Result<Zeroizing<Vec<u8>>, HostError> { unsafe {} }\n",
+    );
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write(
+        "crates/host-platform/src/windows/native.rs",
+        "impl X { unsafe fn escape() {} }\n",
+    );
+    fixture.denied("unsafe/FFI methods");
+    fixture.write("crates/host-platform/src/windows/native.rs", "//! reset\n");
+    fixture.write("crates/host-platform/Cargo.toml", "[package]\nname='openwrt-mcp-host-platform'\nversion='0.1.0'\nedition='2024'\n[lints.rust]\nunsafe_code='allow'\n");
+    fixture.denied("lint boundary");
 }

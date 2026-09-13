@@ -44,6 +44,9 @@ pub fn check_metadata(contract: &Contract, metadata: &Value) -> CheckResult {
                 .as_str()
                 .ok_or("missing dependency package name")?;
             let kind = dependency["kind"].as_str().unwrap_or("normal");
+            if contract.version >= 8 && original == "windows-sys" {
+                crate::windows_reads::check_windows_dependency(name, dependency)?;
+            }
             let allowed = match kind {
                 "normal" => rule.dependencies.iter().any(|value| value == original),
                 "dev" => rule

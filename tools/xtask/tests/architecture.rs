@@ -27,6 +27,7 @@ fn rule() -> CrateRule {
 
 fn contract() -> Contract {
     Contract {
+        windows_read_contract: None,
         package_contract: None,
         version: 2,
         decision: "docs/adr/0002.md".into(),

@@ -85,7 +85,7 @@ impl Contract {
         ))
     }
 
-    fn validate_portable_target(&self, root: &Path, file: &str) -> CheckResult {
+    pub(crate) fn validate_portable_target(&self, root: &Path, file: &str) -> CheckResult {
         let (owner, _) = self.owner(file)?;
         let local = file
             .strip_prefix(&format!("{}/", owner.path))
@@ -357,6 +357,9 @@ pub fn check_native_ci(contract: &Contract, source: &str) -> CheckResult {
         .as_array()
         .ok_or("native CI steps are missing")?;
     let mut expected = BTreeSet::from([GATE.to_owned()]);
+    if contract.version >= 8 {
+        expected.insert("cargo test --locked -p openwrt-mcp-host-platform --test windows".into());
+    }
     for file in &contract.required_portable_tests {
         expected.insert(contract.portable_test_command(file)?);
     }

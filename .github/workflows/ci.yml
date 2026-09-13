@@ -28,6 +28,11 @@
           "run": "./tools/Test-Repository.ps1 -BaseRef $env:ARCHITECTURE_BASE"
         },
         {
+          "name": "Required native Windows protected read suite",
+          "shell": "pwsh",
+          "run": "cargo test --locked -p openwrt-mcp-host-platform --test windows"
+        },
+        {
           "name": "Required portable real-binary stdio suite",
           "shell": "pwsh",
           "run": "cargo test --locked -p openwrt-mcp --test portable_stdio"

@@ -129,6 +129,7 @@ struct Checker<'a> {
     rule: &'a CrateRule,
     aliases: Aliases,
     development: bool,
+    native_expressions: bool,
     errors: BTreeSet<String>,
 }
 
@@ -187,6 +188,10 @@ impl Checker<'_> {
                     );
                 }
                 let mut path = ident_text(ident);
+                if !self.development && !self.native_expressions && path == "unsafe" {
+                    self.errors
+                        .insert("unsafe macro tokens require a reviewed native boundary".into());
+                }
                 let mut cursor = index + 1;
                 while cursor + 2 < tokens.len() {
                     match (&tokens[cursor], &tokens[cursor + 1], &tokens[cursor + 2]) {
@@ -248,6 +253,21 @@ fn item_attributes(item: &Item) -> &[Attribute] {
 }
 
 impl<'ast> Visit<'ast> for Checker<'_> {
+    fn visit_impl_item_fn(&mut self, item: &'ast syn::ImplItemFn) {
+        if !self.development && (item.sig.unsafety.is_some() || item.sig.abi.is_some()) {
+            self.errors
+                .insert("unsafe/FFI methods require a new architecture".into());
+        }
+        visit::visit_impl_item_fn(self, item);
+    }
+
+    fn visit_trait_item_fn(&mut self, item: &'ast syn::TraitItemFn) {
+        if !self.development && (item.sig.unsafety.is_some() || item.sig.abi.is_some()) {
+            self.errors
+                .insert("unsafe/FFI methods require a new architecture".into());
+        }
+        visit::visit_trait_item_fn(self, item);
+    }
     fn visit_path(&mut self, path: &'ast Path) {
         self.check_path(&path_text(path), false);
         visit::visit_path(self, path);
@@ -293,7 +313,7 @@ impl<'ast> Visit<'ast> for Checker<'_> {
     }
 
     fn visit_expr_unsafe(&mut self, expression: &'ast syn::ExprUnsafe) {
-        if !self.development {
+        if !self.development && !self.native_expressions {
             self.errors
                 .insert("unsafe expressions require a new architecture".into());
         }
@@ -330,6 +350,15 @@ impl<'ast> Visit<'ast> for Checker<'_> {
             }
         }
         if !self.development {
+            if matches!(path.as_str(), "allow" | "warn" | "expect")
+                && !self.native_expressions
+                && quote::quote!(#attribute)
+                    .to_string()
+                    .contains("unsafe_code")
+            {
+                self.errors
+                    .insert("unsafe lint allowance outside reviewed native file".into());
+            }
             if let syn::Meta::List(list) = &attribute.meta {
                 self.tokens(list.tokens.clone());
             } else if let syn::Meta::NameValue(value) = &attribute.meta {
@@ -474,6 +503,16 @@ pub fn check_source_with_aliases(
     development: bool,
     dependency_aliases: &BTreeMap<String, String>,
 ) -> CheckResult {
+    check_source_profile(rule, source, development, dependency_aliases, false)
+}
+
+pub(crate) fn check_source_profile(
+    rule: &CrateRule,
+    source: &str,
+    development: bool,
+    dependency_aliases: &BTreeMap<String, String>,
+    native_expressions: bool,
+) -> CheckResult {
     let ast = syn::parse_file(source).map_err(|_| "invalid Rust source")?;
     let mut imports = Imports::default();
     imports.visit_file(&ast);
@@ -488,6 +527,7 @@ pub fn check_source_with_aliases(
         rule,
         aliases: imports.aliases,
         development,
+        native_expressions,
         errors: BTreeSet::new(),
     };
     checker.visit_file(&ast);

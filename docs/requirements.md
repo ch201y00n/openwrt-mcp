@@ -33,6 +33,8 @@ The next passive wireless increment follows [wireless-observation-contracts.md](
 
 ## Security invariants
 
+Architecture v8 requires Windows protected config/secret reads on a reviewed local NTFS profile. Validate every opened ancestor and leaf, actual owner/DACL, volume and reparse state; hold handles through reading. Reject untrusted write grants, and for secrets untrusted data/execute grants. Never interpret readonly attributes as ACL proof, repair operator permissions, unlock Vault, follow a failed profile with an environment fallback, or expose raw Windows errors. Native tests use only synthetic private fixtures. The approved unsafe SDK bridge is confined by the harness to one private host-platform file; shared layers remain safe and portable. See ADR 0008 for exact bounds and intentionally unsupported paths.
+
 - Permission metadata is operator-owned and immutable during a client session.
 - Read permission does not imply execution. Read_write does not imply execution.
 - Any execute grant is ineffective when category access is deny.

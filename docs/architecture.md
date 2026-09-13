@@ -1,6 +1,6 @@
 # Architecture
 
-Contract: version 6 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0006](adr/0006-bounded-read-projections.md), capabilities [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
+Contract: version 8 in [architecture/spec.toml](../architecture/spec.toml). Read current [ADR 0008](adr/0008-windows-protected-reads.md), package observations [ADR 0007](adr/0007-paged-package-observations.md), typed reads [ADR 0006](adr/0006-bounded-read-projections.md), capabilities [ADR 0005](adr/0005-capability-observations.md), portable hosts [ADR 0004](adr/0004-cross-platform-hosts.md), key custody [ADR 0003](adr/0003-key-custody-and-age.md), the foundational [ADR 0002](adr/0002-architecture-first.md), [requirements](requirements.md), and the [development workflow](development.md) before implementation.
 
 ## Rust structure and dependency direction
 
@@ -92,6 +92,8 @@ The [coverage matrix](coverage.md) distinguishes configured operations, fixture 
 Full OpenWrt support is a product target, not the current implementation claim. UCI transactions, encrypted backup streaming, verification/rollback, protected resources, package/firmware workflows, native ubus and package-specific coverage need explicit contracts and acceptance tests before being advertised. A generic action template does not constitute a tested workflow.
 
 ## Mandatory architecture evolution
+
+Architecture v8 admits one private native Windows read boundary, `host-platform/src/windows/native.rs`, and a safe sibling `policy.rs`. Only this exact native source file may use unsafe expressions for reviewed Windows SDK calls; unsafe functions/traits/impls, manual FFI declarations, public handle/pointer APIs and namespace re-exports remain forbidden. The host package uses deny(unsafe_code), with a file-local allowance; every other production package retains workspace forbid. The harness checks file ownership, SDK target/version/features, lint boundaries and the required native suite. Handle-relative NTFS traversal, conservative owner/DACL validation and bounded reads implement the existing config/secret ports, not a new MCP or raw filesystem API. Private logs, system logs, Personal Vault and macOS protection are outside this profile and remain explicit gaps. See ADR 0008; validate and commit this architecture before behavior.
 
 Architecture v7 adds the purpose-specific package observation workflow in [ADR 0007](adr/0007-paged-package-observations.md). `core::packages` owns bounded records and pages; `runtime::packages` owns a single ephemeral snapshot and injected entropy port; `device-codec::packages` owns closed APK commands and supplied-byte parsing; `adapters::tokens` owns getrandom entropy. The existing local/SSH backends implement the same closed capture port. MCP does not own pagination or I/O. This extends Action/CapabilityRequirement without enabling generic Process, widening v6 projections, or adding any mutation. Every page uses Dispatcher authorization, admission and audit. Its APK-visible non-atomic scope is not whole-device completeness.
 

@@ -1,11 +1,31 @@
-version = 7
-decision = "docs/adr/0007-paged-package-observations.md"
+version = 8
+decision = "docs/adr/0008-windows-protected-reads.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
 required_portable_tests = ["crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs"]
 native_ci = ".github/workflows/ci.yml"
+
+[windows_read_contract]
+owner = "openwrt-mcp-host-platform"
+native_file = "crates/host-platform/src/windows/native.rs"
+policy_file = "crates/host-platform/src/windows/policy.rs"
+profile = "local_ntfs_handle_walk_v1"
+paths = "absolute_dos_no_alias_stream_or_reparse"
+ancestors = "held_no_delete_share_trusted_owner_dacl"
+leaf = "single_link_read_only_share"
+descriptor = "bounded_self_relative_conservative_allow_aces"
+trusted = "process_user_system_administrators_root_trustedinstaller"
+vault = "unsupported_no_fallback"
+unsafe_scope = "expressions_in_native_file_only"
+sdk = "windows-sys_0.61.2_windows_only"
+capabilities = "separate_protected_reads_and_private_log"
+max_path_units = 4096
+max_components = 128
+max_descriptor_bytes = 65536
+max_token_bytes = 4096
+required_test = "crates/host-platform/tests/windows.rs"
 
 [package_contract]
 domain_owner = "openwrt-mcp-core"
@@ -163,7 +183,7 @@ allowed_macros = ["matches", "vec", "format", "write", "assert", "assert_eq", "a
 name = "openwrt-mcp-host-platform"
 path = "crates/host-platform"
 layer = "infrastructure"
-dependencies = ["zeroize", "rustix"]
+dependencies = ["zeroize", "rustix", "windows-sys"]
 dev_dependencies = []
 build_dependencies = []
 forbidden_paths = ["std::process", "tokio::process"]
