@@ -36,8 +36,36 @@ with Rust 1.97.1; it is not native Windows or macOS evidence. Upstream
 `proc-macro-error2 2.0.1` reports a future-compatibility warning, not suppressed.
 
 P3 adds 10 mandatory server composition cases, 3 mandatory SSH capture cases and
-one owned-worker lifecycle case. Three-native-host CI is the remaining merge gate;
-record its exact outcomes before treating P3 verification as complete.
+one owned-worker lifecycle case. Implementation commit
+`53520b3d477d66dcdeab5e4572e0cb22d40906ff` passed all three native hosts in
+[run 34879157677](https://github.com/ch201y00n/openwrt-mcp/actions/runs/34879157677):
+
+| Native CI host (Rust 1.98.1) | Workspace tests | Result |
+| --- | ---: | --- |
+| Windows / x86_64 MSVC | 609 | Full gate and every explicit required suite pass |
+| Linux / x86_64 GNU | 613 | Full gate and every explicit required suite pass |
+| macOS / ARM64 | 581 | Full gate and every explicit required suite pass |
+
+Counts include the 124 harness cases once and one compile-fail doctest; repeated
+mandatory-suite invocations are not added again. No failed or ignored cases.
+All three hosts run the synthetic real-file/SSH P3 cases; platform-specific
+protected-file suites account for differing workspace totals.
+
+Test-only follow-up `e0c33e08e397a589b94dc6e0568b7a1a0736607a` independently
+checks successful sync followed by cancellation, fresh-budget reconciliation
+without another append, and both stdout/stderr exclusion of a synthetic secret.
+An initial test expectation incorrectly kept fresh successful reconciliation
+unknown; the assertion was corrected, not the implementation or gate bypassed.
+Its native Windows GNU full gate passes (609 cases). The subsequent
+[native CI run 34880401437](https://github.com/ch201y00n/openwrt-mcp/actions/runs/34880401437)
+also passed the full gate and every explicit required suite on Windows MSVC
+(609), Linux (613), and macOS (581), with no failed or ignored cases. This is the
+final code/test checkpoint for the P3 merge; no production source differs from
+`53520b3`. The following validation-record commit changes documentation only.
+
+The release binary also passes offline environment-config `check` and `catalog`
+using the repository read-only example (22 authorized operations). This is scoped
+policy output, not a reduction of the 55-operation built-in catalog or target I/O.
 
 P2 main CI is complete on all three hosts:
 [run 34873954647](https://github.com/ch201y00n/openwrt-mcp/actions/runs/34873954647).
