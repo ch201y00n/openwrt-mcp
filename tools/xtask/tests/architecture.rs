@@ -28,6 +28,7 @@ fn rule() -> CrateRule {
 fn contract() -> Contract {
     Contract {
         guarded_mutation_contract: None,
+        ciphertext_foundation_contract: None,
         gzip_archive_contract: None,
         windows_log_contract: None,
         archive_sealing_contract: None,

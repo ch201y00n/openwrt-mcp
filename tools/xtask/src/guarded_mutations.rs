@@ -194,6 +194,8 @@ pub(crate) const PRIVATE_NAMESPACES: &[&str] = &[
     "openwrt_mcp_runtime::mutation_ports",
     "openwrt_mcp_runtime::transactions",
     "openwrt_mcp_device_codec::transactions",
+    "openwrt_mcp_runtime::backups",
+    "openwrt_mcp_host_platform::ciphertext",
 ];
 const TESTS: &[&str] = &[
     "tools/xtask/tests/guarded_mutations.rs",
@@ -296,6 +298,7 @@ pub(crate) fn scoped_rule(contract: &Contract, file: &str, rule: &CrateRule) -> 
             }
         }
     }
+    crate::ciphertext_foundations::scope(contract, file, &mut rule);
     rule
 }
 

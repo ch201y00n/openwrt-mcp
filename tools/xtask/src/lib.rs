@@ -3,6 +3,7 @@
 mod backup_archives;
 mod capability;
 mod change;
+mod ciphertext_foundations;
 mod guarded_mutations;
 mod gzip_archives;
 mod management_effects;
@@ -24,6 +25,7 @@ pub use capability::{
     check_compatibility_evidence,
 };
 pub use change::validate_evolution;
+pub use ciphertext_foundations::{check_ciphertext_dependency, check_ciphertext_source};
 pub use guarded_mutations::check_guarded_mutation_source;
 pub use gzip_archives::{check_gzip_dependency, check_gzip_source};
 pub use management_effects::check_management_source;
@@ -143,6 +145,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
         check_archive_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
         check_sealing_source(&contract, file, &source, &aliases)
+            .map_err(|error| format!("{file}: {error}"))?;
+        check_ciphertext_source(&contract, file, &source)
             .map_err(|error| format!("{file}: {error}"))?;
         check_guarded_mutation_source(&contract, file, &source)
             .map_err(|error| format!("{file}: {error}"))?;

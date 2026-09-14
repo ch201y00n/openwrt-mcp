@@ -44,6 +44,7 @@ pub fn check_metadata(contract: &Contract, metadata: &Value) -> CheckResult {
                 .as_str()
                 .ok_or("missing dependency package name")?;
             let kind = dependency["kind"].as_str().unwrap_or("normal");
+            crate::check_ciphertext_dependency(contract, name, dependency)?;
             if name == "openwrt-mcp"
                 && original == "openwrt-mcp-device-codec"
                 && (contract.version < 18 || kind != "dev")

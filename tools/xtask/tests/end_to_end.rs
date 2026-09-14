@@ -183,9 +183,23 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22
         ));
         spec["version"] = (version as i64).into();
+        if version < 22 {
+            profiles::before_v22(&mut spec);
+            spec["decision"] = "docs/adr/0021-guarded-mutation-boundaries.md".into();
+        } else {
+            for path in [
+                "docs/ciphertext-foundations.md",
+                "tools/xtask/tests/ciphertext_foundations.rs",
+            ] {
+                self.write(
+                    path,
+                    "#[test] fn inert_declaration() { assert_eq!(1, 1); }\n",
+                );
+            }
+        }
         if version < 21 {
             profiles::before_v21(&mut spec);
             spec["decision"] = "docs/adr/0020-system-service-uci-observations.md".into();
@@ -1505,6 +1519,31 @@ fn assembled_v21_gate_enforces_scoped_consumers_private_data_and_contract_guards
     fixture.write(
         "crates/runtime/src/lib.rs",
         "pub use crate::mutation_ports::PrivateBaseline;\n",
+    );
+    fixture.denied("public surface flattens protected namespace");
+}
+
+#[test]
+fn assembled_v22_gate_rejects_ciphertext_authority_and_namespace_escapes() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(22);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let allowed = "crates/adapters/src/backups/mod.rs";
+    let code = "use openwrt_mcp_runtime::backups::CapturedArchive;\n";
+    fixture.write(allowed, code);
+    xtask::architecture(&fixture.root, None).unwrap();
+    fixture.write("crates/mcp/src/handler.rs", code);
+    fixture.denied("forbidden API");
+    fixture.write("crates/mcp/src/handler.rs", "// inert\n");
+    fixture.write(
+        "crates/host-platform/src/ciphertext/mod.rs",
+        "fn x() { std::fs::rename(\"inert\", \"inert\"); }\n",
+    );
+    fixture.denied("namespace-write escape");
+    fixture.write("crates/host-platform/src/ciphertext/mod.rs", "// inert\n");
+    fixture.write(
+        "crates/runtime/src/lib.rs",
+        "pub use crate::backups::CapturedArchive;\n",
     );
     fixture.denied("public surface flattens protected namespace");
 }

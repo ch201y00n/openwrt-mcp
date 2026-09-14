@@ -1,5 +1,12 @@
 # Architecture-first development workflow
 
+For v22/P3, validate and separately commit ADR 0022, the exact ciphertext contract
+and negative harness before adding production adapters. The authenticated record
+store is a distinct profile, not Windows logs or a fabricated macOS ACL guarantee.
+Keep new namespace/dependency consumers exact; use actual synthetic host files and
+loopback SSH in the existing mandatory portable composition/remote suites. Never
+count declaration tests as backup implementation or P4 authorization/recovery.
+
 For v21/P2, commit the closed guarded mutation architecture and its negative
 harness separately from production behavior. See ADR 0021 and
 [guarded-mutation-contracts.md](guarded-mutation-contracts.md) for exact module

@@ -1,5 +1,15 @@
 # Product requirements
 
+Architecture v22 requires [P3 ciphertext foundations](ciphertext-foundations.md):
+private bounded memory staging, a pre-provisioned authenticated ciphertext-only
+record store, complete-record publication plus file sync, independent HMAC
+provenance and complete age authentication before count-only inspection. The
+operator owns durable-name/local-filesystem provisioning and a separate MAC key;
+this profile does not claim native ACL privacy or namespace-atomic rename. All
+three hosts require actual store/SSH fixtures. No new mutation authority, default
+paths, key generation, router access or automatic fallback. See ADR 0022; validate
+and commit architecture/harness before implementation.
+
 The [comprehensive management feature specification](management-feature-spec.md)
 defines the target backlog with stable feature IDs, per-profile completeness,
 permission/effect rules and acceptance criteria. The [staged implementation plan](implementation-plan.md)
