@@ -109,6 +109,9 @@ fn old_versions_keep_six_profiles_and_reject_base_expansion() {
         .unwrap()
         .remove("archive_sealing_contract");
     old.as_table_mut().unwrap().remove("windows_log_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("guarded_mutation_contract");
     for r in old["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]

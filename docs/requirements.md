@@ -5,8 +5,22 @@ defines the target backlog with stable feature IDs, per-profile completeness,
 permission/effect rules and acceptance criteria. The [staged implementation plan](implementation-plan.md)
 defines dependencies and delivery gates; previous milestone records are preserved
 in [implementation history](implementation-history.md). These planning documents
-do not admit new production consumers, operations or dependencies under v20.
-Each future boundary still requires a validated architecture-only checkpoint.
+admit no operations by themselves. The P2 v21 checkpoint below explicitly admits
+scoped module consumers; further boundary changes still require a validated
+architecture-only checkpoint.
+
+Architecture v21 requires the closed guarded hostname profile, one authenticated
+device-wide owner, an exclusive operator management window with truthful external
+writer limitations, encrypted pre-change archival backup and a separately
+provisioned durable device recovery identity/journal. No archival identity is put
+on a router. The same Dispatcher authorizes/audits all requests; recovery survives
+post-effect audit/client failure. Unknown evidence denies or preserves recovery,
+never retries a mutation. Typed private data, binary/secret/status channels,
+fully authenticated memory-only restore, private durable ciphertext stores,
+state guards and host/guardian resource budgets are specified in
+[guarded-mutation-contracts.md](guarded-mutation-contracts.md) and ADR 0021. Exact
+module exceptions cannot widen producer purity, SDK/unsafe or platform boundaries.
+P2 adds no production mutation behavior; P3/P4 acceptance remains required.
 
 Architecture v20 requires four additional parameterless closed UCI observations:
 system/led, dropbear/dropbear and uhttpd/uhttpd under System.Read, dhcp/odhcpd under
@@ -34,7 +48,7 @@ Architecture revision 2 adds a mandatory development constraint: architecture an
 | --- | --- | --- |
 | Comprehensive control | Cover base services and installed packages with capability discovery, typed native adapters and reviewed extensions; publish a coverage matrix per OpenWrt version | Adapter contract tests plus emulator/device acceptance tests |
 | Accurate and fast | Validate arguments, distinguish configuration from effective state, return structured bounded results, check postconditions after changes | Negative tests, fault injection, real-state verification and latency benchmarks |
-| Low resource use | Single Rust process, on-demand work, bounded concurrency/output, minimal SDK features, no embedded model | Binary size, idle RSS/CPU, per-call p50/p95 measurements |
+| Low resource use | One host Rust process and an opt-in separately bounded device guardian; on-demand work, bounded concurrency/output, minimal SDK features, no embedded model | Per-process and aggregate binary size, idle/peak RSS/CPU, per-call p50/p95 measurements |
 | Easy security settings | Readable category settings, read-only example, explicit execution flag, policy check command, deny wins | Permission matrix and bypass regression tests |
 | Clear structure | Enforce core/features/runtime/adapters/mcp/server ownership and dependency direction; no direct device I/O in protocol handlers | Versioned contract, AST/metadata checks, negative fixtures, evolution gate and review |
 | Configurable usage logs | Audit attempts, decisions and outcomes; JSON/text, stderr/file/syslog, size rotation and retention; no payloads/secrets | Rotation, failure and secret-leak tests |

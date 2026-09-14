@@ -15,8 +15,10 @@ current coverage from the complete management target; they are not a completion 
 
 P1 adds a checked [management inventory](docs/management-inventory.md) and four
 [system-service configuration reads](docs/system-service-uci-observations.md).
-See [P1 verification and limits](docs/p1-validation.md); next is P2's mutation
-architecture, not unrestricted configuration access.
+See [P1 verification and limits](docs/p1-validation.md). P2 adds the
+[guarded mutation architecture and harness](docs/guarded-mutation-contracts.md),
+not mutation tools. Next is P3's synthetic secret/backup/storage integration;
+see [P2 validation scope](docs/p2-validation.md).
 
 Independent community project; not affiliated with or endorsed by OpenWrt. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [license](LICENSE).
 
@@ -106,7 +108,7 @@ Network.Read includes scoped address, route and netifd-managed neighbor observat
 
 ## Development
 
-Follow the [architecture-first workflow](docs/development.md). [Architecture contract v20](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded projections and package observations, Windows protected reads/private logs, isolated effect analysis, bounded archive/sealing prerequisites and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only. New commits use Conventional Commits.
+Follow the [architecture-first workflow](docs/development.md). [Architecture contract v21](architecture/spec.toml) specifies directories, dependencies, portable layers, capability/evidence contracts, bounded projections and package observations, Windows protected reads/private logs, isolated effect analysis, bounded archive/sealing prerequisites guarded mutation port/state/consumer declarations and mandatory native host tests. Each incompatible evolution was separately checkpointed before functional work; required suites contain behavioral tests. New incompatible requirements must update the requirements, ADR, architecture and harness before feature implementation. The full gate checks evolution against HEAD locally and the change base in CI. WSL validation requires explicit `-UseWsl` and counts as Linux only. New commits use Conventional Commits.
 
 ```powershell
 ./tools/Test-Repository.ps1

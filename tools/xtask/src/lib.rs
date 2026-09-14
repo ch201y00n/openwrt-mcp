@@ -3,6 +3,7 @@
 mod backup_archives;
 mod capability;
 mod change;
+mod guarded_mutations;
 mod gzip_archives;
 mod management_effects;
 mod metadata;
@@ -23,6 +24,7 @@ pub use capability::{
     check_compatibility_evidence,
 };
 pub use change::validate_evolution;
+pub use guarded_mutations::check_guarded_mutation_source;
 pub use gzip_archives::{check_gzip_dependency, check_gzip_source};
 pub use management_effects::check_management_source;
 pub use metadata::check_metadata;
@@ -142,6 +144,8 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
             .map_err(|error| format!("{file}: {error}"))?;
         check_sealing_source(&contract, file, &source, &aliases)
             .map_err(|error| format!("{file}: {error}"))?;
+        check_guarded_mutation_source(&contract, file, &source)
+            .map_err(|error| format!("{file}: {error}"))?;
         if contract.version >= 17 || file.starts_with("crates/device-codec/src/gzip") {
             check_gzip_source(&contract, file, &source, &aliases)
                 .map_err(|error| format!("{file}: {error}"))?;
@@ -150,13 +154,19 @@ pub fn architecture(root: &Path, baseline: Option<&str>) -> CheckResult {
             // A consumer's private-namespace ban must survive producer-side
             // root aliases; otherwise `runtime::protection::T` becomes `runtime::T`.
             let namespace_prefix = format!("{}::", rule.name.replace('-', "_"));
-            let protected: BTreeSet<_> = contract
+            let mut protected: BTreeSet<_> = contract
                 .crates
                 .iter()
                 .flat_map(|consumer| &consumer.forbidden_paths)
                 .filter_map(|path| path.strip_prefix(&namespace_prefix))
                 .map(str::to_owned)
                 .collect();
+            protected.extend(
+                guarded_mutations::PRIVATE_NAMESPACES
+                    .iter()
+                    .filter_map(|path| path.strip_prefix(&namespace_prefix))
+                    .map(str::to_owned),
+            );
             check_public_reexports(&source, &protected, &namespace_prefix)
                 .map_err(|error| format!("{file}: {error}"))?;
         }

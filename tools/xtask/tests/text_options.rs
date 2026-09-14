@@ -161,6 +161,9 @@ fn previous_version_rejects_new_options_even_with_current_valid_probe_registry()
         .unwrap()
         .remove("archive_sealing_contract");
     old.as_table_mut().unwrap().remove("windows_log_contract");
+    old.as_table_mut()
+        .unwrap()
+        .remove("guarded_mutation_contract");
     for r in old["crates"].as_array_mut().unwrap() {
         if r["name"].as_str() == Some("openwrt-mcp") {
             r["dev_dependencies"]

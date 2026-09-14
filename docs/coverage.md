@@ -28,7 +28,7 @@ V13 adds eighteen [base-service UCI views](base-uci-observations.md): NTP, netwo
 
 Internal age/key-source/container primitives are fixture-tested library infrastructure, not additional MCP/device tools. Native Windows Vault access, password-encrypted archives, backup publication, secure restore staging and device rollback remain unimplemented. See [key management](key-management.md).
 
-The v15 [protected-resource effect model](protected-resource-effects.md) is also internal library infrastructure, not an additional tool or enforced router protection. It analyzes supplied graphs only; every production consumer remains forbidden until reviewed workflow integration. Actual topology extraction, freshness, encrypted backup and recovery remain gaps.
+The v15 [protected-resource effect model](protected-resource-effects.md) is also internal library infrastructure, not an additional tool or enforced router protection. It analyzes supplied graphs only. P2/v21 admits only the exact future workflow consumer declared in [ADR 0021](adr/0021-guarded-mutation-boundaries.md); no production integration is implemented yet. Actual topology extraction, freshness, encrypted backup and recovery remain gaps.
 
 Catalog entries describe configured adapter support, not live target availability. Forty-nine reads use fixed `/bin/ubus -S call ...` actions; two additional package workflows use a closed APK version/query recipe or opkg version/root-status-file recipe. Both use fixed local argv or quoted remote SSH arguments. Targets are explicit; an unconfigured server never executes host programs. Only declared output fields reach the agent. Host portability, native optional facilities and actual test evidence are tracked separately in [platform support](platform-support.md).
 

@@ -186,7 +186,7 @@ pub fn check_sealing_source(
         return Ok(());
     }
     let (rule, development) = contract.owner(file)?;
-    let mut rule = rule.clone();
+    let mut rule = crate::guarded_mutations::scoped_rule(contract, file, rule);
     if inside {
         rule.forbidden_paths.extend(
             [
@@ -264,6 +264,15 @@ pub fn check_sealing_source(
         }
     }
     let ast = syn::parse_file(source).map_err(|_| "invalid sealing source")?;
+    // v21 admits only this internal authorized workflow consumer. The producer's
+    // stronger no-action/no-key rules above remain unchanged.
+    if !inside
+        && contract.version >= 21
+        && contract.guarded_mutation_contract.is_some()
+        && file.starts_with("crates/runtime/src/transactions/")
+    {
+        return Ok(());
+    }
     let mut visitor = Scoped {
         inside,
         rejected: false,

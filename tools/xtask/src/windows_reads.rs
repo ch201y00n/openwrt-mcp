@@ -176,7 +176,7 @@ pub fn check_owned_source(
 ) -> CheckResult {
     let (rule, development) = contract.owner(file)?;
     let native = contract.version >= 8 && rule.name == OWNER && file == NATIVE;
-    let mut rule = rule.clone();
+    let mut rule = crate::guarded_mutations::scoped_rule(contract, file, rule);
     if !native {
         rule.forbidden_paths.push("windows_sys".into());
     } else {

@@ -1,11 +1,108 @@
-version = 20
-decision = "docs/adr/0020-system-service-uci-observations.md"
+version = 21
+decision = "docs/adr/0021-guarded-mutation-boundaries.md"
 requirements = "docs/requirements.md"
 architecture = "docs/architecture.md"
 required_hosts = ["windows", "linux", "macos"]
 portable_crates = ["openwrt-mcp-core", "openwrt-mcp-features", "openwrt-mcp-runtime", "openwrt-mcp-transport", "openwrt-mcp-crypto-age", "openwrt-mcp-backend-ssh", "openwrt-mcp-device-codec"]
 required_portable_tests = ["crates/server/tests/protection_composition.rs", "crates/core/tests/security.rs", "crates/server/tests/portable_stdio.rs", "crates/backend-ssh/tests/remote.rs", "crates/crypto-age/tests/provider.rs", "crates/runtime/tests/protection.rs", "crates/mcp/tests/protocol.rs", "crates/features/tests/capability_contracts.rs", "crates/runtime/tests/capabilities.rs", "crates/device-codec/tests/ubus_describe.rs", "crates/core/tests/collection_projection.rs", "crates/features/tests/collection_contracts.rs", "crates/runtime/tests/collection_projection.rs", "crates/device-codec/tests/action_response.rs", "crates/mcp/tests/bounded_results.rs", "crates/core/tests/packages.rs", "crates/features/tests/packages.rs", "crates/runtime/tests/packages.rs", "crates/device-codec/tests/packages.rs", "crates/mcp/tests/packages.rs", "crates/core/tests/capabilities.rs", "crates/mcp/tests/read_contracts.rs"]
 native_ci = ".github/workflows/ci.yml"
+
+[guarded_mutation_contract]
+profile = "guarded_hostname_v1"
+design = "docs/guarded-mutation-contracts.md"
+delivery = "architecture_only_no_mutation_tool"
+entry = "same_dispatcher_authorize_all_requirements_audit_each_request"
+intent = "one_existing_system_section_hostname_ascii_label_1_to_63"
+effects = "persistent_hostname_and_kernel_hostname_no_system_reload"
+protected_resources = "operator_owned_nonempty_before_after_closure_lan3_preserved"
+baseline = "private_exact_committed_bytes_pending_effects_target_boot_profile_policy"
+admission = "authenticated_device_single_owner_exclusive_operator_window"
+concurrency = "external_root_not_isolated_detected_drift_denies_no_blind_restore"
+recovery = "durable_ciphertext_journal_dedicated_device_identity_no_archival_identity"
+restart = "unconfirmed_job_recovers_before_new_admission_no_deadline_extension"
+confirmation = "owner_bound_fresh_verify_durable_compare_and_swap_before_expiry"
+uncertainty = "retain_recovery_authority_reconcile_status_never_resubmit"
+audit = "before_effect_fail_closed_after_effect_preserve_recovery"
+channels = "bounded_control_binary_capture_secret_and_job_status_separate"
+storage = "private_no_replace_atomic_visibility_durable_receipt_or_unknown"
+restore = "fully_authenticated_bounded_private_memory_no_plaintext_backup_files"
+secrets = "purpose_bound_zeroizing_non_debug_non_serde_no_paths_in_mcp"
+worker = "one_joinable_bounded_worker_abort_before_apply_not_detached"
+publication = "operator_provisioned_no_auto_install_or_key_generation"
+max_jobs_per_device = 1
+max_plans_per_host = 8
+max_workers_per_host = 1
+max_queued_jobs = 0
+plan_ttl_seconds = 60
+admission_timeout_seconds = 30
+apply_timeout_seconds = 10
+confirm_timeout_seconds = 120
+recovery_timeout_seconds = 60
+max_control_bytes = 16384
+max_frame_bytes = 65536
+max_secret_bytes = 65536
+max_hostname_bytes = 63
+max_system_file_bytes = 65536
+max_recovery_plaintext_bytes = 131072
+max_recovery_ciphertext_bytes = 1048576
+max_journal_bytes = 1048576
+max_retained_jobs = 32
+retention_seconds = 604800
+guardian_binary_mib = 10
+guardian_idle_rss_mib = 16
+guardian_peak_rss_mib = 32
+guardian_idle_cpu_percent = 1
+requirements = ["plan:system.read", "status:system.read+job_owner", "apply:system.read_write+execute+effects+backup", "confirm:original_union+job_owner", "recover:original_union+job_owner", "automatic_recovery:admitted_obligation_not_new_client_authority"]
+states = ["planned", "admitted", "backup_complete", "recovery_armed", "applying", "awaiting_confirmation", "confirmed", "recovering", "recovered", "cancelled", "recovery_failed", "outcome_unknown"]
+transitions = [
+  "planned|admit|admitted|fresh_owner_policy_audit_baseline_effects_capacity",
+  "admitted|seal|backup_complete|complete_capture_manifest_cipher_durable_receipt",
+  "backup_complete|arm|recovery_armed|device_recovery_ciphertext_key_and_journal_durable",
+  "recovery_armed|apply|applying|recheck_all_then_durable_intent_before_first_write",
+  "applying|verify|awaiting_confirmation|fresh_committed_and_kernel_postconditions",
+  "awaiting_confirmation|confirm|confirmed|owner_reauthorize_fresh_verify_unexpired_durable_cas",
+  "planned|cancel|cancelled|no_device_effect",
+  "admitted|cancel|cancelled|prove_no_write_release_owner",
+  "backup_complete|cancel|cancelled|prove_no_write_preserve_published_backup",
+  "recovery_armed|cancel|cancelled|durable_disarm_only_if_no_apply_intent",
+  "applying|failure_or_expiry|recovering|durable_recovery_obligation",
+  "awaiting_confirmation|failure_or_expiry|recovering|durable_recovery_obligation",
+  "recovering|verify_recovery|recovered|fresh_preimage_postconditions_and_durable_terminal",
+  "recovering|failure|recovery_failed|retain_ciphertext_and_admission_block",
+  "applying|lost_evidence|outcome_unknown|retain_owner_journal_no_retry",
+  "awaiting_confirmation|lost_evidence|outcome_unknown|retain_owner_journal_no_retry",
+  "recovering|lost_evidence|outcome_unknown|retain_owner_journal_no_retry",
+  "outcome_unknown|reconcile|recovering|authenticated_journal_unconfirmed_apply_intent",
+  "outcome_unknown|reconcile_confirmed|confirmed|authenticated_durable_confirm_record",
+  "outcome_unknown|reconcile_recovered|recovered|authenticated_terminal_and_fresh_preimage",
+  "outcome_unknown|reconcile_failed|recovery_failed|authenticated_failure_preserve_artifacts"
+]
+ports = [
+  "trait MutationObservation: Send + Sync { async fn observe(&self, binding: &TargetBinding, budget: WorkBudget) -> Result<PrivateBaseline, MutationError>; }",
+  "trait DeviceAdmission: Send + Sync { async fn admit(&self, plan: &ValidatedPlan, owner: &OwnerBinding, budget: WorkBudget) -> Result<Admission, MutationError>; }",
+  "trait BackupCapture: Send + Sync { async fn capture(&self, admission: &Admission, budget: WorkBudget) -> Result<CaptureLease, MutationError>; }",
+  "trait CiphertextStore: Send + Sync { async fn stage(&self, artifact: &ArtifactBinding, budget: WorkBudget) -> Result<StageLease, MutationError>; async fn reconcile(&self, artifact: &ArtifactBinding) -> Result<PublicationState, MutationError>; }",
+  "trait SecretSource: Send + Sync { async fn resolve(&self, reference: &SecretReference, purpose: SecretPurpose, budget: WorkBudget) -> Result<SecretValue, MutationError>; }",
+  "trait DeviceJobControl: Send + Sync { async fn arm(&self, admission: &Admission, backup: &DurableBackup, budget: WorkBudget) -> Result<ArmedJob, MutationError>; async fn apply_once(&self, job: &ArmedJob, budget: WorkBudget) -> Result<JobReceipt, MutationError>; async fn status(&self, job: &OwnedJob, budget: WorkBudget) -> Result<PrivateJobStatus, MutationError>; async fn confirm(&self, job: &VerifiedJob, budget: WorkBudget) -> Result<JobReceipt, MutationError>; async fn recover(&self, job: &OwnedJob, budget: WorkBudget) -> Result<JobReceipt, MutationError>; }"
+]
+edges = [
+  "crates/runtime/src/transactions/ -> openwrt_mcp_core::management",
+  "crates/runtime/src/transactions/ -> openwrt_mcp_core::transactions",
+  "crates/runtime/src/mutation_ports/ -> openwrt_mcp_core::transactions",
+  "crates/device-codec/src/transactions/ -> openwrt_mcp_core::transactions",
+  "crates/adapters/src/backups/ -> openwrt_mcp_runtime::sealing",
+  "crates/crypto-age/src/sealing/ -> openwrt_mcp_runtime::sealing",
+  "crates/adapters/src/backups/ -> openwrt_mcp_device_codec::gzip",
+  "crates/adapters/src/backups/ -> openwrt_mcp_device_codec::archive",
+  "crates/adapters/src/backups/ -> openwrt_mcp_runtime::mutation_ports",
+  "crates/adapters/src/guardian/ -> openwrt_mcp_runtime::mutation_ports",
+  "crates/backend-ssh/src/transactions/ -> openwrt_mcp_runtime::mutation_ports",
+  "crates/key-sources/src/secrets/ -> openwrt_mcp_runtime::mutation_ports",
+  "crates/server/src/transactions/ -> openwrt_mcp_runtime::mutation_ports",
+  "crates/adapters/src/guardian/ -> openwrt_mcp_device_codec::transactions",
+  "crates/backend-ssh/src/transactions/ -> openwrt_mcp_device_codec::transactions"
+]
+required_tests = ["tools/xtask/tests/guarded_mutations.rs", "tools/xtask/tests/end_to_end.rs"]
 
 [windows_log_contract]
 owner = "openwrt-mcp-host-platform"

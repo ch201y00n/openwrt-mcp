@@ -183,9 +183,24 @@ impl Fixture {
                 .unwrap();
         assert!(matches!(
             version,
-            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20
+            5 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21
         ));
         spec["version"] = (version as i64).into();
+        if version < 21 {
+            profiles::before_v21(&mut spec);
+            spec["decision"] = "docs/adr/0020-system-service-uci-observations.md".into();
+        } else {
+            for path in [
+                "docs/guarded-mutation-contracts.md",
+                "tools/xtask/tests/guarded_mutations.rs",
+                "tools/xtask/tests/end_to_end.rs",
+            ] {
+                self.write(
+                    path,
+                    "#[test] fn inert_declaration() { assert_eq!(1, 1); }\n",
+                );
+            }
+        }
         if version < 20 {
             profiles::before_v20(&mut spec);
             spec["decision"] = "docs/adr/0019-windows-private-logs.md".into();
@@ -1434,4 +1449,62 @@ fn assembled_v20_gate_rejects_generic_service_access_and_version_bypass() {
     }
     fixture.write(path, &original);
     xtask::architecture(&fixture.root, None).unwrap();
+}
+
+#[test]
+fn assembled_v21_gate_enforces_scoped_consumers_private_data_and_contract_guards() {
+    let fixture = Fixture::new();
+    fixture.capability_checkpoint(21);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let path = "architecture/spec.toml";
+    let original = fs::read_to_string(fixture.root.join(path)).unwrap();
+    for (from, to, expected) in [
+        ("version = 21", "version = 20", "require architecture v21"),
+        (
+            "max_jobs_per_device = 1",
+            "max_jobs_per_device = 2",
+            "exact reviewed boundaries",
+        ),
+        (
+            "durable_ciphertext_journal_dedicated_device_identity_no_archival_identity",
+            "plaintext_backup",
+            "exact reviewed boundaries",
+        ),
+    ] {
+        assert!(original.contains(from));
+        fixture.write(path, &original.replace(from, to));
+        fixture.denied(expected);
+    }
+    fixture.write(path, &original);
+    // Real metadata/recursive inventory, inert Rust inspected but not executed.
+    let suite = "tools/xtask/tests/guarded_mutations.rs";
+    fixture.write(
+        suite,
+        "#[test] #[ignore] fn skipped() { assert_eq!(1, 1); }\n",
+    );
+    fixture.denied("cannot use cfg/cfg_attr/ignore");
+    fixture.write(
+        suite,
+        "#[test] fn inert_declaration() { assert_eq!(1, 1); }\n",
+    );
+    let allowed = "crates/adapters/src/backups/mod.rs";
+    let code = "use openwrt_mcp_device_codec::gzip::FixtureType;\n";
+    fixture.write(allowed, code);
+    xtask::architecture(&fixture.root, None).unwrap();
+    let sibling = "crates/adapters/src/sibling.rs";
+    fixture.write(sibling, code);
+    fixture.denied("forbidden API");
+    fixture.write(sibling, "// Inert sibling.\n");
+    let private = "crates/runtime/src/mutation_ports/mod.rs";
+    fixture.write(
+        private,
+        "#[derive(serde::Serialize)] struct PrivateBaseline;\n",
+    );
+    fixture.denied("private data/action/worker boundary");
+    fixture.write(private, "// Inert ports.\n");
+    fixture.write(
+        "crates/runtime/src/lib.rs",
+        "pub use crate::mutation_ports::PrivateBaseline;\n",
+    );
+    fixture.denied("public surface flattens protected namespace");
 }

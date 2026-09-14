@@ -1,5 +1,12 @@
 # Management workflows: proposed future architecture
 
+P2 update: [ADR 0021](adr/0021-guarded-mutation-boundaries.md) and the
+[guarded hostname contract](guarded-mutation-contracts.md) now approve the closed
+first workflow architecture and exact module consumer exceptions. They supersede
+the candidate choices and blanket-consumer statements below for that profile
+only. This document retains the broader historical proposal and fault inventory;
+none of its unselected options or APIs becomes implemented or authorized.
+
 Status: **PROPOSED**, for a later mutation architecture checkpoint after v6 bounded reads; no architecture number is reserved yet. This document is not an accepted ADR, a replacement for the current machine contract, an implemented API, or authorization to change a router. Capability discovery, bounded reads and these future mutation workflows are separate work.
 
 One prerequisite has now been accepted separately: [ADR 0015](adr/0015-protected-resource-effects.md) and the [pure effect model](protected-resource-effects.md) implement bounded analysis of supplied before/after graphs. They do not implement live topology extraction, dispatcher integration, backup, guardian recovery or any mutation lifecycle below. All production consumers remain blocked pending that later architecture review.

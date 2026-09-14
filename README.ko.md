@@ -27,7 +27,9 @@ Rust로 개발하는 OpenWrt 관리용 MCP 서버입니다. 에이전트가 Open
 
 ## 현재 구현
 
-P1에서는 [관리 표면 대장](docs/management-inventory.md)과 [LED·Dropbear·uHTTPd·odhcpd 설정 조회 4종](docs/system-service-uci-observations.md)을 추가했습니다. 기록된 프로필·패키지·API·미확인 공백을 기능 명세와 대조하며, 전체 기능 완성을 의미하지 않습니다. [검증 범위](docs/p1-validation.md)와 [P2 진입 전 결정 사항](docs/first-mutation-readiness.md)을 확인하세요.
+P1에서는 [관리 표면 대장](docs/management-inventory.md)과 [LED·Dropbear·uHTTPd·odhcpd 설정 조회 4종](docs/system-service-uci-observations.md)을 추가했습니다. 기록된 프로필·패키지·API·미확인 공백을 기능 명세와 대조하며, 전체 기능 완성을 의미하지 않습니다. [P1 검증 범위](docs/p1-validation.md)를 확인하세요.
+
+P2는 [변경 아키텍처·하네스](docs/guarded-mutation-contracts.md)를 정의합니다. 첫 hostname 변경의 범위, 목적별 포트 6개, 상태/권한/백업/복구, 정확한 모듈 경계와 자원 상한을 고정하며 변경 도구 자체는 아직 활성화하지 않습니다. [P2 검증 기록](docs/p2-validation.md) 이후 다음 단계는 P3의 비밀·암호문 백업·저장 어댑터 구현입니다.
 
 v19에서는 [Windows 보호 로그 파일](docs/windows-private-logs.md)을 구현했습니다. 생성 시 접근 권한을 제한하고, 크기별 순환 보관·기존 파일 권한 검사·실패 후 자동 재개 차단을 제공합니다. 실제 MCP 실행 파일에서도 기록과 민감한 입력 제외를 검증했습니다. 로컬 NTFS 대상이며 Vault·Windows 시스템 로그·macOS 파일 보호 지원을 의미하지 않습니다.
 

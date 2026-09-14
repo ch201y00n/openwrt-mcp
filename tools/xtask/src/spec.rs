@@ -13,6 +13,8 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct Contract {
     #[serde(default)]
+    pub guarded_mutation_contract: Option<crate::guarded_mutations::GuardedMutationContract>,
+    #[serde(default)]
     pub windows_log_contract: Option<crate::windows_logs::WindowsLogContract>,
     #[serde(default)]
     pub archive_sealing_contract: Option<crate::sealing::SealingContract>,
@@ -139,6 +141,7 @@ impl Contract {
         self.validate_gzip_archives()?;
         self.validate_sealing()?;
         self.validate_windows_logs(root)?;
+        self.validate_guarded_mutations(root)?;
         Ok(())
     }
 

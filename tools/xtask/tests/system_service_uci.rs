@@ -19,6 +19,7 @@ fn system_service_recipes_require_v20_without_loosening_the_v19_set() {
     let current = declaration();
     validate(&current).unwrap();
     let mut older = current.clone();
+    profiles::before_v21(&mut older);
     older["version"] = 19.into();
     assert!(
         validate(&older)

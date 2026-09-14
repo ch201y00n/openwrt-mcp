@@ -1,5 +1,16 @@
 # Architecture-first development workflow
 
+For v21/P2, commit the closed guarded mutation architecture and its negative
+harness separately from production behavior. See ADR 0021 and
+[guarded-mutation-contracts.md](guarded-mutation-contracts.md) for exact module
+consumers, six ports, state guards, permissions and budgets. P3 is the next
+implementation stage; P4 supplies actual guardian/MCP workflow evidence. Never
+equate syntax-checked trait declarations or inert Cargo fixtures with those
+behaviors. Preserve earlier namespace defaults; exact module exceptions do not
+admit extra native SDK functions, dependencies, generic commands or automatic
+guardian/key provisioning. Any further boundary change still needs its own
+validated architecture checkpoint before implementation.
+
 For v20, validate and commit the exact four-recipe UCI expansion and negative
 harness before changing the enum/catalog. Keep the old six/twenty-four recipe sets
 for earlier checkpoints, all category/dispatcher/projection/secret rules and all
