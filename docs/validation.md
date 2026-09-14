@@ -1,5 +1,9 @@
 # Validation record
 
+Latest P3 infrastructure results are maintained separately in
+[P3 validation](p3-validation.md). Older counts and absent-consumer statements in
+this record retain their historical scope; no host result is device acceptance.
+
 Updated: 2026-09-14 (Asia/Seoul). This records host/fixture validation and separately scoped emulated acceptance, not a production or full physical-router acceptance report. Earlier entries retain their original scope and artifact identities; [message-only history normalization](history-normalization.md) maps their original source commits.
 
 ## Environment

@@ -4,6 +4,7 @@ mod archive;
 mod config;
 mod file;
 mod registry;
+pub mod secrets;
 
 pub use archive::ZipContainer;
 pub use config::{ContainerFormat, SourceConfig};

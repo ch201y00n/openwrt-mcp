@@ -6,8 +6,10 @@ That checkpoint passed 515 native Windows GNU / 536 Linux-on-WSL distinct tests,
 including 102 harness regressions counted once, before production implementation
 or the server development-only codec dependency changed.
 
-This is not a router backup tool, real storage adapter, restore flow or permission
-to change a device. There is no external production caller. See
+The v18 checkpoint was not a router backup tool, real storage adapter or restore
+authority. P3 now adds a scoped adapters/backups consumer and actual host/SSH
+fixtures; see [ciphertext foundations](ciphertext-foundations.md). Neither supplies
+permission to change a device or complete P4 recovery. See
 [ADR 0018](adr/0018-validated-archive-sealing.md) and
 [remaining management workflows](management-workflows.md).
 

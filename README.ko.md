@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > **개발 진행 중 — v0.1 실험 단계이며, 운영 환경에 사용할 준비가 완료되지 않았습니다.**
-> OpenWrt 전체 관리는 목표이며 현재 제공 범위가 아닙니다. 내장 장치 도구는 일부 읽기 전용 조회만 제공하며, 설정 변경·펌웨어 업그레이드·암호화 백업부터 복원까지의 전체 흐름은 아직 미구현입니다.
+> OpenWrt 전체 관리는 목표이며 현재 제공 범위가 아닙니다. 내장 도구는 일부 읽기 전용 조회만 제공합니다. P3에서 백업 기반 어댑터를 구현했지만, 권한 검증을 포함하는 백업·복원·설정 변경·펌웨어 MCP 관리 흐름은 아직 미구현입니다.
 > 도구 인터페이스와 설정 형식은 변경될 수 있습니다. 실제 BPI-R4 및 Windows·Linux·macOS 전체 검증도 완료되지 않았습니다. [현재 지원 범위](docs/coverage.md)와 [단계별 구현 계획](docs/implementation-plan.md)을 확인하세요.
 
 Rust로 개발하는 OpenWrt 관리용 MCP 서버입니다. 에이전트가 OpenWrt를 제어하되, 사용자가 기능별 접근 권한과 실행 권한을 정할 수 있도록 합니다. OpenWrt 공식 프로젝트와 무관한 커뮤니티 프로젝트입니다.
@@ -29,7 +29,9 @@ Rust로 개발하는 OpenWrt 관리용 MCP 서버입니다. 에이전트가 Open
 
 P1에서는 [관리 표면 대장](docs/management-inventory.md)과 [LED·Dropbear·uHTTPd·odhcpd 설정 조회 4종](docs/system-service-uci-observations.md)을 추가했습니다. 기록된 프로필·패키지·API·미확인 공백을 기능 명세와 대조하며, 전체 기능 완성을 의미하지 않습니다. [P1 검증 범위](docs/p1-validation.md)를 확인하세요.
 
-P2는 [변경 아키텍처·하네스](docs/guarded-mutation-contracts.md)를 정의합니다. 첫 hostname 변경의 범위, 목적별 포트 6개, 상태/권한/백업/복구, 정확한 모듈 경계와 자원 상한을 고정하며 변경 도구 자체는 아직 활성화하지 않습니다. [P2 검증 기록](docs/p2-validation.md) 이후 다음 단계는 P3의 비밀·암호문 백업·저장 어댑터 구현입니다.
+P2는 [변경 아키텍처·하네스](docs/guarded-mutation-contracts.md)를 정의합니다. 첫 hostname 변경의 범위, 목적별 포트 6개, 상태/권한/백업/복구, 정확한 모듈 경계와 자원 상한을 고정합니다. [P2 검증 기록](docs/p2-validation.md)을 확인하세요.
+
+P3는 [비밀·암호문 기반](docs/ciphertext-foundations.md)을 실제 SSH·호스트 파일 어댑터와 연결합니다. 제한된 바이너리 캡처, age 암호화, 별도 HMAC 출처 인증, 완전 인증 후 메모리 내 검사와 목적별 비밀 참조를 제공합니다. 저장소는 운영자가 미리 준비한 암호문 기록 파일이며, 기록 단위 공개·파일 동기화를 파일명 rename이나 네이티브 ACL 보호로 표현하지 않습니다. [P3 검증 범위](docs/p3-validation.md)를 확인하세요. 다음 P4에서 권한·guardian·적용·확인·복구를 포함하는 첫 전체 변경 흐름을 구현합니다.
 
 v19에서는 [Windows 보호 로그 파일](docs/windows-private-logs.md)을 구현했습니다. 생성 시 접근 권한을 제한하고, 크기별 순환 보관·기존 파일 권한 검사·실패 후 자동 재개 차단을 제공합니다. 실제 MCP 실행 파일에서도 기록과 민감한 입력 제외를 검증했습니다. 로컬 NTFS 대상이며 Vault·Windows 시스템 로그·macOS 파일 보호 지원을 의미하지 않습니다.
 

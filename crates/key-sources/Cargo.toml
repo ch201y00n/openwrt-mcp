@@ -8,6 +8,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 openwrt-mcp-runtime = { path = "../runtime" }
 openwrt-mcp-host-platform = { path = "../host-platform" }
 serde.workspace = true

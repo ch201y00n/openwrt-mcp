@@ -12,6 +12,12 @@ The remote connection authenticates with an unencrypted OpenSSH Ed25519 private 
 
 ## Capability and evidence matrix
 
+P3's [ciphertext record profile](ciphertext-foundations.md) is distinct from native
+protected files/logs: private RAM staging, age ciphertext, HMAC provenance and a
+pre-provisioned operator-controlled local file with native locking/sync. It does
+not implement macOS ACL validation, a Vault store or a namespace rename profile.
+Actual platform results and remaining acceptance are in [P3 validation](p3-validation.md).
+
 | Capability | Windows host | Linux host | macOS host |
 | --- | --- | --- | --- |
 | Common stdio, policy, native SSH, age, environment sources, in-memory ZIP | Native GNU host/fixtures and MSVC CI passed | WSL host fixtures and native Linux CI passed | Native ARM64 CI passed for the common path, not optional file protection |

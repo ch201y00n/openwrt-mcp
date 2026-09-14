@@ -8,6 +8,8 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+hmac.workspace = true
+sha2.workspace = true
 openwrt-mcp-runtime = { path = "../runtime" }
 age.workspace = true
 zeroize.workspace = true

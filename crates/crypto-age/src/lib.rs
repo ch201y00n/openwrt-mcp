@@ -8,6 +8,7 @@
 //! Native key lines longer than 128 bytes are rejected before key decoding.
 
 mod keys;
+pub mod provenance;
 mod stream;
 
 use openwrt_mcp_runtime::protection::{

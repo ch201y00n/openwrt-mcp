@@ -1,4 +1,5 @@
 use age::secrecy::ExposeSecret;
+mod ciphertext_composition;
 mod sealing_composition;
 use openwrt_mcp_crypto_age::AgeX25519;
 use openwrt_mcp_key_sources::{

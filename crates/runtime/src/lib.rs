@@ -2,9 +2,11 @@
 
 mod audit;
 mod backend;
+pub mod backups;
 mod capability;
 mod dispatcher;
 mod error;
+pub mod mutation_ports;
 pub mod packages;
 pub mod protection;
 pub mod sealing;

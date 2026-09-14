@@ -13,7 +13,17 @@ Sources/containers do not know age. The age adapter does not know paths, environ
 
 ## Current scope
 
-These are internal library primitives and offline configuration validation, not backup/restore MCP tools. The current device catalog is tracked separately in coverage.md. Backup publication, secure plaintext staging, durable recovery and authorized restore remain separate future workflows.
+P3 adds [purpose-bound service references and ciphertext provenance](ciphertext-foundations.md).
+ServiceSecret values are distinct from age recipients/identities; exact aliases
+reuse source/container providers without extraction. A separate operator-provided
+32-byte HMAC key authenticates the ciphertext store and records. Never reuse an
+archival/device recovery identity for that purpose or persist the MAC key in the
+store. No real keys are generated/read by development tests. Existing Vault and
+macOS protected-file gaps remain, with explicit environment selection available.
+Private restore staging is capped zeroizing memory; only fully authenticated
+count-only inspection is implemented, not restoration to a device.
+
+These are internal library primitives and offline configuration validation, not backup/restore MCP tools. The current device catalog is tracked separately in coverage.md. P3 implements bounded ciphertext-record publication and memory-only staging. Guardian recovery and the authorized device backup/restore workflow remain P4 work.
 
 | Component | Scope |
 | --- | --- |

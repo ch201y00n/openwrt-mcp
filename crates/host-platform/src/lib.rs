@@ -1,5 +1,6 @@
 //! Purpose-specific host security. Unsupported OS protection never silently downgrades.
 
+pub mod ciphertext;
 mod error;
 #[cfg(target_os = "linux")]
 mod linux;

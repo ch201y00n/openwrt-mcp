@@ -1,5 +1,13 @@
 # Capability coverage
 
+P3 [ciphertext foundations](ciphertext-foundations.md) now connect bounded SSH
+capture, native ciphertext record storage, age and authenticated inspection using
+synthetic fixtures; [verification](p3-validation.md) distinguishes host evidence.
+Purpose-specific service secrets reuse existing custody. These are infrastructure
+APIs, not new MCP tools, real router capture, restore application or P4 authority.
+The historical v16–v18 entries below describe their original prerequisite scope;
+P3 supersedes their earlier absence of a production adapter consumer.
+
 The [full feature specification](management-feature-spec.md) records the target
 backlog and maps all 55 current built-in reads to stable feature IDs. Use the
 [staged plan](implementation-plan.md) for future work. P1 implements the four
@@ -16,7 +24,7 @@ append/rotation through the existing audit configuration. Native synthetic files
 and actual MCP binary composition have scoped evidence. This adds no router tool,
 Vault/system-log support, durable backup store or macOS acceptance.
 
-The v18 [provided-stream sealing flow](validated-archive-sealing.md) adds internal orchestration and synthetic age/gzip composition, not a callable backup tool. It requires complete input, validated counts, producer completion and acknowledged one-shot publication with explicit uncertainty. Real capture/storage, production consumers and mutation/recovery authority remain absent.
+The v18 [provided-stream sealing flow](validated-archive-sealing.md) added internal orchestration and synthetic age/gzip composition, not a callable backup tool. It requires complete input, validated counts, producer completion and acknowledged one-shot publication with explicit uncertainty. P3 adds real capture/storage adapter consumers; mutation/recovery authority remains absent.
 
 The v17 [gzip wrapper](gzip-archive-validation.md) extends supplied archive validation only. It is the sole internal consumer of v16, without application/device integration. Complete single-member corruption/size checks and independent host fixtures pass; no new MCP operation, actual OpenWrt backup, encryption/publication or restore workflow is covered.
 
@@ -26,7 +34,7 @@ V14 adds the separate [opkg root-status view](opkg-observations.md), using an ex
 
 V13 adds eighteen [base-service UCI views](base-uci-observations.md): NTP, network devices/bridge VLANs/routes/rules, firewall zones/forwardings/rules/redirects/NAT, DHCP pools/hosts/domains/CNAMEs and storage globals/swaps. There are now 24 closed UCI recipes with unchanged category authorization, probes and global bounds. These are selected configuration observations, not complete options, effective state, arbitrary UCI access or mutations. The category table below lists earlier tools; this supplement identifies the additional scope. The separate [v13 emulator run](emulator-validation-v13.md) exercises all eighteen using fixed pending RAM fixtures and verifies 198 safe audit events. Only fields actually observed in that report have emulated evidence.
 
-Internal age/key-source/container primitives are fixture-tested library infrastructure, not additional MCP/device tools. Native Windows Vault access, password-encrypted archives, backup publication, secure restore staging and device rollback remain unimplemented. See [key management](key-management.md).
+Internal age/key-source/container primitives are fixture-tested library infrastructure, not additional MCP/device tools. P3 implements ciphertext-record publication and private memory-only restore inspection. Native Vault integration, password-encrypted archives and device rollback remain unimplemented. See [key management](key-management.md).
 
 The v15 [protected-resource effect model](protected-resource-effects.md) is also internal library infrastructure, not an additional tool or enforced router protection. It analyzes supplied graphs only. P2/v21 admits only the exact future workflow consumer declared in [ADR 0021](adr/0021-guarded-mutation-boundaries.md); no production integration is implemented yet. Actual topology extraction, freshness, encrypted backup and recovery remain gaps.
 
@@ -57,7 +65,7 @@ The extension registry can represent additional installed package operations thr
 
 Fifty-one built-in reads are implemented: forty typed response contracts, nine legacy scalar projections and two closed package observation workflows. Contracts include [UCI observations](uci-observations.md), [collection reads](collection-read-contracts.md), [interface IP](interface-ip-observations.md), [wireless](wireless-observation-contracts.md), [scalar reads](read-contracts.md), [DHCP](dhcp-observations.md), [storage](storage-observations.md), [APK](package-observations.md) and [opkg](opkg-observations.md). V11 adds exact finite text enums without changing v6's shared 256-item budget, 64-KiB normalized result or 256-KiB whole MCP result cap. V10 retains ordered non-identity rows, false/integer sentinels and root error guards. V7/v14 privately validate bounded source-specific captures before returning 16-record pages. No silent truncation or synthesized state follows from malformed/missing data.
 
-Current [v6 emulated acceptance](emulator-validation-v6.md) covers twelve successful reads (including the five typed contracts) and two explicit unavailable/error cases through actual MCP/SSH on official 25.12.5 ARM64 QEMU. The [historical v5 run](emulator-validation.md) remains separate and does not validate v2's new response contract. [Native Windows GNU host fixtures](windows-validation.md) also pass; MSVC, macOS and BPI-R4 hardware acceptance remain pending. This is selected observability coverage, not complete read coverage of those categories.
+The [v6 emulated acceptance](emulator-validation-v6.md) covers twelve successful reads (including the five typed contracts) and two explicit unavailable/error cases through actual MCP/SSH on official 25.12.5 ARM64 QEMU. The [historical v5 run](emulator-validation.md) remains separate and does not validate v2's new response contract. Later native Windows/Linux/macOS host evidence is recorded in [validation](validation.md); BPI-R4 hardware and full platform protection acceptance remain pending. This is selected observability coverage, not complete read coverage of those categories.
 
 Generic Services.Read includes daemon/instance names and running/PID/exit metadata even for services belonging to other categories. Deny `service_status` and `service_status_list` if only the fixed logd/sysntpd views should be exposed; these reads never authorize lifecycle execution or configuration access.
 

@@ -1,4 +1,5 @@
 //! Synthetic keys and in-process loopback SSH only; no real router or key files.
+mod capture;
 mod opkg;
 use openwrt_mcp_backend_ssh::{SshBackend, SshOptions};
 use openwrt_mcp_core::{
@@ -60,6 +61,7 @@ enum Reply {
     Hang,
     StatusWithoutClose,
     Reject,
+    CaptureNoEof(Vec<u8>),
 }
 fn success() -> Reply {
     Reply::Complete {
@@ -162,6 +164,7 @@ struct Observed {
     connections: AtomicUsize,
 }
 struct FakeServer {
+    capture_request: Vec<u8>,
     allowed: russh::keys::PublicKey,
     replies: VecDeque<Reply>,
     observed: Arc<Observed>,
@@ -169,6 +172,32 @@ struct FakeServer {
 }
 impl server::Handler for FakeServer {
     type Error = russh::Error;
+    async fn subsystem_request(
+        &mut self,
+        channel: ChannelId,
+        name: &str,
+        session: &mut server::Session,
+    ) -> Result<(), Self::Error> {
+        if name != "openwrt-mcp-capture-v1" {
+            session.channel_failure(channel)?;
+        }
+        self.capture_request.clear();
+        Ok(())
+    }
+    async fn data(
+        &mut self,
+        channel: ChannelId,
+        data: &[u8],
+        session: &mut server::Session,
+    ) -> Result<(), Self::Error> {
+        self.capture_request.extend_from_slice(data);
+        assert!(self.capture_request.len() <= 88);
+        if self.capture_request.len() == 88 {
+            let request = self.capture_request.clone();
+            self.exec_request(channel, &request, session).await?;
+        }
+        Ok(())
+    }
     async fn auth_publickey(
         &mut self,
         user: &str,
@@ -205,6 +234,12 @@ impl server::Handler for FakeServer {
             .push(command.to_vec());
         self.observed.submitted.notify_one();
         match self.replies.pop_front().unwrap_or_else(success) {
+            Reply::CaptureNoEof(stdout) => {
+                session.channel_success(channel)?;
+                session.data(channel, stdout)?;
+                session.exit_status_request(channel, 0)?;
+                session.close(channel)?;
+            }
             Reply::Reject => session.channel_failure(channel)?,
             Reply::Hang => session.channel_success(channel)?,
             Reply::StatusWithoutClose => {
@@ -264,6 +299,7 @@ impl Fixture {
             let (stream, _) = listener.accept().await.unwrap();
             events.connections.fetch_add(1, Ordering::SeqCst);
             let handler = FakeServer {
+                capture_request: Vec::new(),
                 allowed: key(2).public_key().clone(),
                 replies: replies.into(),
                 observed: events,

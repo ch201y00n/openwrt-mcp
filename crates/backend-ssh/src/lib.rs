@@ -5,6 +5,7 @@
 
 mod options;
 mod session;
+pub mod transactions;
 
 pub use options::SshOptions;
 
@@ -20,6 +21,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 pub struct SshBackend {
+    capture_target: Option<[u8; 16]>,
     options: SshOptions,
     state: Mutex<session::State>,
     control: session::Control,
@@ -30,6 +32,7 @@ impl SshBackend {
     pub fn new(options: SshOptions, identity: Arc<dyn KeySource>) -> Result<Self, RuntimeError> {
         options.validate()?;
         Ok(Self {
+            capture_target: None,
             options,
             state: Mutex::new(session::State::new(identity)),
             control: session::Control::default(),

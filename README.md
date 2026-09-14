@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > **Work in progress — experimental v0.1 foundation, not production-ready.**
-> Full OpenWrt management is the goal, not the current capability. Built-in device tools currently provide a subset of read-only observations; configuration changes, firmware upgrades and end-to-end encrypted backup/restore are not implemented.
+> Full OpenWrt management is the goal, not the current capability. Built-in device tools remain a subset of read-only observations. P3 adds tested backup infrastructure, not authorized backup/restore, configuration-change or firmware MCP workflows.
 > Tool interfaces and configuration formats may change. Physical BPI-R4 and full Windows/Linux/macOS acceptance remain incomplete. See [current coverage](docs/coverage.md) and the [implementation plan](docs/implementation-plan.md).
 
 A lightweight Rust MCP server for OpenWrt management, with category-based permissions and configurable audit logging.
@@ -17,8 +17,10 @@ P1 adds a checked [management inventory](docs/management-inventory.md) and four
 [system-service configuration reads](docs/system-service-uci-observations.md).
 See [P1 verification and limits](docs/p1-validation.md). P2 adds the
 [guarded mutation architecture and harness](docs/guarded-mutation-contracts.md),
-not mutation tools. Next is P3's synthetic secret/backup/storage integration;
-see [P2 validation scope](docs/p2-validation.md).
+not mutation tools. P3 adds [ciphertext/secret foundations](docs/ciphertext-foundations.md):
+bounded binary SSH capture, age sealing into a real authenticated record store,
+full-authentication inspection and purpose-bound secrets. See [P3 verification](docs/p3-validation.md)
+and [P2 validation scope](docs/p2-validation.md). P4 is the next full mutation workflow.
 
 Independent community project; not affiliated with or endorsed by OpenWrt. See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and [license](LICENSE).
 
@@ -26,7 +28,7 @@ Independent community project; not affiliated with or endorsed by OpenWrt. See [
 
 Internal [regular-tar](docs/backup-archive-validation.md) and [single-gzip archive validators](docs/gzip-archive-validation.md) now check supplied streams against bounded manifests. These are prerequisites, not capture, encrypted backup publication, restoration or additional MCP tools.
 
-The internal [sealing flow](docs/validated-archive-sealing.md) now sequences validation, age encryption, producer completion and one-shot publication through trusted supplied ports, with explicit cleanup and uncertain outcomes. Synthetic composition is tested; no router capture or real storage adapter is connected yet.
+The internal [sealing flow](docs/validated-archive-sealing.md) sequences validation, age encryption, producer completion and publication. P3 connects real host-file and pinned-SSH adapters using synthetic data. Its pre-provisioned ciphertext record profile uses private RAM staging, separate HMAC provenance, complete-record visibility and file synchronization—not native ACL privacy or atomic filename rename. No real router/Vault or restore application is exercised.
 
 - Standard MCP over stdio using the official Rust SDK.
 - Operator-owned category access: deny, read, read_write, plus independent execute permission.
@@ -46,7 +48,7 @@ The internal [sealing flow](docs/validated-archive-sealing.md) now sequences val
 
 This version has no built-in configuration mutation, firmware upgrade, encrypted backup/rollback workflow, web UI or remote HTTP listener. Physical-device deployment and full acceptance are still pending. Custom actions are privileged operator definitions, not a substitute for tested feature adapters; unverified Process extensions and Ubus prerequisites without reviewed probes are blocked.
 
-Full gates cover Linux-on-WSL and [native Windows GNU](docs/windows-validation.md); current counts and scope are in [verification and measurements](docs/validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. BPI-R4 hardware, MSVC and macOS acceptance remain pending.
+Local full gates cover Linux-on-WSL and native Windows GNU, with separate native Windows/Linux/macOS CI; current counts and scope are in [verification and measurements](docs/validation.md). A separate [v7 package emulator run](docs/emulator-validation-v7.md) enumerated 205 APK-visible records in 13 pages and verified replay, refresh invalidation and safe audit. The earlier [v6 OpenWrt 25.12.5 ARM64 run](docs/emulator-validation-v6.md) validated twelve reads and two explicit unavailable/error cases; it does not validate later station/country additions. BPI-R4 hardware and full platform protection acceptance remain pending.
 
 The [v10 emulator run](docs/emulator-validation-v10.md) adds scoped interface-IP and LuCI acceptance: IPv4 address rows, three mounts and valid empty route/neighbor/DNS/block/lease lists. Those empty cases are not populated-device acceptance.
 

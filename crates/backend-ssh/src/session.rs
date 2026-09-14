@@ -125,6 +125,17 @@ pub(crate) struct State {
 }
 
 impl State {
+    /// Existing authenticated connection only; no key loading or reconnect.
+    pub(crate) async fn capture_channel(
+        &self,
+    ) -> Result<russh::Channel<russh::client::Msg>, RuntimeError> {
+        self.handle
+            .as_ref()
+            .ok_or(RuntimeError::BackendFailed)?
+            .channel_open_session()
+            .await
+            .map_err(|_| RuntimeError::BackendFailed)
+    }
     pub(crate) fn new(identity: Arc<dyn KeySource>) -> Self {
         Self {
             identity: Some(identity),

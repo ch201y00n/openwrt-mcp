@@ -36,14 +36,17 @@ crypto-age/provenance. Existing P2 edges remain; flattened exports stay forbidde
 Trusted construction supplies nonzero 128-bit store/target/boot/job IDs, fixed
 scope/profile revision, expected system-file size, format and source length.
 These private infrastructure inputs are not permission evidence or secret hashes.
-P4 derives them from authenticated admission, not clients. The subsystem request
+P4 derives them from authenticated admission, not clients. P3 capture requires an
+already authenticated session (established during preceding observation), and an
+operator-bound target ID; it never loads a new SSH key or reconnects. The subsystem request
 contains only fixed binary binding, no paths or plaintext.
 
 Operators pre-provision an authenticated header for a random store ID and a
 separate random 32-byte HMAC key via KeySource. No default path, key generation or
 initialization on open. Operators establish durable filename/ancestor persistence
 and a controlled local regular-file profile. NFS, cloud-sync/Vault stores and
-unknown locking/sync profiles are not admitted. Ciphertext may be externally
+unknown locking/sync profiles are unsupported operator preconditions, not automatic
+filesystem classification by this library. Ciphertext may be externally
 readable: this profile **does not claim native ACL privacy**. Keys/plaintext and
 private staging remain in RAM or separately protected custody.
 
@@ -85,10 +88,13 @@ SecretValue has no Debug/Display/Clone/Serde. Unknown/wrong-purpose aliases deny
 before reading. Existing source/ZIP limits and unsupported Vault/macOS file
 profiles stay explicit. Environment is selected, never a fallback.
 
-One process-wide joinable worker, zero queue; <=two 64-KiB transfer buffers,
+One process-wide joinable synchronous worker, zero queue; <=two 64-KiB transfer buffers,
 128-KiB capture/restore, 1-MiB cipher stage. Shared absolute WorkBudget <=30s,
 cancellation before/after each bounded callback. Drop cancels and joins before
-capacity is released; no detached spawn_blocking. OS-blocked I/O cannot be forcibly
+capacity is released; no detached spawn_blocking. Async SSH capture precedes the
+synchronous worker and uses the same absolute budget. Do not make the worker
+depend on an executor that its caller synchronously blocks while joining.
+OS-blocked I/O cannot be forcibly
 interrupted: shutdown may wait for the one worker. No hard real-time claim.
 
 ## Acceptance
