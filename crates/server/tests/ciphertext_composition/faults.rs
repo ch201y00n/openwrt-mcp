@@ -41,6 +41,9 @@ impl CiphertextRecordIo for FaultIo {
         self.inner.synchronize()?;
         if matches!(self.fault, Fault::Cancel) {
             self.budget.cancel();
+            // A successful sync followed by cancellation is distinct from a
+            // failed sync/lost acknowledgement; the budget check must catch it.
+            return Ok(());
         }
         Err(BackupError::Unknown)
     }
@@ -79,7 +82,13 @@ fn real_file_partial_write_full_sync_lost_ack_and_cancel_preserve_uncertainty() 
         let count = writes.load(Ordering::SeqCst);
         assert_eq!(
             store.reconcile(&bound, &budget()),
-            RecordPublication::Unknown
+            if matches!(fault, Fault::Cancel) {
+                // Fresh reconciliation has its own budget: the previous job's
+                // cancellation cannot hide a now-authenticated successful sync.
+                RecordPublication::Durable
+            } else {
+                RecordPublication::Unknown
+            }
         );
         assert_eq!(writes.load(Ordering::SeqCst), count);
         drop(store);

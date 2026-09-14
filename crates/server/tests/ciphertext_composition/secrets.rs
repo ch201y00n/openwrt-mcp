@@ -116,12 +116,9 @@ fn explicit_environment_secret_uses_isolated_child_process_not_global_mutation()
             output.status.success(),
             "synthetic environment child failed"
         );
-        assert!(
-            !output
-                .stdout
-                .windows(24)
-                .any(|w| w == b"synthetic-only-env-value")
-        );
+        for stream in [&output.stdout, &output.stderr] {
+            assert!(!stream.windows(24).any(|w| w == b"synthetic-only-env-value"));
+        }
         return;
     }
     let registry = SourceRegistry::new(
